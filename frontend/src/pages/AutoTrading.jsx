@@ -177,7 +177,7 @@ export default function AutoTrading() {
             <AlertTriangle size={16} /> Emergency Stop
           </button>
           {status?.is_running ? (
-            <button onClick={stopTrading} className="px-4 py-2 rounded-xl clay-card border border-black/5 dark:border-white/5 flex items-center gap-2">
+            <button onClick={stopTrading} className="px-4 py-2 rounded-xl ui-card border border-black/5 dark:border-white/5 flex items-center gap-2">
               <Square size={16} /> Stop
             </button>
           ) : (
@@ -190,34 +190,34 @@ export default function AutoTrading() {
 
       {/* Status Cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Status</div>
           <div className={`text-lg font-black flex items-center gap-2 ${status?.is_running ? 'text-emerald-600' : 'text-zinc-500'}`}>
             {status?.is_running ? <><div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div> Running</> : 'Stopped'}
           </div>
           <div className="text-xs text-zinc-500 mt-1">Mode: {status?.mode || config?.mode}</div>
         </div>
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Broker</div>
           <div className="text-sm font-bold">{status?.broker_id || config?.execution?.broker_id || 'coindcx'}</div>
           <div className="text-xs text-zinc-500 mt-1">{status?.broker_connected ? 'Connected' : 'Not connected'}</div>
         </div>
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Open Positions</div>
           <div className="text-lg font-black">{status?.open_positions ?? 0} / {status?.config?.risk?.max_positions ?? config?.risk?.max_positions ?? 5}</div>
           <div className="text-xs text-zinc-500 mt-1">Max {config?.risk?.max_positions ?? 5}</div>
         </div>
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Daily Trades</div>
           <div className="text-lg font-black">{status?.daily_trades ?? 0} / {config?.max_daily_trades ?? 10}</div>
           <div className="text-xs text-zinc-500 mt-1">Today</div>
         </div>
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Pending Approvals</div>
           <div className="text-lg font-black text-zinc-500">{status?.pending_approvals ?? pending.length ?? 0}</div>
           <div className="text-xs text-zinc-500 mt-1">Semi-auto</div>
         </div>
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Risk/Trade</div>
           <div className="text-lg font-black">{config?.risk?.risk_per_trade_pct ?? 2}%</div>
           <div className="text-xs text-zinc-500 mt-1">${((config?.account_balance||10000) * ((config?.risk?.risk_per_trade_pct||2) / 100)).toFixed(0)} risk</div>
@@ -225,7 +225,7 @@ export default function AutoTrading() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 p-1 rounded-xl clay-card border border-black/5 dark:border-white/5 w-fit overflow-x-auto">
+      <div className="flex gap-2 p-1 rounded-xl ui-card border border-black/5 dark:border-white/5 w-fit overflow-x-auto">
         {[
           { id: 'control', label: 'Control Panel', icon: Settings },
           { id: 'brokers', label: 'Brokers', icon: Wallet },
@@ -243,7 +243,7 @@ export default function AutoTrading() {
       {activeTab === 'control' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Main Controls */}
-          <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5 space-y-5">
+          <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5 space-y-5">
             <h3 className="font-bold flex items-center gap-2"><Zap size={16} className="text-emerald-600" /> Main Controls - Extensive User Control</h3>
             
             <div className="flex items-center justify-between p-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5/50">
@@ -251,7 +251,7 @@ export default function AutoTrading() {
                 <div className="font-medium">Auto Trading Enabled</div>
                 <div className="text-xs text-zinc-500">Master switch for automation</div>
               </div>
-              <button onClick={toggleEnabled} className={`w-12 h-6 rounded-full transition flex items-center ${config.enabled ? 'bg-emerald-500 justify-end' : 'clay-card justify-start'} p-1`}>
+              <button onClick={toggleEnabled} className={`w-12 h-6 rounded-full transition flex items-center ${config.enabled ? 'bg-emerald-500 justify-end' : 'ui-card justify-start'} p-1`}>
                 <div className="w-4 h-4 bg-white rounded-full"></div>
               </button>
             </div>
@@ -295,7 +295,7 @@ export default function AutoTrading() {
 
           {/* Strategy & Execution Controls */}
           <div className="space-y-6">
-            <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+            <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
               <h3 className="font-bold mb-3">Strategy Controls - Toggle Strategies</h3>
               <div className="grid grid-cols-2 gap-2">
                 {[
@@ -324,7 +324,7 @@ export default function AutoTrading() {
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+            <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
               <h3 className="font-bold mb-3">Symbol Controls - Whitelist/Blacklist</h3>
               <div>
                 <label className="text-xs text-zinc-500">Whitelist (comma separated, empty = all)</label>
@@ -409,7 +409,7 @@ export default function AutoTrading() {
       {/* Risk Tab */}
       {activeTab === 'risk' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5 space-y-4">
+          <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5 space-y-4">
             <h3 className="font-bold flex items-center gap-2"><Shield size={16} className="text-zinc-500" /> Risk Controls - Extensive Protection</h3>
             
             <div className="grid grid-cols-2 gap-3">
@@ -468,7 +468,7 @@ export default function AutoTrading() {
           </div>
 
           <div className="space-y-6">
-            <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+            <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
               <h3 className="font-bold mb-3">Execution Controls</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -525,7 +525,7 @@ export default function AutoTrading() {
 
       {/* Trades Tab */}
       {activeTab === 'trades' && (
-        <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <h3 className="font-bold mb-4">Auto Trading History - Real & Paper Trades</h3>
           {trades.length === 0 ? (
             <div className="text-center py-12 text-zinc-500">No auto trades yet - start auto trading or execute manual trades</div>
@@ -553,7 +553,7 @@ export default function AutoTrading() {
 
       {/* Pending Tab */}
       {activeTab === 'pending' && (
-        <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <h3 className="font-bold mb-4 flex items-center gap-2"><Clock size={16} className="text-zinc-500" /> Pending Approvals - Semi-Auto Mode</h3>
           {pending.length === 0 ? (
             <div className="text-center py-12 text-zinc-500">No pending approvals - semi-auto mode queues trades here for your approval</div>
@@ -586,7 +586,7 @@ export default function AutoTrading() {
       {/* Broker Form Modal */}
       {showBrokerForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4">
-          <div className="p-6 rounded-2xl clay-card border border-black/5 dark:border-white/5 w-full max-w-md">
+          <div className="p-6 rounded-2xl ui-card border border-black/5 dark:border-white/5 w-full max-w-md">
             <h3 className="font-bold text-lg mb-4">Connect CoinDCX - Real Money Trading</h3>
             <div className="space-y-3">
               <input placeholder="Broker ID e.g. coindcx" value={brokerForm.broker_id} onChange={e => setBrokerForm({ ...brokerForm, broker_id: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-transparent border border-black/5 dark:border-white/5" />
@@ -627,7 +627,7 @@ export default function AutoTrading() {
       )}
 
       {/* Manual Execute Quick Panel */}
-      <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+      <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
         <h4 className="font-bold text-sm mb-3">Quick Manual Execute - Test Auto Trading</h4>
         <div className="flex flex-wrap gap-2">
           {['BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD', 'ADA-USD'].map(sym => (

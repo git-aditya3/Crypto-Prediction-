@@ -6,11 +6,11 @@ export const useSettingsStore = create(
     (set, get) => ({
       // Trading settings
       accountBalance: 10000,
-      riskPerTrade: 0.02, // 2%
+      riskPerTrade: 0.02,
       timeframe: '1d',
-      riskTolerance: 'moderate', // conservative, moderate, aggressive
+      riskTolerance: 'moderate',
       autoRefresh: true,
-      refreshInterval: 30, // seconds
+      refreshInterval: 30,
       
       // Model settings
       modelWeights: {
@@ -22,12 +22,11 @@ export const useSettingsStore = create(
       useStacking: true,
       useDynamicWeights: true,
       
-      // Display settings - Claymorphism Theme
-      theme: 'dark', // 'light' or 'dark' - true dark is pure black #000000
-      clayMode: true, // Enable claymorphism styling
+      // Display settings
+      theme: 'dark',
       showAdvanced: false,
       defaultSymbol: 'BTC-USD',
-      chartType: 'candlestick', // candlestick, line, area
+      chartType: 'candlestick',
       showVolume: true,
       showForecast: true,
       
@@ -38,10 +37,10 @@ export const useSettingsStore = create(
       notifyOnHighConfidence: true,
       
       // Trading preferences
-      tradingStyle: 'swing', // scalping, day, swing, position
-      leveragePreference: 'low', // low, medium, high
-      stopLossType: 'atr', // atr, percentage, fixed
-      takeProfitType: 'risk_reward', // risk_reward, fixed, trailing
+      tradingStyle: 'swing',
+      leveragePreference: 'low',
+      stopLossType: 'atr',
+      takeProfitType: 'risk_reward',
       
       // Actions
       updateAccountBalance: (balance) => set({ accountBalance: balance }),
@@ -51,7 +50,6 @@ export const useSettingsStore = create(
       updateModelWeights: (weights) => set({ modelWeights: weights }),
       updateTheme: (theme) => {
         set({ theme })
-        // Apply to html element immediately
         if (typeof document !== 'undefined') {
           document.documentElement.classList.remove('light', 'dark')
           document.documentElement.classList.add(theme)
@@ -78,7 +76,6 @@ export const useSettingsStore = create(
       toggleShowVolume: () => set({ showVolume: !get().showVolume }),
       toggleShowForecast: () => set({ showForecast: !get().showForecast }),
       toggleAutoRefresh: () => set({ autoRefresh: !get().autoRefresh }),
-      toggleClayMode: () => set({ clayMode: !get().clayMode }),
       
       // Risk tolerance presets
       setRiskPreset: (preset) => {
@@ -109,7 +106,6 @@ export const useSettingsStore = create(
           useStacking: true,
           useDynamicWeights: true,
           theme: defaultTheme,
-          clayMode: true,
           showAdvanced: false,
           defaultSymbol: 'BTC-USD',
           chartType: 'candlestick',
@@ -128,9 +124,8 @@ export const useSettingsStore = create(
     }),
     {
       name: 'crypto-pred-settings',
-      version: 2,
+      version: 3,
       onRehydrateStorage: () => (state) => {
-        // Apply theme on load
         if (state?.theme && typeof document !== 'undefined') {
           document.documentElement.classList.remove('light', 'dark')
           document.documentElement.classList.add(state.theme)

@@ -44,7 +44,7 @@ export default function Navbar() {
           <div className="hidden sm:block">
             <div className="flex items-center gap-2">
               <span className={`font-bold text-[15px] tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>CryptoPred</span>
-              <span className="clay-pill px-2 py-0.5 text-[9px]">V7</span>
+              <span className="ui-pill px-2 py-0.5 text-[9px]">V7</span>
             </div>
             <div className={`text-[10px] font-medium flex items-center gap-1.5 ${isDark ? 'text-zinc-500' : 'text-zinc-500'}`}>
               {isLive && <span className="live-dot !w-1 !h-1"></span>}
@@ -69,7 +69,7 @@ export default function Navbar() {
               >
                 <item.icon size={14} />
                 {item.label}
-                {item.badge && <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[8px] font-bold ${active ? 'bg-black text-white dark:bg-black dark:text-white' : 'clay-pill-live'}`}>{item.badge}</span>}
+                {item.badge && <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[8px] font-bold ${active ? 'bg-black text-white dark:bg-black dark:text-white' : 'ui-pill-live'}`}>{item.badge}</span>}
               </Link>
             )
           })}
@@ -125,7 +125,7 @@ export default function Navbar() {
                 >
                   <item.icon size={16} />
                   {item.label}
-                  {item.badge && <span className="ml-auto clay-pill-live px-1.5 py-0.5 text-[8px]">{item.badge}</span>}
+                  {item.badge && <span className="ml-auto ui-pill-live px-1.5 py-0.5 text-[8px]">{item.badge}</span>}
                 </Link>
               )
             })}

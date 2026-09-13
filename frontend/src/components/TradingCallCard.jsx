@@ -25,7 +25,7 @@ export default function TradingCallCard({ call, onSelect, isSelected = false }) 
     <div
       onClick={() => onSelect && onSelect(call)}
       className={`group relative rounded-[20px] overflow-hidden cursor-pointer transition-all border ${
-        isSelected ? (isDark ? 'bg-white text-black border-white' : 'bg-black text-white border-black') : 'clay-card hover:translate-y-[-1px]'
+        isSelected ? (isDark ? 'bg-white text-black border-white' : 'bg-black text-white border-black') : 'ui-card hover:translate-y-[-1px]'
       }`}
     >
       <div className={`h-1 w-full ${isBuy ? 'bg-emerald-500' : isSell ? 'bg-red-500' : 'bg-zinc-400'}`} />
@@ -38,14 +38,14 @@ export default function TradingCallCard({ call, onSelect, isSelected = false }) 
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-[15px]">{call.symbol}</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isBuy ? 'clay-pill-buy' : isSell ? 'clay-pill-sell' : 'clay-pill'}`}>{call.signal}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isBuy ? 'ui-pill-buy' : isSell ? 'ui-pill-sell' : 'ui-pill'}`}>{call.signal}</span>
               </div>
               <div className={`text-[11px] mt-0.5 flex items-center gap-1 ${isSelected ? 'text-black/60 dark:text-white/60' : isDark ? 'text-zinc-500' : 'text-zinc-500'}`}>
                 <Zap size={10} /> {call.action} • {safeFixed(confidence,0)}% • {call.timeframe || '1d'}
               </div>
             </div>
           </div>
-          <div className={`px-2 py-1 rounded-full text-[10px] font-bold ${call.risk_level === 'LOW' ? 'clay-pill-buy' : call.risk_level === 'HIGH' ? 'clay-pill-sell' : 'clay-pill'}`}>{call.risk_level || 'MEDIUM'}</div>
+          <div className={`px-2 py-1 rounded-full text-[10px] font-bold ${call.risk_level === 'LOW' ? 'ui-pill-buy' : call.risk_level === 'HIGH' ? 'ui-pill-sell' : 'ui-pill'}`}>{call.risk_level || 'MEDIUM'}</div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 mb-3">
@@ -100,7 +100,7 @@ export function TradingCallSummary({ summary }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {cards.map((c, i) => (
-        <div key={i} className="clay-card p-4">
+        <div key={i} className="ui-card p-4">
           <div className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{c.label}</div>
           <div className="text-xl font-bold mono mt-1">{c.value}</div>
           <div className={`text-[11px] mt-0.5 ${isDark ? 'text-zinc-500' : 'text-zinc-500'}`}>{c.sub}</div>

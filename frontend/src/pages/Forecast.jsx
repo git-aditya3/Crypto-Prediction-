@@ -80,10 +80,10 @@ export default function Forecast() {
           </div>
           
           <div className="flex items-center gap-2">
-            <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="clay-card border border-black/5 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-medium text-white">
+            <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="ui-card border border-black/5 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-medium text-white">
               {['BTC-USD','ETH-USD','BNB-USD','SOL-USD','XRP-USD','ADA-USD','DOGE-USD','AVAX-USD'].map(s => <option key={s}>{s}</option>)}
             </select>
-            <select value={steps} onChange={e => setSteps(parseInt(e.target.value))} className="clay-card border border-black/5 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-medium text-white">
+            <select value={steps} onChange={e => setSteps(parseInt(e.target.value))} className="ui-card border border-black/5 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-medium text-white">
               {[7,14,21,30].map(n => <option key={n} value={n}>{n} days</option>)}
             </select>
             <button onClick={load} className="btn-primary flex items-center gap-2">
@@ -230,7 +230,7 @@ export default function Forecast() {
                   {chartData.map((row, i) => {
                     const change = (((row.ensemble ?? 0) - (livePrice||1)) / (livePrice||1) * 100)
                     return (
-                      <tr key={i} className="border-b border-black/5 dark:border-white/5/20 hover:clay-card/30 transition">
+                      <tr key={i} className="border-b border-black/5 dark:border-white/5/20 hover:ui-card/30 transition">
                         <td className="p-3 font-medium text-white">{row.fullDate}</td>
                         <td className="p-3 text-right mono text-zinc-500">${row.lstm != null ? row.lstm.toFixed(2) : '-'}</td>
                         <td className="p-3 text-right mono text-zinc-900 dark:text-white">${row.transformer != null ? row.transformer.toFixed(2) : '-'}</td>

@@ -161,7 +161,7 @@ export default function Models() {
             <p className="text-sm text-zinc-500 leading-relaxed mb-4">69 technical indicators: SMA, EMA, RSI, MACD, Bollinger Bands, ATR, lag features, volume features, price features. Sequence length 60 for LSTM/Transformer.</p>
             <div className="flex flex-wrap gap-1.5">
               {['SMA 7/14/30/50', 'EMA 12/26/50', 'RSI 14', 'MACD', 'BB 20', 'ATR 14', 'Lag 1/3/7/14', 'Volume'].map(f => (
-                <span key={f} className="px-2 py-1 rounded-full clay-card border border-black/5 dark:border-white/5 text-[11px] text-zinc-500">{f}</span>
+                <span key={f} className="px-2 py-1 rounded-full ui-card border border-black/5 dark:border-white/5 text-[11px] text-zinc-500">{f}</span>
               ))}
             </div>
           </GlassCard>
@@ -204,9 +204,9 @@ export default function Models() {
               <div className="text-sm font-bold text-white mb-2">Backtesting</div>
               <p className="text-xs text-zinc-500 leading-relaxed">Long-only simulation: initial capital $10k, commission 0.1%, slippage 0.05%. Strategies: MA crossover (20/50), RSI (30/70), Prediction threshold, Ensemble (pred+sentiment+RSI). Metrics: total return, Sharpe, max DD, win rate, profit factor.</p>
               <div className="mt-3 flex gap-2">
-                <span className="px-2 py-1 rounded-full clay-card border border-black/5 dark:border-white/5 text-[11px] text-zinc-500">Sharpe</span>
-                <span className="px-2 py-1 rounded-full clay-card border border-black/5 dark:border-white/5 text-[11px] text-zinc-500">Max DD</span>
-                <span className="px-2 py-1 rounded-full clay-card border border-black/5 dark:border-white/5 text-[11px] text-zinc-500">Win Rate</span>
+                <span className="px-2 py-1 rounded-full ui-card border border-black/5 dark:border-white/5 text-[11px] text-zinc-500">Sharpe</span>
+                <span className="px-2 py-1 rounded-full ui-card border border-black/5 dark:border-white/5 text-[11px] text-zinc-500">Max DD</span>
+                <span className="px-2 py-1 rounded-full ui-card border border-black/5 dark:border-white/5 text-[11px] text-zinc-500">Win Rate</span>
               </div>
             </div>
           </div>

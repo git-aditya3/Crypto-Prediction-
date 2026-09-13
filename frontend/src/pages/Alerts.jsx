@@ -65,27 +65,27 @@ export default function Alerts() {
           <p className="text-zinc-500 mt-1">Price alerts, signal alerts - real Binance monitoring for actual trades</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={checkAlerts} className="px-4 py-2 rounded-xl clay-card border border-black/5 dark:border-white/5 hover:border-black/5 dark:border-white/5Light">Check Now</button>
+          <button onClick={checkAlerts} className="px-4 py-2 rounded-xl ui-card border border-black/5 dark:border-white/5 hover:border-black/5 dark:border-white/5Light">Check Now</button>
           <button onClick={() => setShowCreate(true)} className="px-4 py-2 rounded-xl bg-amber-500 text-black font-bold flex items-center gap-2"><Plus size={16} /> Create Alert</button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-xs text-zinc-500 uppercase">Total Alerts</div>
           <div className="text-2xl font-black">{alerts.length}</div>
         </div>
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-xs text-zinc-500 uppercase">Active</div>
           <div className="text-2xl font-black text-emerald-600">{alerts.filter(a => a.status === 'ACTIVE').length}</div>
         </div>
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-xs text-zinc-500 uppercase">Triggered</div>
           <div className="text-2xl font-black text-zinc-500">{alerts.filter(a => a.status === 'TRIGGERED').length}</div>
         </div>
       </div>
 
-      <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+      <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
         <h3 className="font-bold mb-4">All Alerts - Real Market</h3>
         {alerts.length === 0 ? (
           <div className="text-center py-12 text-zinc-500">No alerts - create one for real market monitoring</div>
@@ -94,14 +94,14 @@ export default function Alerts() {
             {alerts.slice().reverse().map(alert => (
               <div key={alert.id} className={`p-4 rounded-xl border flex items-center justify-between ${alert.status === 'TRIGGERED' ? 'bg-amber-500/5 border-amber-500/20' : alert.status === 'ACTIVE' ? 'bg-transparent border-black/5 dark:border-white/5/50' : 'bg-transparent/50 border-black/5 dark:border-white/5/20 opacity-60'}`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${alert.status === 'TRIGGERED' ? 'bg-amber-500/10 text-zinc-500' : alert.status === 'ACTIVE' ? 'bg-zinc-100 dark:bg-zinc-800 text-emerald-600' : 'clay-card text-zinc-500'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${alert.status === 'TRIGGERED' ? 'bg-amber-500/10 text-zinc-500' : alert.status === 'ACTIVE' ? 'bg-zinc-100 dark:bg-zinc-800 text-emerald-600' : 'ui-card text-zinc-500'}`}>
                     {alert.status === 'TRIGGERED' ? <AlertTriangle size={18} /> : alert.status === 'ACTIVE' ? <Bell size={18} /> : <CheckCircle size={18} />}
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold">{alert.symbol || 'Unknown'}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${alert.type?.includes('ABOVE') ? 'bg-zinc-100 dark:bg-zinc-800 text-emerald-600' : alert.type?.includes('BELOW') ? 'bg-red-500/10 text-red-500' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>{alert.type || 'UNKNOWN'}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${alert.status === 'ACTIVE' ? 'bg-emerald-500 text-black' : alert.status === 'TRIGGERED' ? 'bg-amber-500 text-black' : 'clay-card text-zinc-500'}`}>{alert.status || 'UNKNOWN'}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${alert.status === 'ACTIVE' ? 'bg-emerald-500 text-black' : alert.status === 'TRIGGERED' ? 'bg-amber-500 text-black' : 'ui-card text-zinc-500'}`}>{alert.status || 'UNKNOWN'}</span>
                     </div>
                     <div className="text-xs text-zinc-500 mt-1">
                       {alert.message || 'No message'} • 
@@ -120,7 +120,7 @@ export default function Alerts() {
 
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4">
-          <div className="p-6 rounded-2xl clay-card border border-black/5 dark:border-white/5 w-full max-w-md">
+          <div className="p-6 rounded-2xl ui-card border border-black/5 dark:border-white/5 w-full max-w-md">
             <h3 className="font-bold text-lg mb-4">Create Real Alert - Live Monitoring</h3>
             <div className="space-y-4">
               <select value={form.symbol} onChange={e => setForm({ ...form, symbol: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-transparent border border-black/5 dark:border-white/5">

@@ -54,29 +54,29 @@ export default function Scanner() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-xs text-zinc-500 uppercase">Total Opportunities</div>
           <div className="text-2xl font-black mt-1">{data?.total_opportunities ?? 0}</div>
           <div className="text-xs text-emerald-600 mt-1">Real market data</div>
         </div>
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-xs text-zinc-500 uppercase">Volume Spikes</div>
           <div className="text-2xl font-black mt-1">{data?.volume_spikes?.length ?? 0}</div>
           <div className="text-xs text-zinc-500 mt-1">Whale activity</div>
         </div>
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-xs text-zinc-500 uppercase">Momentum</div>
           <div className="text-2xl font-black mt-1">{data?.momentum?.length ?? 0}</div>
           <div className="text-xs text-zinc-500 mt-1">Strong movers</div>
         </div>
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-xs text-zinc-500 uppercase">RSI Signals</div>
           <div className="text-2xl font-black mt-1">{data?.rsi_signals?.length ?? 0}</div>
           <div className="text-xs text-blue-400 mt-1">Oversold/Overbought</div>
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 rounded-xl clay-card border border-black/5 dark:border-white/5 w-fit overflow-x-auto">
+      <div className="flex gap-2 p-1 rounded-xl ui-card border border-black/5 dark:border-white/5 w-fit overflow-x-auto">
         {[
           { id: 'all', label: 'Top Opportunities' },
           { id: 'volume', label: 'Volume Spikes' },
@@ -92,7 +92,7 @@ export default function Scanner() {
           <div className="col-span-3 text-center py-12 text-zinc-500">No opportunities found - market is quiet, real data shows no strong signals</div>
         ) : (
           filtered.map((item, i) => (
-            <div key={i} className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5 hover:border-black/5 dark:border-white/5Light transition">
+            <div key={i} className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5 hover:border-black/5 dark:border-white/5Light transition">
               <div className="flex items-center justify-between">
                 <span className="font-black text-lg">{item.symbol || 'Unknown'}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
@@ -130,7 +130,7 @@ export default function Scanner() {
       </div>
 
       {data && (
-        <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-xs text-zinc-500">Source: {data.source || 'Live Binance'} • {data.no_fake || 'Real data'} • Timestamp: {data.timestamp ? new Date(data.timestamp).toLocaleString() : new Date().toLocaleString()}</div>
         </div>
       )}

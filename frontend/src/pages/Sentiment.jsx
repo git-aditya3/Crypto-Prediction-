@@ -47,7 +47,7 @@ export default function Sentiment() {
             <p className="text-zinc-500 text-sm mt-2">News + Reddit + Twitter aggregated • Daily compound score merged into price features</p>
           </div>
           
-          <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="clay-card border border-black/5 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-medium text-white">
+          <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="ui-card border border-black/5 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-medium text-white">
             {['BTC-USD','ETH-USD','BNB-USD','SOL-USD','XRP-USD','ADA-USD','DOGE-USD'].map(s => <option key={s}>{s}</option>)}
           </select>
         </div>

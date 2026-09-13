@@ -89,7 +89,7 @@ export default function Strategies() {
       </div>
 
       {/* Active Bots */}
-      <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+      <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
         <h3 className="font-bold mb-4">Active Bots - Real Trading ({bots?.count ?? 0})</h3>
         {!bots || (bots.count ?? 0) === 0 ? (
           <div className="text-center py-6 text-zinc-500">No active bots - create DCA or Grid bot for real trading</div>
@@ -111,7 +111,7 @@ export default function Strategies() {
                   <div className="text-[10px] text-zinc-500 uppercase">DCA Levels</div>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {(bot.levels || bot.dca_levels || []).slice(0, 5).map((l, i) => (
-                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-full clay-card border border-black/5 dark:border-white/5">${safeFixed(l.price ?? l,0)}</span>
+                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-full ui-card border border-black/5 dark:border-white/5">${safeFixed(l.price ?? l,0)}</span>
                     ))}
                   </div>
                 </div>
@@ -136,7 +136,7 @@ export default function Strategies() {
       </div>
 
       {/* Breakouts */}
-      <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+      <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
         <h3 className="font-bold mb-4 flex items-center gap-2"><Zap size={16} className="text-zinc-500" /> Breakout Signals - Real Market (Volume Confirmed)</h3>
         {breakouts.length === 0 ? (
           <div className="text-center py-6 text-zinc-500">No breakouts detected - market is ranging</div>
@@ -146,7 +146,7 @@ export default function Strategies() {
               <div key={i} className={`p-4 rounded-xl border ${b.signal?.includes('BUY') ? 'bg-emerald-500/5 border-black/5 dark:border-white/5' : b.signal?.includes('SELL') ? 'bg-red-500/5 border-red-500/10' : 'bg-transparent border-black/5 dark:border-white/5/50'}`}>
                 <div className="flex items-center justify-between">
                   <span className="font-bold">{b.symbol || 'Unknown'}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${b.signal?.includes('BUY') ? 'bg-emerald-500 text-black' : b.signal?.includes('SELL') ? 'bg-red-500 text-white' : 'clay-card text-zinc-500'}`}>{b.signal || 'HOLD'}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${b.signal?.includes('BUY') ? 'bg-emerald-500 text-black' : b.signal?.includes('SELL') ? 'bg-red-500 text-white' : 'ui-card text-zinc-500'}`}>{b.signal || 'HOLD'}</span>
                 </div>
                 <div className="mt-2 text-xs space-y-1">
                   <div className="flex justify-between"><span className="text-zinc-500">Entry</span><span>${safeFixed(b.entry_price,2)}</span></div>
@@ -164,7 +164,7 @@ export default function Strategies() {
       {/* Modals */}
       {showDCA && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4">
-          <div className="p-6 rounded-2xl clay-card border border-black/5 dark:border-white/5 w-full max-w-md">
+          <div className="p-6 rounded-2xl ui-card border border-black/5 dark:border-white/5 w-full max-w-md">
             <h3 className="font-bold text-lg mb-4">Create DCA Bot - Real Accumulation</h3>
             <div className="space-y-3">
               <select value={dcaForm.symbol} onChange={e => setDcaForm({ ...dcaForm, symbol: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-transparent border border-black/5 dark:border-white/5">
@@ -190,7 +190,7 @@ export default function Strategies() {
 
       {showGrid && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4">
-          <div className="p-6 rounded-2xl clay-card border border-black/5 dark:border-white/5 w-full max-w-md">
+          <div className="p-6 rounded-2xl ui-card border border-black/5 dark:border-white/5 w-full max-w-md">
             <h3 className="font-bold text-lg mb-4">Create Grid Bot - Ranging Market Profits</h3>
             <div className="space-y-3">
               <select value={gridForm.symbol} onChange={e => setGridForm({ ...gridForm, symbol: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-transparent border border-black/5 dark:border-white/5">

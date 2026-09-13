@@ -25,16 +25,16 @@ export default function SettingsPage() {
   return (
     <div className={`min-h-screen font-poppins ${isDark ? 'bg-black' : 'bg-[#E3EDF7]'}`}>
       <div className="max-w-[1400px] mx-auto p-4 md:p-6 space-y-5">
-        <div className="clay-card p-5 flex items-center justify-between flex-wrap gap-4">
+        <div className="ui-card p-5 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-white text-black' : 'bg-black text-white'}`}><SettingsIcon size={18} /></div>
             <div>
               <h1 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-black'}`}>Settings</h1>
-              <p className={`text-[12px] ${isDark ? 'text-zinc-500' : 'text-zinc-500'}`}>True Dark #000000 • Light #E3EDF7 • Minimal clay</p>
+              <p className={`text-[12px] ${isDark ? 'text-zinc-500' : 'text-zinc-500'}`}>Appearance & trading preferences</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => { settings.resetSettings(); handleSave() }} className="clay-card px-4 py-2 text-[12px] font-semibold flex items-center gap-1.5"><RotateCcw size={14} /> Reset</button>
+            <button onClick={() => { settings.resetSettings(); handleSave() }} className="ui-card px-4 py-2 text-[12px] font-semibold flex items-center gap-1.5"><RotateCcw size={14} /> Reset</button>
             <button onClick={handleSave} className={`px-4 py-2 rounded-xl text-[12px] font-bold flex items-center gap-1.5 ${isDark ? 'bg-white text-black' : 'bg-black text-white'}`}><Save size={14} /> {saved ? 'Saved!' : 'Save'}</button>
           </div>
         </div>
@@ -44,8 +44,8 @@ export default function SettingsPage() {
             {tabs.map(tab => {
               const active = activeTab === tab.id
               return (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full text-left p-4 rounded-xl border flex items-center gap-3 transition-colors ${active ? (isDark ? 'bg-white text-black border-white' : 'bg-black text-white border-black') : 'clay-card'}`}>
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${active ? 'bg-black text-white dark:bg-black dark:text-white' : isDark ? 'bg-zinc-900 text-zinc-400' : 'bg-zinc-100 text-zinc-500'}`}><tab.icon size={16} /></div>
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full text-left p-4 rounded-xl border flex items-center gap-3 transition-colors ${active ? (isDark ? 'bg-white text-black border-white' : 'bg-black text-white border-black') : 'ui-card'}`}>
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${active ? 'bg-black text-white' : isDark ? 'bg-zinc-900 text-zinc-400' : 'bg-zinc-100 text-zinc-500'}`}><tab.icon size={16} /></div>
                   <div><div className="font-semibold text-[13px]">{tab.label}</div><div className={`text-[11px] ${active ? 'opacity-70' : isDark ? 'text-zinc-500' : 'text-zinc-500'}`}>{tab.desc}</div></div>
                 </button>
               )
@@ -58,19 +58,19 @@ export default function SettingsPage() {
                 <GlassCard className="p-6">
                   <h3 className={`font-semibold flex items-center gap-2 mb-6 ${isDark ? 'text-white' : 'text-black'}`}><Palette size={16} /> Theme</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div onClick={() => settings.updateTheme('light')} className={`p-5 rounded-xl border cursor-pointer transition-all ${settings.theme === 'light' ? 'bg-black text-white border-black' : 'clay-card hover:border-black/10'}`}>
+                    <div onClick={() => settings.updateTheme('light')} className={`p-5 rounded-xl border cursor-pointer transition-all ${settings.theme === 'light' ? 'bg-black text-white border-black' : 'ui-card hover:border-black/10'}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-[#E3EDF7] border flex items-center justify-center"><Sun size={14} className="text-black" /></div><span className="font-semibold text-[13px]">Light</span></div>
                         <div className={`w-10 h-5 rounded-full p-0.5 ${settings.theme === 'light' ? 'bg-white' : 'bg-zinc-300'}`}><div className={`w-4 h-4 rounded-full bg-black transition-all ${settings.theme === 'light' ? 'translate-x-5' : ''}`}></div></div>
                       </div>
-                      <div className="text-[11px] opacity-70">Canvas #E3EDF7 • Cards #FFFFFF • Minimal</div>
+                      <div className="text-[11px] opacity-70">Light background • Minimal</div>
                     </div>
-                    <div onClick={() => settings.updateTheme('dark')} className={`p-5 rounded-xl border cursor-pointer transition-all ${settings.theme === 'dark' ? 'bg-white text-black border-white' : 'clay-card hover:border-white/10'}`}>
+                    <div onClick={() => settings.updateTheme('dark')} className={`p-5 rounded-xl border cursor-pointer transition-all ${settings.theme === 'dark' ? 'bg-white text-black border-white' : 'ui-card hover:border-white/10'}`}>
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-black border border-white/10 flex items-center justify-center"><Moon size={14} className="text-white" /></div><span className="font-semibold text-[13px]">True Dark</span></div>
+                        <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-black border border-white/10 flex items-center justify-center"><Moon size={14} className="text-white" /></div><span className="font-semibold text-[13px]">Dark</span></div>
                         <div className={`w-10 h-5 rounded-full p-0.5 ${settings.theme === 'dark' ? 'bg-black' : 'bg-zinc-700'}`}><div className={`w-4 h-4 rounded-full bg-white transition-all ${settings.theme === 'dark' ? 'translate-x-5' : ''}`}></div></div>
                       </div>
-                      <div className="text-[11px] opacity-70">Canvas #000000 • Cards rgba(22,22,24,0.9) • Minimal</div>
+                      <div className="text-[11px] opacity-70">Dark background • Minimal</div>
                     </div>
                   </div>
                 </GlassCard>
@@ -78,8 +78,8 @@ export default function SettingsPage() {
                 <GlassCard className="p-6">
                   <h3 className={`font-semibold mb-4 text-[13px] ${isDark ? 'text-white' : 'text-black'}`}>Preferences</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label className={`text-[10px] font-bold uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Default Symbol</label><select value={settings.defaultSymbol} onChange={e => useSettingsStore.setState({ defaultSymbol: e.target.value })} className="clay-input mt-1"><option>BTC-USD</option><option>ETH-USD</option><option>SOL-USD</option><option>BNB-USD</option></select></div>
-                    <div><label className={`text-[10px] font-bold uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Chart Type</label><select value={settings.chartType} onChange={e => useSettingsStore.setState({ chartType: e.target.value })} className="clay-input mt-1"><option value="candlestick">Candlestick</option><option value="line">Line</option><option value="area">Area</option></select></div>
+                    <div><label className={`text-[10px] font-bold uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Default Symbol</label><select value={settings.defaultSymbol} onChange={e => useSettingsStore.setState({ defaultSymbol: e.target.value })} className="ui-input mt-1"><option>BTC-USD</option><option>ETH-USD</option><option>SOL-USD</option><option>BNB-USD</option></select></div>
+                    <div><label className={`text-[10px] font-bold uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Chart Type</label><select value={settings.chartType} onChange={e => useSettingsStore.setState({ chartType: e.target.value })} className="ui-input mt-1"><option value="candlestick">Candlestick</option><option value="line">Line</option><option value="area">Area</option></select></div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 mt-4">
                     {[
@@ -102,8 +102,8 @@ export default function SettingsPage() {
               <GlassCard className="p-6">
                 <h3 className={`font-semibold flex items-center gap-2 mb-4 ${isDark ? 'text-white' : 'text-black'}`}><DollarSign size={16} /> Risk Management</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className={`text-[10px] font-bold uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Balance (USDT)</label><input type="number" value={settings.accountBalance} onChange={e => settings.updateAccountBalance(parseFloat(e.target.value)||0)} className="clay-input mt-1 font-bold mono" /></div>
-                  <div><label className={`text-[10px] font-bold uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Risk Per Trade</label><div className="grid grid-cols-4 gap-2 mt-1">{[0.01,0.02,0.03,0.05].map(r => <button key={r} onClick={() => settings.updateRiskPerTrade(r)} className={`py-2 rounded-xl text-[12px] font-bold border ${settings.riskPerTrade===r ? (isDark ? 'bg-white text-black border-white' : 'bg-black text-white border-black') : 'clay-card'}`}>{r*100}%</button>)}</div></div>
+                  <div><label className={`text-[10px] font-bold uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Balance (USDT)</label><input type="number" value={settings.accountBalance} onChange={e => settings.updateAccountBalance(parseFloat(e.target.value)||0)} className="ui-input mt-1 font-bold mono" /></div>
+                  <div><label className={`text-[10px] font-bold uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Risk Per Trade</label><div className="grid grid-cols-4 gap-2 mt-1">{[0.01,0.02,0.03,0.05].map(r => <button key={r} onClick={() => settings.updateRiskPerTrade(r)} className={`py-2 rounded-xl text-[12px] font-bold border ${settings.riskPerTrade===r ? (isDark ? 'bg-white text-black border-white' : 'bg-black text-white border-black') : 'ui-card'}`}>{r*100}%</button>)}</div></div>
                 </div>
               </GlassCard>
             )}
@@ -111,7 +111,7 @@ export default function SettingsPage() {
             {activeTab !== 'display' && activeTab !== 'trading' && (
               <GlassCard className="p-6">
                 <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-black'}`}>{activeTab} settings</h3>
-                <p className={`text-[12px] mt-2 ${isDark ? 'text-zinc-500' : 'text-zinc-500'}`}>Configuration for {activeTab} will appear here. Minimal monochrome UI.</p>
+                <p className={`text-[12px] mt-2 ${isDark ? 'text-zinc-500' : 'text-zinc-500'}`}>Configuration for {activeTab} will appear here.</p>
               </GlassCard>
             )}
           </div>

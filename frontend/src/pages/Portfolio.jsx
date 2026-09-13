@@ -124,24 +124,24 @@ export default function Portfolio() {
       {/* Summary Cards */}
       {portfolio && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-xs text-zinc-500 uppercase tracking-widest">Total Value - Real Money</div>
             <div className="text-2xl font-black mt-1">${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
             <div className={`text-sm mt-1 flex items-center gap-1 ${totalPnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
               {totalPnl >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />} ${totalPnl.toFixed(2)} ({totalPnlPct.toFixed(2)}%)
             </div>
           </div>
-          <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-xs text-zinc-500 uppercase tracking-widest">Cash - Real INR</div>
             <div className="text-2xl font-black mt-1">${cash.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
             <div className="text-xs text-zinc-500 mt-1">{totalValue > 0 ? ((cash / totalValue) * 100).toFixed(1) : 0}% of portfolio</div>
           </div>
-          <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-xs text-zinc-500 uppercase tracking-widest">Positions Value - Real</div>
             <div className="text-2xl font-black mt-1">${positionsValue.toFixed(2)}</div>
             <div className="text-xs text-zinc-500 mt-1">{openPositions.length} open positions - actual trades</div>
           </div>
-          <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-xs text-zinc-500 uppercase tracking-widest">CoinDCX Real Money</div>
             <div className="text-lg font-bold mt-1 text-emerald-600">No Paper Simulation</div>
             <div className="text-xs text-zinc-500 mt-1">Actual INR from CoinDCX account - real P&L</div>
@@ -152,27 +152,27 @@ export default function Portfolio() {
       {/* Performance */}
       {perf && (
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-          <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-[10px] text-zinc-500 uppercase">Total Trades - Real</div>
             <div className="text-xl font-bold">{perf.total_trades ?? perf.closed_trades ?? 0}</div>
           </div>
-          <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-[10px] text-zinc-500 uppercase">Win Rate - Real</div>
             <div className="text-xl font-bold text-emerald-600">{(perf.win_rate ?? 0).toFixed(1)}%</div>
           </div>
-          <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-[10px] text-zinc-500 uppercase">Profit Factor - Real</div>
             <div className="text-xl font-bold">{(perf.profit_factor ?? 0).toFixed(2)}</div>
           </div>
-          <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-[10px] text-zinc-500 uppercase">Best Trade - Real</div>
             <div className="text-xl font-bold text-emerald-600">${(perf.best_trade ?? 0).toFixed(2)}</div>
           </div>
-          <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-[10px] text-zinc-500 uppercase">Worst Trade - Real</div>
             <div className="text-xl font-bold text-red-500">${(perf.worst_trade ?? 0).toFixed(2)}</div>
           </div>
-          <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-[10px] text-zinc-500 uppercase">Profit - Real INR</div>
             <div className={`text-xl font-bold ${(perf.total_pnl ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>${(perf.total_pnl ?? 0).toFixed(2)}</div>
           </div>
@@ -181,7 +181,7 @@ export default function Portfolio() {
 
       {/* Allocation */}
       {allocation && Object.keys(allocation).length > 0 && (
-        <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <h3 className="font-bold flex items-center gap-2 mb-4"><PieChart size={16} /> Allocation - Real Holdings - CoinDCX Actual</h3>
           <div className="space-y-2">
             {Object.entries(allocation).map(([sym, pct]) => (
@@ -198,7 +198,7 @@ export default function Portfolio() {
       )}
 
       {/* Positions */}
-      <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+      <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
         <h3 className="font-bold flex items-center gap-2 mb-4"><BarChart3 size={16} /> Open Positions - CoinDCX Real Money - Actual INR Trades</h3>
         {openPositions.length === 0 ? (
           <div className="text-center py-8 text-zinc-500">No open positions - open one via Auto Trading or manually - real CoinDCX trades</div>
@@ -229,7 +229,7 @@ export default function Portfolio() {
 
       {/* Closed */}
       {closedPositions.length > 0 && (
-        <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <h3 className="font-bold mb-4">Closed Positions - Real P&L History - CoinDCX Actual Money</h3>
           <div className="space-y-2 max-h-[300px] overflow-auto">
             {closedPositions.slice(-20).reverse().map((p, i) => (
@@ -249,7 +249,7 @@ export default function Portfolio() {
       {/* Open Modal */}
       {showOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4">
-          <div className="p-6 rounded-2xl clay-card border border-black/5 dark:border-white/5 w-full max-w-md">
+          <div className="p-6 rounded-2xl ui-card border border-black/5 dark:border-white/5 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg">Open Real Position - CoinDCX Actual INR</h3>
               <button onClick={() => setShowOpen(false)} className="p-2 rounded-lg hover:bg-transparent"><X size={16} /></button>

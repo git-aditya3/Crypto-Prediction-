@@ -245,7 +245,7 @@ export default function Training() {
                         {Object.entries(perf).map(([model, metrics]) => {
                           if (typeof metrics !== 'object' || !metrics.mape) return null
                           return (
-                            <div key={model} className="p-2.5 rounded-xl clay-card border border-black/5 dark:border-white/5/50 text-center">
+                            <div key={model} className="p-2.5 rounded-xl ui-card border border-black/5 dark:border-white/5/50 text-center">
                               <div className="text-[10px] font-bold tracking-widest text-zinc-500 uppercase">{model}</div>
                               <div className="mono font-black text-sm text-white mt-1">{metrics.mape.toFixed(2)}%</div>
                               <div className="text-[10px] text-zinc-500">MAPE</div>

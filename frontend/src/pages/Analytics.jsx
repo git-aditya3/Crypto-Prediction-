@@ -52,42 +52,42 @@ export default function Analytics() {
 
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Total Trades</div>
           <div className="text-xl font-black">{metrics.total_trades ?? 0}</div>
         </div>
-        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Win Rate</div>
           <div className="text-xl font-black text-emerald-600">{safeFixed(metrics.win_rate,1)}%</div>
         </div>
-        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Profit Factor</div>
           <div className="text-xl font-black">{safeFixed(metrics.profit_factor,2)}</div>
         </div>
-        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Total P&L</div>
           <div className={`text-xl font-black ${(metrics.total_pnl??0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>${safeFixed(metrics.total_pnl,2)}</div>
         </div>
-        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Sharpe</div>
           <div className="text-xl font-black">{safeFixed(metrics.sharpe,2)}</div>
         </div>
-        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Sortino</div>
           <div className="text-xl font-black">{safeFixed(metrics.sortino,2)}</div>
         </div>
-        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Max DD</div>
           <div className="text-xl font-black text-red-500">{safeFixed(metrics.max_drawdown,1)}%</div>
         </div>
-        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-4 rounded-xl ui-card border border-black/5 dark:border-white/5">
           <div className="text-[10px] text-zinc-500 uppercase">Best Trade</div>
           <div className="text-xl font-black text-emerald-600">${safeFixed(metrics.best_trade,2)}</div>
         </div>
       </div>
 
       {/* Equity Curve */}
-      <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+      <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
         <h3 className="font-bold flex items-center gap-2 mb-4"><TrendingUp size={16} /> Equity Curve - Real P&L Growth</h3>
         {equity.length === 0 ? (
           <div className="text-center py-8 text-zinc-500">No equity curve - start trading to see real P&L growth</div>
@@ -117,7 +117,7 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Symbol Performance */}
-        <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <h3 className="font-bold flex items-center gap-2 mb-4"><PieChart size={16} /> Symbol Performance - Real Trading</h3>
           {Object.keys(symbols).length === 0 ? (
             <div className="text-center py-8 text-zinc-500">No symbol performance - trade to see real stats</div>
@@ -140,7 +140,7 @@ export default function Analytics() {
         </div>
 
         {/* Portfolio */}
-        <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+        <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
           <h3 className="font-bold flex items-center gap-2 mb-4"><Activity size={16} /> Portfolio Summary - Live Binance</h3>
           {data?.portfolio ? (
             <div className="space-y-3">
@@ -185,7 +185,7 @@ export default function Analytics() {
       </div>
 
       {/* Additional Metrics */}
-      <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+      <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
         <h3 className="font-bold flex items-center gap-2 mb-4"><Award size={16} /> Advanced Metrics - Real Performance</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div className="p-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5/50">

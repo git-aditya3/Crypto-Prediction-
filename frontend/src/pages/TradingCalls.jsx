@@ -81,7 +81,7 @@ export default function TradingCalls() {
             <h1 className={`text-2xl font-bold flex items-center gap-3 ${isDark?'text-white':'text-black'}`}>
               <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark?'bg-white text-black':'bg-black text-white'}`}><Target size={16} /></span>
               Real Trading Calls
-              <span className="clay-pill-live px-2.5 py-1 text-[10px]">REAL MONEY</span>
+              <span className="ui-pill-live px-2.5 py-1 text-[10px]">REAL MONEY</span>
             </h1>
             <p className={`text-[12px] mt-1 ${isDark?'text-zinc-500':'text-zinc-500'}`}>Live Binance • Entry = live price NOW • {activeCalls.length} active calls • No simulation</p>
           </div>
@@ -89,8 +89,8 @@ export default function TradingCalls() {
             <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[12px] ${isDark?'bg-zinc-900 border-white/5':'bg-white border-black/5'}`}>
               <DollarSign size={12} /><input type="number" value={accountBalance} onChange={e=>updateAccountBalance(parseFloat(e.target.value)||10000)} className="bg-transparent w-16 font-bold outline-none" />USDT
             </div>
-            <select value={timeframe} onChange={e=>updateTimeframe(e.target.value)} className="clay-input w-auto !py-2 text-[12px]"><option value="1h">1H</option><option value="4h">4H</option><option value="1d">1D</option><option value="1w">1W</option></select>
-            <select value={riskPerTrade} onChange={e=>updateRiskPerTrade(parseFloat(e.target.value))} className="clay-input w-auto !py-2 text-[12px]"><option value={0.01}>1%</option><option value={0.02}>2%</option><option value={0.03}>3%</option><option value={0.05}>5%</option></select>
+            <select value={timeframe} onChange={e=>updateTimeframe(e.target.value)} className="ui-input w-auto !py-2 text-[12px]"><option value="1h">1H</option><option value="4h">4H</option><option value="1d">1D</option><option value="1w">1W</option></select>
+            <select value={riskPerTrade} onChange={e=>updateRiskPerTrade(parseFloat(e.target.value))} className="ui-input w-auto !py-2 text-[12px]"><option value={0.01}>1%</option><option value={0.02}>2%</option><option value={0.03}>3%</option><option value={0.05}>5%</option></select>
             <button onClick={fetchCalls} disabled={loading} className={`px-3 py-2 rounded-xl text-[12px] font-bold flex items-center gap-1.5 ${isDark?'bg-white text-black':'bg-black text-white'}`}><RefreshCw size={12} className={loading?'animate-spin':''} />Refresh</button>
           </div>
         </div>
@@ -113,8 +113,8 @@ export default function TradingCalls() {
             { key: 'high_conf', label: '>80%', count: activeCalls.filter(c=>(c.confidence||0)>80).length },
             { key: 'low_risk', label: 'Low Risk', count: activeCalls.filter(c=>c.risk_level==='LOW').length },
           ].map(f=>(
-            <button key={f.key} onClick={()=>setFilter(f.key)} className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap border flex items-center gap-1.5 ${filter===f.key ? (isDark?'bg-white text-black border-white':'bg-black text-white border-black') : 'clay-card'}`}>
-              {f.label}<span className={`px-1 py-0.5 rounded-full text-[9px] ${filter===f.key ? 'bg-black text-white dark:bg-black dark:text-white' : 'clay-pill'}`}>{f.count}</span>
+            <button key={f.key} onClick={()=>setFilter(f.key)} className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap border flex items-center gap-1.5 ${filter===f.key ? (isDark?'bg-white text-black border-white':'bg-black text-white border-black') : 'ui-card'}`}>
+              {f.label}<span className={`px-1 py-0.5 rounded-full text-[9px] ${filter===f.key ? 'bg-black text-white dark:bg-black dark:text-white' : 'ui-pill'}`}>{f.count}</span>
             </button>
           ))}
         </div>
@@ -129,7 +129,7 @@ export default function TradingCalls() {
                 <GlassCard className="p-5">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className={`font-semibold flex items-center gap-2 text-[13px] ${isDark?'text-white':'text-black'}`}><Target size={14} />{selectedCall.symbol} • Live Binance</h3>
-                    <span className="clay-pill text-[10px]">{selectedCall.model_used} • {selectedCall.timeframe}</span>
+                    <span className="ui-pill text-[10px]">{selectedCall.model_used} • {selectedCall.timeframe}</span>
                   </div>
                   {history ? <PriceChart data={history} forecast={forecast} realtimePrice={selectedCall.current_price} symbol={selectedCall.symbol} height={360} /> : <div className={`h-[360px] flex items-center justify-center rounded-xl border ${isDark?'border-white/5 text-zinc-500':'border-black/5 text-zinc-400'}`}>Loading...</div>}
                   <div className={`mt-4 grid grid-cols-3 gap-2 text-[11px]`}>

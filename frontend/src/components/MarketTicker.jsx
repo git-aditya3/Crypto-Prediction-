@@ -45,7 +45,7 @@ export default function MarketTicker() {
         isDark ? 'bg-black border-white/[0.06]' : 'bg-white border-black/[0.06]'
       }`}>
         <div className="live-dot"></div>
-        <span className="clay-pill-live px-2.5 py-1 text-[10px] rounded-full">LIVE</span>
+        <span className="ui-pill-live px-2.5 py-1 text-[10px] rounded-full">LIVE</span>
         <span className={`hidden md:inline text-[10px] font-semibold tracking-wide ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
           BINANCE
         </span>
@@ -78,7 +78,7 @@ export default function MarketTicker() {
                   ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: price > 100 ? 2 : 4 })}
                 </span>
                 <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                  isPositive ? 'clay-pill-buy' : 'clay-pill-sell'
+                  isPositive ? 'ui-pill-buy' : 'ui-pill-sell'
                 }`}>
                   {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                   {Math.abs(t.priceChangePercent ?? 0).toFixed(2)}%

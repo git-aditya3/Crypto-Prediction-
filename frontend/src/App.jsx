@@ -61,9 +61,9 @@ export default function App() {
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-[12px] ${theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}>₿</div>
               <span className={`font-semibold ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>CryptoPred v7 • CoinDCX Real Money • Endless Learning</span>
               <span className="hidden md:flex items-center gap-2">
-                <span className="clay-pill">LSTM v3</span>
-                <span className="clay-pill">Transformer v3</span>
-                <span className="clay-pill-buy">ARIMA 2.57%</span>
+                <span className="ui-pill">LSTM v3</span>
+                <span className="ui-pill">Transformer v3</span>
+                <span className="ui-pill-buy">ARIMA 2.57%</span>
               </span>
             </div>
             <div className="flex items-center gap-2 text-zinc-500">

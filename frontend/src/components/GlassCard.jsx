@@ -2,7 +2,7 @@ import { useSettingsStore } from '../store/useSettingsStore'
 
 export default function GlassCard({ children, className = '', hover = true, ...props }) {
   return (
-    <div className={`clay-card ${hover ? '' : ''} ${className}`} {...props}>
+    <div className={`ui-card ${hover ? '' : ''} ${className}`} {...props}>
       <div className="relative z-10">{children}</div>
     </div>
   )
@@ -29,7 +29,7 @@ export function StatCard({ label, value, subValue, trend, icon: Icon }) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-[12px] ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{subValue}</span>
             {trend && (
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isPositive ? 'clay-pill-buy' : 'clay-pill-sell'}`}>{trend}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isPositive ? 'ui-pill-buy' : 'ui-pill-sell'}`}>{trend}</span>
             )}
           </div>
         )}

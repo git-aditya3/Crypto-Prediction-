@@ -59,26 +59,26 @@ export default function Journal() {
 
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-xs text-zinc-500 uppercase">Total Entries</div>
             <div className="text-2xl font-black">{stats.total_entries ?? 0}</div>
           </div>
-          <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-xs text-zinc-500 uppercase">Win Rate</div>
             <div className="text-2xl font-black text-emerald-600">{safeFixed(stats.win_rate,1)}%</div>
           </div>
-          <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-xs text-zinc-500 uppercase">Total P&L</div>
             <div className={`text-2xl font-black ${(stats.total_pnl??0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>${safeFixed(stats.total_pnl,2)}</div>
           </div>
-          <div className="p-4 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+          <div className="p-4 rounded-2xl ui-card border border-black/5 dark:border-white/5">
             <div className="text-xs text-zinc-500 uppercase">Avg P&L</div>
             <div className="text-2xl font-black">${safeFixed(stats.avg_pnl,2)}</div>
           </div>
         </div>
       )}
 
-      <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
+      <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
         <h3 className="font-bold mb-4">Journal Entries - Real Trading History</h3>
         {entries.length === 0 ? (
           <div className="text-center py-12 text-zinc-500">No journal entries - log your real trades to improve</div>
@@ -96,18 +96,18 @@ export default function Journal() {
                   <span className="text-[10px] text-zinc-500">{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : ''}</span>
                 </div>
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                  <div className="p-2 rounded-lg clay-card border border-black/5 dark:border-white/5/30">
+                  <div className="p-2 rounded-lg ui-card border border-black/5 dark:border-white/5/30">
                     <div className="text-[10px] text-zinc-500 uppercase">Strategy</div>
                     <div className="font-medium mt-1">{entry.strategy || 'Unknown'}</div>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {entry.tags?.map((tag, i) => <span key={i} className="px-1.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-[10px]">{tag}</span>)}
                     </div>
                   </div>
-                  <div className="p-2 rounded-lg clay-card border border-black/5 dark:border-white/5/30">
+                  <div className="p-2 rounded-lg ui-card border border-black/5 dark:border-white/5/30">
                     <div className="text-[10px] text-zinc-500 uppercase">Notes</div>
                     <div className="mt-1 text-zinc-500">{entry.notes || 'No notes'}</div>
                   </div>
-                  <div className="p-2 rounded-lg clay-card border border-black/5 dark:border-white/5/30">
+                  <div className="p-2 rounded-lg ui-card border border-black/5 dark:border-white/5/30">
                     <div className="text-[10px] text-zinc-500 uppercase">Emotions & Lessons</div>
                     <div className="mt-1"><span className="text-zinc-500">Emotions:</span> {entry.emotions || 'N/A'}</div>
                     <div className="mt-1"><span className="text-zinc-500">Lessons:</span> {entry.lessons || 'N/A'}</div>
@@ -121,7 +121,7 @@ export default function Journal() {
 
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4 overflow-auto">
-          <div className="p-6 rounded-2xl clay-card border border-black/5 dark:border-white/5 w-full max-w-lg max-h-[90vh] overflow-auto">
+          <div className="p-6 rounded-2xl ui-card border border-black/5 dark:border-white/5 w-full max-w-lg max-h-[90vh] overflow-auto">
             <h3 className="font-bold text-lg mb-4">Add Real Trade Journal Entry</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">

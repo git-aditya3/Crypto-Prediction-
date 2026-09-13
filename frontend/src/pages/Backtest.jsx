@@ -181,7 +181,7 @@ export default function Backtest() {
                 </thead>
                 <tbody>
                   {Object.entries(compare).map(([name, m]) => (
-                    <tr key={name} className="border-b border-black/5 dark:border-white/5/20 hover:clay-card/30 transition">
+                    <tr key={name} className="border-b border-black/5 dark:border-white/5/20 hover:ui-card/30 transition">
                       <td className="p-3 font-bold text-white">{name}</td>
                       <td className={`p-3 text-right mono font-bold ${m.total_return_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{safeFixed(m.total_return_pct,2)}%</td>
                       <td className="p-3 text-right mono text-white">{safeFixed(m.sharpe_ratio,2)}</td>
@@ -205,9 +205,9 @@ export default function Backtest() {
             <h3 className="font-bold text-white text-lg mb-2">Backtesting Engine Ready</h3>
             <p className="text-zinc-500 text-sm max-w-md mx-auto">Select a symbol and strategy, then run backtest. Compares MA crossover, RSI, Ensemble (prediction + sentiment + RSI), and Prediction-based strategies with full portfolio simulation.</p>
             <div className="mt-6 flex justify-center gap-2">
-              <span className="px-3 py-1 rounded-full clay-card border border-black/5 dark:border-white/5 text-xs text-zinc-500">Commission 0.1%</span>
-              <span className="px-3 py-1 rounded-full clay-card border border-black/5 dark:border-white/5 text-xs text-zinc-500">Slippage 0.05%</span>
-              <span className="px-3 py-1 rounded-full clay-card border border-black/5 dark:border-white/5 text-xs text-zinc-500">Long-only</span>
+              <span className="px-3 py-1 rounded-full ui-card border border-black/5 dark:border-white/5 text-xs text-zinc-500">Commission 0.1%</span>
+              <span className="px-3 py-1 rounded-full ui-card border border-black/5 dark:border-white/5 text-xs text-zinc-500">Slippage 0.05%</span>
+              <span className="px-3 py-1 rounded-full ui-card border border-black/5 dark:border-white/5 text-xs text-zinc-500">Long-only</span>
             </div>
           </GlassCard>
         )}
