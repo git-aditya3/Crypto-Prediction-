@@ -1,5 +1,5 @@
 """
-Prediction / inference pipeline
+Prediction / inference pipeline - v2 with Transformer & Sentiment
 """
 import numpy as np
 import pandas as pd
@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 from ..data.dataset import CryptoDataset
 from ..models.lstm_model import LSTMModel
+from ..models.transformer_model import TransformerModel
 from ..models.xgboost_model import XGBoostModel
 from ..models.arima_model import ARIMAModel
 from ..config import get_config
@@ -26,11 +27,9 @@ class CryptoPredictor:
         self._load_artifacts()
 
     def _load_artifacts(self):
-        """Load preprocessor and models if they exist"""
         models_dir = config.project_root / "models"
         symbol_key = self.symbol.replace('-','_')
 
-        # Preprocessor
         pre_path = models_dir / f"{symbol_key}_preprocessor.joblib"
         if pre_path.exists():
             try:
@@ -41,17 +40,22 @@ class CryptoPredictor:
             except Exception as e:
                 logger.warning(f"Failed to load preprocessor: {e}")
 
-        # LSTM torch
         lstm_path = models_dir / f"{symbol_key}_lstm.pt"
         if lstm_path.exists() and self.preprocessor:
             try:
-                input_size = len(self.preprocessor.feature_columns)
                 self.models['lstm'] = LSTMModel.load_torch(str(lstm_path))
                 logger.info("Loaded LSTM model")
             except Exception as e:
                 logger.warning(f"Failed to load LSTM: {e}")
 
-        # XGBoost
+        trans_path = models_dir / f"{symbol_key}_transformer.pt"
+        if trans_path.exists() and self.preprocessor:
+            try:
+                self.models['transformer'] = TransformerModel.load_torch(str(trans_path))
+                logger.info("Loaded Transformer model")
+            except Exception as e:
+                logger.warning(f"Failed to load Transformer: {e}")
+
         xgb_path = models_dir / f"{symbol_key}_xgb.joblib"
         if xgb_path.exists():
             try:
@@ -60,7 +64,6 @@ class CryptoPredictor:
             except Exception as e:
                 logger.warning(f"Failed to load XGB: {e}")
 
-        # ARIMA
         arima_path = models_dir / f"{symbol_key}_arima.joblib"
         if arima_path.exists():
             try:
@@ -70,20 +73,51 @@ class CryptoPredictor:
                 logger.warning(f"Failed to load ARIMA: {e}")
 
     def prepare_latest_data(self, period: str = "1y", interval: str = "1d") -> Dict:
-        """Fetch latest data and prepare for prediction"""
         if self.preprocessor is None:
-            # If no preprocessor, create full pipeline
             logger.info("No preprocessor found, building fresh pipeline")
-            data_dict = self.dataset.get_full_pipeline(period=period, interval=interval)
-            self.preprocessor = self.dataset.preprocessor
+            # Try with sentiment enrichment
+            try:
+                from ..features.sentiment import SentimentFeatureEngineer
+                raw = self.dataset.load(period=period, interval=interval)
+                feat = self.dataset.engineer.engineer(raw)
+                senti_eng = SentimentFeatureEngineer()
+                feat = senti_eng.enrich_price_df(feat, symbol=self.symbol)
+                cleaned = self.dataset.preprocessor.prepare_features(feat, feature_cols=self.dataset.engineer.get_feature_columns(feat))
+                X = self.dataset.preprocessor.feature_scaler.transform(cleaned[self.dataset.preprocessor.feature_columns].values) if hasattr(self.dataset.preprocessor, 'feature_scaler') and self.dataset.preprocessor.feature_columns else None
+                # If not fitted, do full pipeline
+                if X is None:
+                    data_dict = self.dataset.get_full_pipeline(period=period, interval=interval)
+                    self.preprocessor = self.dataset.preprocessor
+                    return data_dict
+                seq_len = config.data.sequence_length
+                X_seq, _ = self.dataset.preprocessor.create_sequences(X, np.zeros(len(X)), seq_length=seq_len)
+                return {
+                    'X': X,
+                    'X_seq': X_seq,
+                    'cleaned_df': cleaned,
+                    'raw_df': raw,
+                    'feature_df': feat,
+                    'feature_columns': self.dataset.preprocessor.feature_columns
+                }
+            except Exception as e:
+                logger.warning(f"Enriched pipeline failed, fallback: {e}")
+                data_dict = self.dataset.get_full_pipeline(period=period, interval=interval)
+                self.preprocessor = self.dataset.preprocessor
+                return data_dict
         else:
-            # Fetch and engineer with existing preprocessor columns
             raw = self.dataset.load(period=period, interval=interval)
             feat = self.dataset.engineer.engineer(raw)
+            # sentiment enrich
+            try:
+                if config.features.use_sentiment:
+                    from ..features.sentiment import SentimentFeatureEngineer
+                    senti_eng = SentimentFeatureEngineer()
+                    feat = senti_eng.enrich_price_df(feat, symbol=self.symbol)
+            except Exception as e:
+                logger.warning(f"Sentiment enrich failed in predict: {e}")
+
             cleaned = self.preprocessor.prepare_features(feat, feature_cols=self.preprocessor.feature_columns)
-            # Scale
             X = self.preprocessor.feature_scaler.transform(cleaned[self.preprocessor.feature_columns].values)
-            # Create sequences
             seq_len = config.data.sequence_length
             X_seq, _ = self.preprocessor.create_sequences(X, np.zeros(len(X)), seq_length=seq_len)
             data_dict = {
@@ -96,12 +130,16 @@ class CryptoPredictor:
         return data_dict
 
     def predict_next(self, period: str = "1y", interval: str = "1d") -> Dict:
-        """Predict next price (1 step ahead)"""
         data = self.prepare_latest_data(period=period, interval=interval)
         
         results = {}
-        latest_flat = data['X'][-1] if 'X' in data else data['X_test'][-1] if 'X_test' in data else None
-        latest_seq = data['X_seq'][-1] if 'X_seq' in data else data['X_train_seq'][-1]
+        latest_flat = data['X'][-1] if 'X' in data else data.get('X_test', [None])[-1] if 'X_test' in data else None
+        latest_seq = data['X_seq'][-1] if 'X_seq' in data else None
+
+        if latest_flat is None or latest_seq is None:
+            # fallback
+            latest_flat = data['X_test'][-1] if 'X_test' in data else data['X_train'][-1]
+            latest_seq = data['X_test_seq'][-1] if 'X_test_seq' in data else data['X_train_seq'][-1]
 
         if 'lstm' in self.models:
             try:
@@ -110,6 +148,14 @@ class CryptoPredictor:
                 results['lstm'] = float(pred)
             except Exception as e:
                 logger.warning(f"LSTM predict failed: {e}")
+
+        if 'transformer' in self.models:
+            try:
+                pred_scaled = self.models['transformer'].predict(latest_seq.reshape(1, *latest_seq.shape))
+                pred = self.preprocessor.inverse_transform_target(pred_scaled)[0]
+                results['transformer'] = float(pred)
+            except Exception as e:
+                logger.warning(f"Transformer predict failed: {e}")
 
         if 'xgboost' in self.models:
             try:
@@ -126,10 +172,8 @@ class CryptoPredictor:
             except Exception as e:
                 logger.warning(f"ARIMA predict failed: {e}")
 
-        # Ensemble
         if results:
             weights = config.model.ensemble_weights
-            # Only use weights for models that predicted
             total_w = sum(weights.get(k,0) for k in results.keys())
             if total_w > 0:
                 ensemble = sum(results[k] * weights.get(k,0) / total_w for k in results.keys())
@@ -138,13 +182,11 @@ class CryptoPredictor:
         return results
 
     def forecast(self, steps: int = 7, period: str = "1y", interval: str = "1d") -> Dict[str, List[float]]:
-        """Forecast next N steps"""
         data = self.prepare_latest_data(period=period, interval=interval)
         
         latest_flat = data['X'][-1] if 'X' in data else None
         latest_seq = data['X_seq'][-1] if 'X_seq' in data else None
         if latest_flat is None or latest_seq is None:
-            # fallback from dataset
             proc = data
             latest_flat = proc['X_test'][-1] if 'X_test' in proc else proc['X_train'][-1]
             latest_seq = proc['X_test_seq'][-1] if 'X_test_seq' in proc else proc['X_train_seq'][-1]
@@ -158,6 +200,14 @@ class CryptoPredictor:
                 forecasts['lstm'] = preds.tolist()
             except Exception as e:
                 logger.warning(f"LSTM forecast failed: {e}")
+
+        if 'transformer' in self.models:
+            try:
+                preds_scaled = self.models['transformer'].forecast_future(latest_seq, steps=steps)
+                preds = self.preprocessor.inverse_transform_target(preds_scaled)
+                forecasts['transformer'] = preds.tolist()
+            except Exception as e:
+                logger.warning(f"Transformer forecast failed: {e}")
 
         if 'xgboost' in self.models:
             try:
@@ -174,9 +224,7 @@ class CryptoPredictor:
             except Exception as e:
                 logger.warning(f"ARIMA forecast failed: {e}")
 
-        # Ensemble forecast
         if forecasts:
-            # Align all to same length
             min_len = min(len(v) for v in forecasts.values())
             aligned = {k: v[:min_len] for k, v in forecasts.items()}
             weights = config.model.ensemble_weights
@@ -187,22 +235,27 @@ class CryptoPredictor:
                     ensemble += np.array(v) * weights.get(k,0) / total_w
                 forecasts['ensemble'] = ensemble.tolist()
 
-        # Generate future dates
         last_date = data['cleaned_df'].index[-1] if 'cleaned_df' in data else pd.Timestamp.now()
         future_dates = [last_date + timedelta(days=i+1) for i in range(steps)]
         forecasts['dates'] = [d.strftime('%Y-%m-%d') for d in future_dates]
 
-        # Add current price
         current_price = float(data['cleaned_df']['Close'].iloc[-1]) if 'cleaned_df' in data else None
         forecasts['current_price'] = current_price
         forecasts['symbol'] = self.symbol
 
+        # Sentiment if available
+        try:
+            if 'Sentiment_Compound' in data['cleaned_df'].columns:
+                forecasts['sentiment'] = float(data['cleaned_df']['Sentiment_Compound'].iloc[-1])
+                forecasts['sentiment_ma7'] = float(data['cleaned_df']['Sentiment_MA7'].iloc[-1]) if 'Sentiment_MA7' in data['cleaned_df'].columns else 0
+        except:
+            pass
+
         return forecasts
 
     def get_trading_signal(self, forecast: Dict) -> Dict:
-        """Generate simple trading signal based on forecast"""
         current = forecast.get('current_price')
-        ensemble = forecast.get('ensemble') or forecast.get('lstm') or forecast.get('xgboost')
+        ensemble = forecast.get('ensemble') or forecast.get('transformer') or forecast.get('lstm') or forecast.get('xgboost')
         
         if not current or not ensemble:
             return {"signal": "HOLD", "confidence": 0.0, "reason": "Insufficient data"}
@@ -210,18 +263,24 @@ class CryptoPredictor:
         next_price = ensemble[0] if isinstance(ensemble, list) else ensemble
         change_pct = (next_price - current) / current * 100
 
-        if change_pct > 2:
+        # Adjust with sentiment if present
+        sentiment_boost = 0
+        if 'sentiment' in forecast:
+            sentiment_boost = forecast['sentiment'] * 0.5  # sentiment -1 to 1 -> -0.5 to 0.5
+            change_pct += sentiment_boost
+
+        if change_pct > 2.5:
             signal = "STRONG_BUY"
-        elif change_pct > 0.5:
+        elif change_pct > 0.7:
             signal = "BUY"
-        elif change_pct < -2:
+        elif change_pct < -2.5:
             signal = "STRONG_SELL"
-        elif change_pct < -0.5:
+        elif change_pct < -0.7:
             signal = "SELL"
         else:
             signal = "HOLD"
 
-        confidence = min(abs(change_pct) * 20, 95)  # simplistic confidence
+        confidence = min(abs(change_pct) * 18 + (abs(forecast.get('sentiment',0))*10), 95)
 
         return {
             "signal": signal,
@@ -229,5 +288,6 @@ class CryptoPredictor:
             "current_price": current,
             "predicted_price": next_price,
             "change_pct": round(change_pct, 2),
-            "reason": f"Predicted {change_pct:.2f}% change"
+            "sentiment": forecast.get('sentiment', 0),
+            "reason": f"Predicted {change_pct:.2f}% change" + (f" with sentiment {forecast.get('sentiment',0):.2f}" if 'sentiment' in forecast else "")
         }

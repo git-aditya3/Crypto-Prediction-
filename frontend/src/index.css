@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #0a0e13;
+  color: #e5e7eb;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.card {
+  @apply bg-crypto-card border border-crypto-border rounded-xl p-5;
+}
+
+.btn-primary {
+  @apply bg-crypto-accent text-black font-semibold px-4 py-2 rounded-lg hover:bg-opacity-90 transition;
+}
+
+.btn-secondary {
+  @apply bg-crypto-card border border-crypto-border text-white px-4 py-2 rounded-lg hover:bg-crypto-border transition;
+}
