@@ -5,17 +5,20 @@ FastAPI v6 - Extensive Real Trading + Automated Real Trading with User Control +
 - Portfolio, Strategies, Alerts, Scanner, Analytics, Journal
 - Max performance models v4 + endless training
 """
-from fastapi import FastAPI, HTTPException, Query, Body
+from fastapi import FastAPI, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict
 import sys
 from pathlib import Path
 import pandas as pd
 import requests
 import time
+import threading
 from datetime import datetime
 from dataclasses import asdict
+from collections import defaultdict
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
@@ -82,11 +85,32 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allow all for preview (e2b.app) - in production should be restricted to specific domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Simple in-memory rate limiting
+_rate_limit_store = defaultdict(list)
+_rate_limit_lock = threading.Lock()
+RATE_LIMIT_MAX = 60  # requests per minute per IP
+RATE_LIMIT_WINDOW = 60
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    # Skip for health and docs
+    if request.url.path in ["/health", "/", "/docs", "/openapi.json"]:
+        return await call_next(request)
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    with _rate_limit_lock:
+        # Clean old entries
+        _rate_limit_store[client_ip] = [t for t in _rate_limit_store[client_ip] if now - t < RATE_LIMIT_WINDOW]
+        if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_MAX:
+            return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded - max 60 req/min"})
+        _rate_limit_store[client_ip].append(now)
+    return await call_next(request)
 
 realtime_manager: Optional[RealtimeManager] = None
 call_generator = TradingCallGenerator(risk_per_trade=0.02)
@@ -103,6 +127,8 @@ crash_manager = get_crash_manager()
 
 _market_cache = {"tickers": None, "timestamp": 0}
 _calls_cache = {"calls": None, "timestamp": 0, "account_balance": 10000}
+_market_cache_lock = threading.Lock()
+_calls_cache_lock = threading.Lock()
 CACHE_TTL = 10
 CALLS_CACHE_TTL = 30
 
@@ -132,109 +158,138 @@ class SignalResponse(BaseModel):
 
 class TradingCallRequest(BaseModel):
     symbols: Optional[List[str]] = None
-    timeframe: str = "1d"
-    account_balance: float = 10000
-    risk_per_trade: float = 0.02
+    timeframe: str = Field(default="1d", pattern="^(1m|5m|15m|1h|4h|1d|1w)$")
+    account_balance: float = Field(default=10000, ge=100, le=10000000)
+    risk_per_trade: float = Field(default=0.02, ge=0.001, le=0.1)
+
+    @field_validator('symbols')
+    def validate_symbols(cls, v):
+        if v is None:
+            return v
+        if len(v) > 20:
+            raise ValueError("Max 20 symbols")
+        return v
 
 class BacktestRequest(BaseModel):
-    symbol: str = "BTC-USD"
-    strategy: str = "ma"
-    period: str = "1y"
-    initial_capital: float = 10000
+    symbol: str = Field(default="BTC-USD", min_length=3, max_length=20)
+    strategy: str = Field(default="ma", pattern="^(ma|rsi|prediction|ensemble)$")
+    period: str = Field(default="1y", pattern="^(1mo|3mo|6mo|1y|2y|5y|max)$")
+    initial_capital: float = Field(default=10000, ge=100, le=10000000)
 
 class TrainingRequest(BaseModel):
     symbols: Optional[List[str]] = None
-    epochs: int = 80
-    retrain_interval_hours: int = 12
+    epochs: int = Field(default=80, ge=10, le=200)
+    retrain_interval_hours: int = Field(default=12, ge=1, le=168)
     run_immediately: bool = False
 
 class PortfolioOrderRequest(BaseModel):
-    symbol: str
-    side: str
-    quantity: float
-    entry_price: Optional[float] = None
-    stop_loss: Optional[float] = None
+    symbol: str = Field(..., min_length=3, max_length=20)
+    side: str = Field(..., pattern="^(LONG|SHORT|BUY|SELL)$")
+    quantity: float = Field(..., gt=0, le=1000000)
+    entry_price: Optional[float] = Field(None, gt=0)
+    stop_loss: Optional[float] = Field(None, gt=0)
     take_profits: Optional[Dict[str, float]] = None
-    leverage: str = "1x"
+    leverage: str = Field(default="1x", pattern="^[0-9]+x$")
+
+    @field_validator('side')
+    def upper_side(cls, v):
+        return v.upper()
 
 class AlertRequest(BaseModel):
-    symbol: str
-    type: str
-    target_price: Optional[float] = None
-    condition: str = ""
+    symbol: str = Field(..., min_length=3, max_length=20)
+    type: str = Field(..., min_length=2, max_length=20)
+    target_price: Optional[float] = Field(None, gt=0)
+    condition: str = Field(default="", max_length=100)
 
 class JournalRequest(BaseModel):
-    symbol: str
-    side: str
-    entry_price: float
-    quantity: float
-    strategy: str = "AI Ensemble"
-    notes: str = ""
-    emotions: str = ""
-    lessons: str = ""
-    tags: List[str] = []
-    exit_price: Optional[float] = None
-    pnl: float = 0
+    symbol: str = Field(..., min_length=3, max_length=20)
+    side: str = Field(..., pattern="^(LONG|SHORT|BUY|SELL)$")
+    entry_price: float = Field(..., gt=0)
+    quantity: float = Field(..., gt=0)
+    strategy: str = Field(default="AI Ensemble", max_length=50)
+    notes: str = Field(default="", max_length=1000)
+    emotions: str = Field(default="", max_length=500)
+    lessons: str = Field(default="", max_length=1000)
+    tags: List[str] = Field(default=[], max_length=10)
+    exit_price: Optional[float] = Field(None, gt=0)
+    pnl: float = Field(default=0)
 
 class DCABotRequest(BaseModel):
-    symbol: str
-    total_investment: float
-    num_orders: int = 5
-    price_deviation_pct: float = 1.0
-    take_profit_pct: float = 5.0
-    stop_loss_pct: float = 3.0
+    symbol: str = Field(..., min_length=3, max_length=20)
+    total_investment: float = Field(..., gt=0, le=10000000)
+    num_orders: int = Field(default=5, ge=1, le=50)
+    price_deviation_pct: float = Field(default=1.0, gt=0, le=50)
+    take_profit_pct: float = Field(default=5.0, gt=0, le=100)
+    stop_loss_pct: float = Field(default=3.0, gt=0, le=100)
 
 class GridBotRequest(BaseModel):
-    symbol: str
-    lower_price: float
-    upper_price: float
-    num_grids: int = 10
-    total_investment: float = 1000
+    symbol: str = Field(..., min_length=3, max_length=20)
+    lower_price: float = Field(..., gt=0, le=10000000)
+    upper_price: float = Field(..., gt=0, le=10000000)
+    num_grids: int = Field(default=10, ge=2, le=100)
+    total_investment: float = Field(default=1000, gt=0, le=10000000)
+
+    @field_validator('upper_price')
+    def upper_gt_lower(cls, v, info):
+        lower = info.data.get('lower_price')
+        if lower and v <= lower:
+            raise ValueError("upper_price must be > lower_price")
+        return v
 
 class MarketMakingRequest(BaseModel):
-    symbol: str
-    total_investment: float = 10000
-    spread_bps: float = 20
-    max_inventory: float = 1.0
+    symbol: str = Field(..., min_length=3, max_length=20)
+    total_investment: float = Field(default=10000, gt=0, le=10000000)
+    spread_bps: float = Field(default=20, gt=0, le=500)
+    max_inventory: float = Field(default=1.0, gt=0, le=100)
 
 class ExecutionRequest(BaseModel):
-    symbol: str
-    side: str
-    total_quantity: float
-    strategy: str = "TWAP"
-    duration_minutes: int = 60
-    num_slices: int = 12
+    symbol: str = Field(..., min_length=3, max_length=20)
+    side: str = Field(..., pattern="^(BUY|SELL)$")
+    total_quantity: float = Field(..., gt=0, le=1000000)
+    strategy: str = Field(default="TWAP", pattern="^(TWAP|VWAP)$")
+    duration_minutes: int = Field(default=60, ge=1, le=1440)
+    num_slices: int = Field(default=12, ge=1, le=100)
+
+    @field_validator('side','strategy')
+    def upper_vals(cls, v):
+        return v.upper()
 
 class StatArbRequest(BaseModel):
-    symbol_a: str
-    symbol_b: str
-    entry_z: float = 2.0
+    symbol_a: str = Field(..., min_length=3, max_length=20)
+    symbol_b: str = Field(..., min_length=3, max_length=20)
+    entry_z: float = Field(default=2.0, ge=0.5, le=5.0)
+
+    @field_validator('symbol_b')
+    def different_symbols(cls, v, info):
+        if info.data.get('symbol_a') and v == info.data.get('symbol_a'):
+            raise ValueError("symbol_a and symbol_b must be different")
+        return v
 
 class OFIRequest(BaseModel):
-    symbol: str
+    symbol: str = Field(..., min_length=3, max_length=20)
 
 class FundingArbRequest(BaseModel):
-    symbol: str
+    symbol: str = Field(..., min_length=3, max_length=20)
 
 class RiskRequest(BaseModel):
-    symbol: str
-    account_balance: float = 10000
-    win_rate: float = 0.55
-    win_loss_ratio: float = 1.5
+    symbol: str = Field(..., min_length=3, max_length=20)
+    account_balance: float = Field(default=10000, ge=100, le=10000000)
+    win_rate: float = Field(default=0.55, ge=0.1, le=0.95)
+    win_loss_ratio: float = Field(default=1.5, ge=0.1, le=10)
 
 class BrokerConnectRequest(BaseModel):
-    broker_id: str
-    broker_type: str = "binance"  # binance, paper
-    api_key: Optional[str] = None
-    api_secret: Optional[str] = None
+    broker_id: str = Field(..., min_length=2, max_length=50, pattern="^[a-zA-Z0-9_-]+$")
+    broker_type: str = Field(default="binance", pattern="^(binance|coindcx|paper)$")
+    api_key: Optional[str] = Field(None, max_length=200)
+    api_secret: Optional[str] = Field(None, max_length=500)
     testnet: bool = True
-    initial_balance: float = 10000
+    initial_balance: float = Field(default=10000, ge=0, le=10000000)
 
 class AutoTradeConfigRequest(BaseModel):
     config: Dict
 
 class AutoTradeExecuteRequest(BaseModel):
-    symbol: str
+    symbol: str = Field(..., min_length=3, max_length=20)
     manual: bool = False
 
 @app.on_event("startup")
@@ -662,27 +717,28 @@ def retrain_all(req: TrainingRequest):
 @app.get("/trading/calls")
 def get_trading_calls(
     symbols: Optional[str] = Query(None),
-    timeframe: str = Query("1d"),
+    timeframe: str = Query("1d", pattern="^(1m|5m|15m|1h|4h|1d|1w)$"),
     account_balance: float = Query(10000, ge=100, le=10000000),
-    risk_per_trade: float = Query(0.02, ge=0.005, le=0.1),
+    risk_per_trade: float = Query(0.02, ge=0.001, le=0.1),
     use_cache: bool = Query(True)
 ):
     parsed_symbols: Optional[List[str]] = None
     if symbols:
         if "," in symbols:
-            parsed_symbols = [s.strip() for s in symbols.split(",") if s.strip()]
+            parsed_symbols = [s.strip().upper() for s in symbols.split(",") if s.strip()][:20]
         else:
-            parsed_symbols = [symbols.strip()]
+            parsed_symbols = [symbols.strip().upper()]
     symbols_list = parsed_symbols
     global _calls_cache
     now = time.time()
-    if use_cache and _calls_cache["calls"] and (now - _calls_cache["timestamp"]) < CALLS_CACHE_TTL:
-        if _calls_cache["account_balance"] == account_balance:
-            cached = _calls_cache["calls"]
-            if symbols_list:
-                filtered = [c for c in cached["calls"] if c["symbol"] in symbols_list]
-                return {**cached, "calls": filtered, "count": len(filtered), "cached": True, "real_trading": True}
-            return {**cached, "cached": True, "real_trading": True}
+    with _calls_cache_lock:
+        if use_cache and _calls_cache["calls"] and (now - _calls_cache["timestamp"]) < CALLS_CACHE_TTL:
+            if _calls_cache["account_balance"] == account_balance:
+                cached = _calls_cache["calls"]
+                if symbols_list:
+                    filtered = [c for c in cached["calls"] if c["symbol"] in symbols_list]
+                    return {**cached, "calls": filtered, "count": len(filtered), "cached": True, "real_trading": True}
+                return {**cached, "cached": True, "real_trading": True}
     try:
         call_generator.risk_manager.risk_per_trade = risk_per_trade
         target_symbols = symbols_list or config.data.supported_symbols[:6]
@@ -709,9 +765,10 @@ def get_trading_calls(
                 "risk": f"Risk ${account_balance * risk_per_trade:.0f} per trade"
             }
         }
-        _calls_cache["calls"] = result
-        _calls_cache["timestamp"] = now
-        _calls_cache["account_balance"] = account_balance
+        with _calls_cache_lock:
+            _calls_cache["calls"] = result
+            _calls_cache["timestamp"] = now
+            _calls_cache["account_balance"] = account_balance
         return result
     except Exception as e:
         logger.error(f"Trading calls failed: {e}")
@@ -732,14 +789,16 @@ def get_single_call(symbol: str, timeframe: str = Query("1d"), account_balance: 
 @app.get("/trading/summary")
 def get_trading_summary():
     try:
-        if _calls_cache["calls"] and (time.time() - _calls_cache["timestamp"]) < CALLS_CACHE_TTL:
-            return _calls_cache["calls"]["summary"]
+        with _calls_cache_lock:
+            if _calls_cache["calls"] and (time.time() - _calls_cache["timestamp"]) < CALLS_CACHE_TTL:
+                return _calls_cache["calls"]["summary"]
         top_symbols = config.data.supported_symbols[:6]
         calls = call_generator.generate_all_calls(symbols=top_symbols, account_balance=10000)
         summary = call_generator.get_call_summary(calls)
         summary["real_trading"] = True
         return summary
     except Exception as e:
+        logger.error(f"Trading summary failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/trading/real/guide")
@@ -1117,24 +1176,60 @@ def journal_stats():
 def market_tickers():
     global _market_cache
     now = time.time()
-    if _market_cache["tickers"] and (now - _market_cache["timestamp"]) < CACHE_TTL:
-        return _market_cache["tickers"]
+    with _market_cache_lock:
+        if _market_cache["tickers"] and (now - _market_cache["timestamp"]) < CACHE_TTL:
+            return _market_cache["tickers"]
     try:
         resp = requests.get("https://api.binance.com/api/v3/ticker/24hr", timeout=10)
         resp.raise_for_status()
         all_tickers = resp.json()
+        if not isinstance(all_tickers, list):
+            raise ValueError("Invalid ticker response")
         wanted = set(config.data.binance_map.values())
-        filtered = [t for t in all_tickers if t["symbol"] in wanted]
+        filtered = [t for t in all_tickers if t.get("symbol") in wanted]
         reverse_map = {v: k for k, v in config.data.binance_map.items()}
         tickers = {}
         for t in filtered:
-            our_sym = reverse_map.get(t["symbol"])
-            if our_sym:
-                tickers[our_sym] = {"symbol": our_sym, "binanceSymbol": t["symbol"], "price": float(t["lastPrice"]), "lastPrice": float(t["lastPrice"]), "priceChange": float(t["priceChange"]), "priceChangePercent": float(t["priceChangePercent"]), "high": float(t["highPrice"]), "low": float(t["lowPrice"]), "volume": float(t["volume"]), "quoteVolume": float(t["quoteVolume"]), "open": float(t["openPrice"]), "trades": t["count"], "real_data": True, "source": "Binance Live"}
+            try:
+                our_sym = reverse_map.get(t["symbol"])
+                if our_sym:
+                    # Validate prices
+                    last_price = float(t.get("lastPrice",0) or 0)
+                    if last_price <= 0 or last_price > 10_000_000:
+                        continue
+                    tickers[our_sym] = {
+                        "symbol": our_sym,
+                        "binanceSymbol": t["symbol"],
+                        "price": last_price,
+                        "lastPrice": last_price,
+                        "priceChange": float(t.get("priceChange",0) or 0),
+                        "priceChangePercent": float(t.get("priceChangePercent",0) or 0),
+                        "high": float(t.get("highPrice",0) or 0),
+                        "low": float(t.get("lowPrice",0) or 0),
+                        "volume": float(t.get("volume",0) or 0),
+                        "quoteVolume": float(t.get("quoteVolume",0) or 0),
+                        "open": float(t.get("openPrice",0) or 0),
+                        "trades": int(t.get("count",0) or 0),
+                        "real_data": True,
+                        "source": "Binance Live"
+                    }
+            except (ValueError, TypeError, KeyError):
+                continue
         result = {"tickers": tickers, "count": len(tickers), "timestamp": now, "source": "Binance Live - Real Data", "real_trading": True}
-        _market_cache["tickers"] = result
-        _market_cache["timestamp"] = now
+        with _market_cache_lock:
+            _market_cache["tickers"] = result
+            _market_cache["timestamp"] = now
         return result
+    except requests.RequestException as e:
+        logger.warning(f"Binance ticker fetch failed (network): {e}")
+        # Return cached if available even if expired
+        with _market_cache_lock:
+            if _market_cache["tickers"]:
+                cached = _market_cache["tickers"].copy()
+                cached["cached"] = True
+                cached["warning"] = "Live fetch failed, returning cached"
+                return cached
+        raise HTTPException(status_code=503, detail=f"Market data unavailable: {e}")
     except Exception as e:
         logger.warning(f"Binance ticker fetch failed: {e}")
         raise HTTPException(status_code=500, detail=f"Market data fetch failed: {e}")

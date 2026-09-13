@@ -1,6 +1,6 @@
 """
 Institutional Risk Model - VaR, CVaR, Kelly, Drawdown Control
-Real trading risk management
+Fixed: var_size formula, correlation NaN handling, error handling, validation
 """
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional
@@ -18,18 +18,21 @@ class RiskConfig:
     lookback_days: int = 60
     max_drawdown_pct: float = 10.0
     max_position_pct: float = 20.0
-    kelly_fraction: float = 0.5  # half-kelly for safety
+    kelly_fraction: float = 0.5
+
+    def __post_init__(self):
+        if not 0.5 <= self.confidence <= 0.99:
+            self.confidence = 0.95
+        if self.lookback_days < 20:
+            self.lookback_days = 60
+        if self.max_drawdown_pct <= 0:
+            self.max_drawdown_pct = 10.0
+        if self.max_position_pct <= 0 or self.max_position_pct > 100:
+            self.max_position_pct = 20.0
+        if not 0.1 <= self.kelly_fraction <= 1.0:
+            self.kelly_fraction = 0.5
 
 class InstitutionalRiskModel:
-    """
-    Institutional Risk:
-    - VaR (Value at Risk) historical
-    - CVaR (Conditional VaR)
-    - Kelly Criterion for position sizing
-    - Drawdown control
-    - Correlation risk
-    - Real market data
-    """
     def __init__(self, cfg: RiskConfig = None):
         self.config = cfg or RiskConfig()
 
@@ -38,136 +41,248 @@ class InstitutionalRiskModel:
             from ..data.fetcher import CryptoDataFetcher
             fetcher = CryptoDataFetcher(symbol=symbol)
             df = fetcher.load_or_fetch(symbol=symbol)
+            if df.empty or len(df) < 10:
+                return None
             returns = df['Close'].pct_change().dropna().tail(self.config.lookback_days)
-            return returns
+            if returns.empty:
+                return None
+            # Remove infinite and NaN
+            returns = returns.replace([np.inf, -np.inf], np.nan).dropna()
+            return returns if not returns.empty else None
         except Exception as e:
-            logger.warning(f"Returns fetch failed {symbol}: {e}")
+            logger.debug(f"Returns fetch failed {symbol}: {e}")
             return None
 
     def calculate_var(self, returns: pd.Series, confidence: float = 0.95) -> float:
-        """Historical VaR"""
         try:
             if returns is None or len(returns) < 10:
                 return 0.02
-            var = np.percentile(returns, (1-confidence)*100)
-            return float(abs(var))
-        except:
+            # Filter non-finite
+            clean = returns[np.isfinite(returns)]
+            if len(clean) < 10:
+                return 0.02
+            var = np.percentile(clean, (1-confidence)*100)
+            # VaR should be positive loss
+            result = float(abs(var))
+            # Bound 0.1% to 20%
+            return max(0.001, min(result, 0.20))
+        except Exception as e:
+            logger.debug(f"VaR calc failed: {e}")
             return 0.02
 
     def calculate_cvar(self, returns: pd.Series, confidence: float = 0.95) -> float:
-        """Conditional VaR - expected loss beyond VaR"""
         try:
             if returns is None or len(returns) < 10:
                 return 0.03
-            var = np.percentile(returns, (1-confidence)*100)
-            cvar = returns[returns <= var].mean()
-            return float(abs(cvar)) if not np.isnan(cvar) else self.calculate_var(returns, confidence) * 1.5
-        except:
+            clean = returns[np.isfinite(returns)]
+            if len(clean) < 10:
+                return 0.03
+            var_threshold = np.percentile(clean, (1-confidence)*100)
+            tail = clean[clean <= var_threshold]
+            if tail.empty:
+                return self.calculate_var(returns, confidence) * 1.5
+            cvar = tail.mean()
+            if not np.isfinite(cvar):
+                return self.calculate_var(returns, confidence) * 1.5
+            result = float(abs(cvar))
+            return max(0.001, min(result, 0.30))
+        except Exception as e:
+            logger.debug(f"CVaR calc failed: {e}")
             return 0.03
 
     def kelly_criterion(self, win_rate: float, win_loss_ratio: float) -> float:
-        """
-        Kelly % = W - (1-W)/R
-        W = win rate, R = win/loss ratio
-        """
         try:
-            if win_loss_ratio <= 0:
+            if win_loss_ratio <= 0 or not np.isfinite(win_loss_ratio):
                 return 0.0
+            if not 0 <= win_rate <= 1:
+                win_rate = 0.55
+            if not np.isfinite(win_rate):
+                win_rate = 0.55
             kelly = win_rate - (1-win_rate) / win_loss_ratio
-            # Half-kelly for safety
+            if not np.isfinite(kelly):
+                return 0.02
             kelly = kelly * self.config.kelly_fraction
-            # Bound 0- max_position
             kelly = max(0, min(kelly, self.config.max_position_pct/100))
             return float(kelly)
-        except:
+        except Exception as e:
+            logger.debug(f"Kelly calc failed: {e}")
             return 0.02
 
     def calculate_drawdown(self, equity_curve: List[float]) -> Dict:
         try:
-            equity = np.array(equity_curve)
+            if not equity_curve or len(equity_curve) < 2:
+                return {"max_drawdown_pct": 0, "current_drawdown_pct": 0, "is_breached": False}
+            equity = np.array(equity_curve, dtype=float)
+            # Remove non-finite
+            equity = equity[np.isfinite(equity)]
+            if len(equity) < 2:
+                return {"max_drawdown_pct": 0, "current_drawdown_pct": 0, "is_breached": False}
             peak = np.maximum.accumulate(equity)
+            # Avoid division by zero
+            peak = np.where(peak == 0, 1, peak)
             drawdown = (equity - peak) / peak * 100
             max_dd = float(np.min(drawdown)) if len(drawdown) else 0
             current_dd = float(drawdown[-1]) if len(drawdown) else 0
+            if not np.isfinite(max_dd):
+                max_dd = 0
+            if not np.isfinite(current_dd):
+                current_dd = 0
             return {
                 "max_drawdown_pct": max_dd,
                 "current_drawdown_pct": current_dd,
                 "is_breached": abs(current_dd) > self.config.max_drawdown_pct
             }
-        except:
+        except Exception as e:
+            logger.debug(f"Drawdown calc failed: {e}")
             return {"max_drawdown_pct": 0, "current_drawdown_pct": 0, "is_breached": False}
 
     def portfolio_risk(self, symbols: List[str]) -> Dict:
-        """Portfolio level risk with correlation"""
         try:
             from ..data.fetcher import CryptoDataFetcher
             returns_dict = {}
-            for sym in symbols[:5]:  # limit
+            for sym in symbols[:5]:
                 r = self.fetch_returns(sym)
-                if r is not None:
+                if r is not None and len(r) >= 20:
                     returns_dict[sym] = r
 
             if len(returns_dict) < 2:
-                return {"correlation_risk": "low", "diversification": "high", "var_portfolio": 0.02}
+                return {
+                    "avg_correlation": 0.0,
+                    "correlation_risk": "low",
+                    "var_portfolio": 0.02,
+                    "cvar_portfolio": 0.03,
+                    "diversification": "high",
+                    "num_assets": len(returns_dict),
+                    "warning": "Need at least 2 assets for correlation"
+                }
 
             df = pd.DataFrame(returns_dict).dropna()
-            corr = df.corr()
-            avg_corr = float(corr.values[np.triu_indices_from(corr.values, k=1)].mean()) if corr.shape[0] > 1 else 0
+            if df.empty or len(df) < 10:
+                return {"avg_correlation": 0.0, "correlation_risk": "low", "var_portfolio": 0.02, "cvar_portfolio": 0.03, "diversification": "high", "num_assets": len(returns_dict)}
 
-            # Portfolio VaR - simplified
+            # Correlation with NaN handling
+            corr = df.corr()
+            # Get upper triangle without diagonal
+            mask = np.triu(np.ones(corr.shape), k=1).astype(bool)
+            corr_values = corr.values[mask]
+            corr_values = corr_values[np.isfinite(corr_values)]
+            if len(corr_values) == 0:
+                avg_corr = 0.0
+            else:
+                avg_corr = float(np.mean(corr_values))
+                if not np.isfinite(avg_corr):
+                    avg_corr = 0.0
+            avg_corr = max(-1.0, min(1.0, avg_corr))
+
             portfolio_returns = df.mean(axis=1)
             var_p = self.calculate_var(portfolio_returns, self.config.confidence)
             cvar_p = self.calculate_cvar(portfolio_returns, self.config.confidence)
 
-            risk_level = "low"
             if avg_corr > 0.7:
                 risk_level = "high"
+                diversification = "low"
             elif avg_corr > 0.4:
                 risk_level = "medium"
+                diversification = "medium"
+            else:
+                risk_level = "low"
+                diversification = "high"
 
             return {
                 "avg_correlation": avg_corr,
                 "correlation_risk": risk_level,
                 "var_portfolio": var_p,
                 "cvar_portfolio": cvar_p,
-                "diversification": "low" if avg_corr > 0.7 else "high" if avg_corr < 0.3 else "medium",
-                "num_assets": len(returns_dict)
+                "diversification": diversification,
+                "num_assets": len(returns_dict),
+                "corr_matrix": corr.round(3).to_dict() if len(returns_dict) <= 5 else {}
             }
         except Exception as e:
             logger.warning(f"Portfolio risk failed: {e}")
-            return {"error": str(e), "var_portfolio": 0.02}
+            return {"error": str(e), "var_portfolio": 0.02, "cvar_portfolio": 0.03, "avg_correlation": 0.0}
 
     def position_size(self, symbol: str, account_balance: float, win_rate: float = 0.55, win_loss_ratio: float = 1.5) -> Dict:
-        returns = self.fetch_returns(symbol)
-        var = self.calculate_var(returns, self.config.confidence) if returns is not None else 0.02
-        cvar = self.calculate_cvar(returns, self.config.confidence) if returns is not None else 0.03
-        kelly = self.kelly_criterion(win_rate, win_loss_ratio)
+        try:
+            if account_balance <= 0:
+                raise ValueError("account_balance must be >0")
 
-        # Risk-based size: don't risk more than VaR
-        max_risk_amount = account_balance * 0.02  # 2% max risk
-        # Position size based on VaR
-        var_size = max_risk_amount / (var * 10000) if var else account_balance * 0.1
+            returns = self.fetch_returns(symbol)
+            var = self.calculate_var(returns, self.config.confidence) if returns is not None else 0.02
+            cvar = self.calculate_cvar(returns, self.config.confidence) if returns is not None else 0.03
+            kelly = self.kelly_criterion(win_rate, win_loss_ratio)
 
-        # Kelly size
-        kelly_size = account_balance * kelly
+            # Fixed: More realistic position sizing
+            # Risk 2% of account per trade
+            max_risk_amount = account_balance * 0.02
 
-        # Conservative: take minimum
-        recommended = min(var_size, kelly_size, account_balance * self.config.max_position_pct/100)
+            # Get current price for proper sizing
+            try:
+                from ..data.realtime import BinanceRealtimeFetcher
+                fetcher = BinanceRealtimeFetcher(symbol=symbol)
+                current_price = fetcher.get_current_price()
+                if not current_price or current_price <= 0:
+                    from ..data.fetcher import CryptoDataFetcher
+                    f = CryptoDataFetcher(symbol=symbol)
+                    df = f.load_or_fetch(symbol=symbol)
+                    current_price = float(df['Close'].iloc[-1]) if not df.empty else 100000
+            except Exception:
+                current_price = 100000
 
-        return {
-            "symbol": symbol,
-            "account_balance": account_balance,
-            "var_95": var,
-            "cvar_95": cvar,
-            "kelly_pct": kelly * 100,
-            "kelly_size": kelly_size,
-            "var_size": var_size,
-            "recommended_size": float(recommended),
-            "recommended_pct": float(recommended / account_balance * 100) if account_balance else 0,
-            "max_position_pct": self.config.max_position_pct,
-            "method": "Institutional VaR + Kelly + Drawdown Control",
-            "timestamp": datetime.utcnow().isoformat()
-        }
+            # Position size based on VaR: if VaR is 2%, and we want to risk 2% of account,
+            # position size = risk_amount / (price * VaR) * price = risk_amount / VaR
+            # Actually: position_value = risk_amount / VaR
+            # Example: account 10k, risk 2% = $200, VaR 2% => position $10k, which is 100% - too high
+            # So use: position = account * (risk% / VaR) * kelly_adjustment, capped by max_position
+            # More conservative:
+            var_based_pct = 0.02 / max(var, 0.01)  # if var=2%, pct=1 (100%), if var=4%, pct=0.5 (50%)
+            var_based_pct = max(0.01, min(var_based_pct, self.config.max_position_pct/100))
+            var_size = account_balance * var_based_pct
+
+            kelly_size = account_balance * kelly
+
+            # Conservative: weighted average of var and kelly, capped
+            recommended = min(
+                (var_size * 0.6 + kelly_size * 0.4),
+                account_balance * self.config.max_position_pct / 100
+            )
+            recommended = max(account_balance * 0.01, recommended)  # at least 1%
+
+            return {
+                "symbol": symbol,
+                "account_balance": account_balance,
+                "current_price": current_price,
+                "var_95": var,
+                "cvar_95": cvar,
+                "kelly_pct": kelly * 100,
+                "kelly_size": kelly_size,
+                "var_size": var_size,
+                "var_based_pct": var_based_pct * 100,
+                "recommended_size": float(recommended),
+                "recommended_pct": float(recommended / account_balance * 100) if account_balance else 0,
+                "recommended_quantity": float(recommended / current_price) if current_price else 0,
+                "max_position_pct": self.config.max_position_pct,
+                "method": "Institutional VaR + Kelly + Drawdown Control (Fixed)",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            logger.warning(f"Position size failed {symbol}: {e}")
+            # Safe fallback
+            safe_size = account_balance * 0.05 if account_balance > 0 else 500
+            return {
+                "symbol": symbol,
+                "account_balance": account_balance,
+                "var_95": 0.02,
+                "cvar_95": 0.03,
+                "kelly_pct": 2.0,
+                "kelly_size": safe_size,
+                "var_size": safe_size,
+                "recommended_size": safe_size,
+                "recommended_pct": 5.0,
+                "max_position_pct": self.config.max_position_pct,
+                "method": "Fallback - 5% due to error",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            }
 
     def to_dict(self):
         return {
