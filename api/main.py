@@ -1,9 +1,11 @@
 """
-FastAPI for Crypto Prediction - v4 Real Trading + Continuous Self-Training
-Models train endlessly with live market data, real trading calls for actual trades
-No fake money simulation - real Binance data, real entry/SL/TP for live trading
+FastAPI v5 - Extensive Real Trading Platform + Continuous Training
+- Real trading calls for actual trades, no fake simulation
+- Continuous self-training with live Binance data
+- Portfolio, Strategies (DCA, Grid, Breakout), Alerts, Scanner, Analytics, Journal
+- Max performance models v4
 """
-from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict
@@ -25,25 +27,41 @@ from crypto_prediction.backtesting.engine import BacktestEngine
 from crypto_prediction.backtesting.strategies import MovingAverageStrategy, RSIStrategy, PredictionStrategy, EnsembleSignalStrategy
 from crypto_prediction.trading.calls import TradingCallGenerator
 from crypto_prediction.training.continuous import get_continuous_trainer, get_training_status
+from crypto_prediction.portfolio.manager import get_portfolio_manager
+from crypto_prediction.strategies.manager import get_strategy_manager
+from crypto_prediction.alerts.manager import get_alert_manager
+from crypto_prediction.scanner.manager import get_market_scanner
+from crypto_prediction.analytics.manager import get_analytics_manager
+from crypto_prediction.journal.manager import get_journal_manager
 from crypto_prediction.utils.logger import get_logger
 
 logger = get_logger(__name__)
 config = get_config()
 
 app = FastAPI(
-    title="Crypto Prediction API v4 - Real Trading + Continuous Training",
+    title="Crypto Prediction API v5 - Extensive Real Trading Platform",
     description="""
-    🚀 Real Trading Calls Edition - No Fake Simulation
+    🚀 v5 Extensive Real Trading Platform - No Fake Simulation
     
-    - Continuous self-training: Models learn endlessly from live Binance market data
-    - Real trading calls: Entry price = live Binance price, SL/TP based on ATR for actual trades
-    - No paper trading simulation - these are actionable calls for real money
-    - Models: LSTM v3 (Bidir+Attention), Transformer v3 (Learnable PE+Attn Pool), XGBoost v3 (Tuned), ARIMA v3 (SARIMAX), Ensemble v3 (Dynamic+Stacking)
-    - Performance: ARIMA 2.57% MAPE, Ensemble 6.30%, SOL 2.37% on past week
-    - Features: 182 technical indicators, sentiment, real-time Binance feed
-    - Risk Management: Position sizing, leverage suggestion, risk levels
+    **Core:**
+    - 🔄 Continuous Training: Models learn endlessly from live Binance data (every 12h)
+    - 💰 Real Trading Calls: Live Binance entry, ATR SL, 1:1/2/3 TP, position sizing for REAL money
+    - 🧠 Models v4 Max Perf: LSTM Bidir+Attn+Huber+AdamW, Transformer Learnable PE+Attn Pool, XGBoost 1500 trees, ARIMA SARIMAX, Ensemble Dynamic+Stacking
+    - 📊 182 Features, RobustScaler, Sentiment, Real-time Binance
+    
+    **Extensive Features:**
+    - 💼 Portfolio: Real holdings, P&L, allocation, performance (win rate, profit factor, Sharpe)
+    - 🤖 Strategies: DCA Bot, Grid Bot, Breakout Scanner for real trading
+    - 🚨 Alerts: Price above/below, signal buy/sell, volume spike - real market
+    - 🔍 Scanner: Volume spikes, momentum, RSI oversold/overbought - real opportunities
+    - 📈 Analytics: Equity curve, drawdown, symbol performance, real P&L
+    - 📓 Journal: Log real trades with notes/emotions/lessons
+    - ⚡ Real-time: Binance tickers, klines, orderbook, live prices
+    - 🎯 Risk: Position sizing, leverage, max drawdown protection, daily loss limit
+    
+    **No Fake:** Only real Binance market data, real trading calls for actual trades
     """,
-    version="0.4.0"
+    version="0.5.0"
 )
 
 app.add_middleware(
@@ -57,11 +75,17 @@ app.add_middleware(
 realtime_manager: Optional[RealtimeManager] = None
 call_generator = TradingCallGenerator(risk_per_trade=0.02)
 continuous_trainer = get_continuous_trainer()
+portfolio_manager = get_portfolio_manager()
+strategy_manager = get_strategy_manager()
+alert_manager = get_alert_manager()
+market_scanner = get_market_scanner()
+analytics_manager = get_analytics_manager()
+journal_manager = get_journal_manager()
 
 _market_cache = {"tickers": None, "timestamp": 0}
 _calls_cache = {"calls": None, "timestamp": 0, "account_balance": 10000}
 CACHE_TTL = 10
-CALLS_CACHE_TTL = 30  # 30 sec for real trading calls - need fresh data
+CALLS_CACHE_TTL = 30
 
 class ForecastResponse(BaseModel):
     symbol: str
@@ -105,19 +129,61 @@ class TrainingRequest(BaseModel):
     retrain_interval_hours: int = 12
     run_immediately: bool = False
 
+class PortfolioOrderRequest(BaseModel):
+    symbol: str
+    side: str  # LONG, SHORT
+    quantity: float
+    entry_price: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profits: Optional[Dict[str, float]] = None
+    leverage: str = "1x"
+
+class AlertRequest(BaseModel):
+    symbol: str
+    type: str  # PRICE_ABOVE, PRICE_BELOW, SIGNAL_BUY, etc.
+    target_price: Optional[float] = None
+    condition: str = ""
+
+class JournalRequest(BaseModel):
+    symbol: str
+    side: str
+    entry_price: float
+    quantity: float
+    strategy: str = "AI Ensemble"
+    notes: str = ""
+    emotions: str = ""
+    lessons: str = ""
+    tags: List[str] = []
+    exit_price: Optional[float] = None
+    pnl: float = 0
+
+class DCABotRequest(BaseModel):
+    symbol: str
+    total_investment: float
+    num_orders: int = 5
+    price_deviation_pct: float = 1.0
+    take_profit_pct: float = 5.0
+    stop_loss_pct: float = 3.0
+
+class GridBotRequest(BaseModel):
+    symbol: str
+    lower_price: float
+    upper_price: float
+    num_grids: int = 10
+    total_investment: float = 1000
+
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 API v4 Starting - Real Trading + Continuous Training")
-    # Start continuous training in background (without immediate retrain to avoid startup delay)
+    logger.info("🚀 API v5 Starting - Extensive Real Trading + Continuous Training")
     try:
         continuous_trainer.start(run_immediately=False)
-        logger.info("✅ Continuous training started - models will self-train endlessly with live data")
+        logger.info("✅ Continuous training started - endless learning with live data")
     except Exception as e:
         logger.warning(f"Could not start continuous training: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    logger.info("Shutting down API v4")
+    logger.info("Shutting down API v5")
     try:
         continuous_trainer.stop()
     except:
@@ -126,44 +192,55 @@ async def shutdown_event():
 @app.get("/")
 def root():
     return {
-        "message": "Crypto Prediction API v4 - Real Trading + Continuous Self-Training - No Fake Simulation",
-        "version": "0.4.0",
-        "tagline": "Models train endlessly with live market data - Real calls for actual trades",
-        "features": [
-            "🔄 Continuous Training - Self-learning forever with live Binance data",
-            "💰 Real Trading Calls - Live entry/SL/TP for actual trades, no paper simulation",
-            "🧠 LSTM v3 - Bidirectional + Attention + HuberLoss + AdamW",
-            "🤖 Transformer v3 - Learnable PE + Attention Pooling + Pre-LN",
-            "🌲 XGBoost v3 - 1000 estimators, depth 8, regularized",
-            "📈 ARIMA v3 - SARIMAX with weekly seasonality",
-            "🎯 Ensemble v3 - Dynamic inverse MAPE weighting + Ridge stacking",
-            "📊 182 Features - ADX, CCI, Ichimoku, Keltner, VWAP, RobustScaler",
-            "💹 Risk Management - Position sizing, leverage, risk levels",
-            "⚡ Real-time Binance - Live prices, no fake data"
-        ],
+        "message": "Crypto Prediction API v5 - Extensive Real Trading Platform - No Fake Simulation",
+        "version": "0.5.0",
+        "tagline": "Real trading calls for actual money + Models train endlessly with live data + Extensive bot features",
+        "features": {
+            "core": [
+                "🔄 Continuous Training - Endless self-learning with live Binance data",
+                "💰 Real Trading Calls - Live entry/SL/TP for REAL money, no paper simulation",
+                "🧠 LSTM v3 - Bidir+Attention+Huber+AdamW",
+                "🤖 Transformer v3 - Learnable PE+Attn Pool+Pre-LN",
+                "🌲 XGBoost v3 - 1500 trees, depth 8, regularized",
+                "📈 ARIMA v3 - SARIMAX weekly",
+                "🎯 Ensemble v3 - Dynamic inverse MAPE + Ridge stacking"
+            ],
+            "extensive": [
+                "💼 Portfolio - Real holdings, P&L, allocation, win rate, profit factor, Sharpe",
+                "🤖 DCA Bot - Dollar Cost Averaging for real accumulation",
+                "📊 Grid Bot - Profits from ranging markets, real grid levels",
+                "💥 Breakout Scanner - Volume confirmed breakouts",
+                "🚨 Alerts - Price, signal, volume spike alerts with live checking",
+                "🔍 Market Scanner - Volume spikes, momentum, RSI oversold/overbought",
+                "📈 Analytics - Equity curve, drawdown, symbol performance, real P&L",
+                "📓 Journal - Log real trades with notes/emotions/lessons",
+                "⚡ Real-time - Binance tickers, klines, orderbook",
+                "🛡️ Risk - Position sizing, leverage, max DD protection"
+            ]
+        },
         "real_trading": {
-            "description": "These are REAL trading calls for actual money - not simulation",
-            "entry": "Live Binance price at call generation time",
-            "stop_loss": "ATR 1.5x for real risk management",
-            "take_profit": "TP1 1:1, TP2 1:2, TP3 1:3 risk/reward",
-            "position_size": "Based on your account balance and risk per trade",
-            "how_to_trade": "Use entry/SL/TP on Binance/Bybit - set stop loss strictly",
-            "warning": "Crypto trading is high risk - never risk more than you can afford to lose"
+            "entry": "Live Binance price NOW",
+            "stop_loss": "ATR 1.5x real risk",
+            "take_profit": "TP1 1:1, TP2 1:2, TP3 1:3 real profit",
+            "position_size": "Based on YOUR account balance",
+            "warning": "Real money trading - high risk"
         },
         "continuous_training": {
-            "status": "Models retrain every 12 hours with latest real market data",
-            "data_source": "Binance REST + WebSocket - real market data",
-            "no_fake": "No synthetic data - only real OHLCV from Binance",
-            "endless": "Training loop runs forever, learning from current and upcoming data",
-            "performance": "ARIMA 2.57% MAPE, Ensemble 6.30%, SOL 2.37% on past week backtest"
+            "status": "Models retrain every 12h with real Binance data",
+            "data_source": "Binance Live - real market data",
+            "no_fake": "No synthetic data - only real OHLCV",
+            "endless": "Training loop runs forever"
         },
-        "supported_symbols": config.data.supported_symbols,
         "endpoints": {
             "real_trading": ["/trading/calls", "/trading/call/{symbol}", "/trading/summary", "/trading/real/guide"],
-            "continuous_training": ["/training/status", "/training/start", "/training/stop", "/training/retrain/{symbol}"],
-            "market": ["/market/tickers", "/market/klines", "/realtime/price"],
-            "forecast": ["/forecast", "/predict", "/signal"],
-            "validation": ["/backtest (for model validation, not fake trading)"]
+            "portfolio": ["/portfolio", "/portfolio/open", "/portfolio/close/{symbol}", "/portfolio/performance"],
+            "strategies": ["/strategies/dca", "/strategies/grid", "/strategies/breakout/scan", "/strategies/all"],
+            "alerts": ["/alerts", "/alerts/create", "/alerts/active", "/alerts/check"],
+            "scanner": ["/scanner", "/scanner/volume", "/scanner/momentum", "/scanner/rsi"],
+            "analytics": ["/analytics", "/analytics/equity", "/analytics/metrics", "/analytics/symbols"],
+            "journal": ["/journal", "/journal/add", "/journal/stats"],
+            "training": ["/training/status", "/training/start", "/training/stop", "/training/retrain/{symbol}"],
+            "market": ["/market/tickers", "/market/klines", "/market/orderbook", "/realtime/price"]
         }
     }
 
@@ -172,40 +249,33 @@ def health():
     trainer_status = continuous_trainer.get_status()
     return {
         "status": "ok",
-        "version": "0.4.0",
-        "mode": "real_trading",
+        "version": "0.5.0",
+        "mode": "extensive_real_trading",
         "continuous_training": trainer_status["is_running"],
-        "realtime": realtime_manager is not None,
-        "models": "v4 - Continuous self-training with live data",
+        "portfolio_value": portfolio_manager.get_portfolio().total_value,
+        "open_positions": len(portfolio_manager.positions),
+        "active_alerts": len([a for a in alert_manager.alerts.values() if a.status == "ACTIVE"]),
+        "models": "v5 Extensive - Real Trading + Endless Learning",
         "data": "Real Binance market data - no fake simulation",
         "uptime": trainer_status.get("uptime", 0)
     }
 
-# === CONTINUOUS TRAINING ENDPOINTS ===
+# === CONTINUOUS TRAINING ===
 
 @app.get("/training/status")
 def training_status():
-    """Get continuous training status - models learning forever from real data"""
     try:
         status = get_training_status()
         return {
             "message": "Continuous training - models learn endlessly from real market data",
             "status": status,
-            "explanation": {
-                "is_running": "Whether endless training loop is active",
-                "last_train_time": "When each symbol was last trained with real data",
-                "next_train_time": "When next retraining will happen",
-                "data_last_updated": "When real Binance data was last fetched",
-                "model_performance": "Latest MAPE/RMSE on real data",
-                "total_trainings": "How many times models have been retrained with live data"
-            }
+            "real_data": True
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/training/start")
 def start_training(req: TrainingRequest):
-    """Start continuous endless training with live market data"""
     try:
         trainer = continuous_trainer
         if req.symbols:
@@ -215,71 +285,53 @@ def start_training(req: TrainingRequest):
             trainer.retrain_interval = timedelta(hours=req.retrain_interval_hours)
         if req.epochs:
             trainer.epochs = req.epochs
-        
         started = trainer.start(run_immediately=req.run_immediately)
-        
         return {
             "status": "started" if started else "already_running",
-            "message": "Continuous training started - models will learn forever from real Binance data",
+            "message": "Continuous training started - endless learning with real Binance data",
             "config": {
                 "symbols": trainer.symbols,
                 "retrain_interval_hours": trainer.retrain_interval.total_seconds() / 3600,
-                "epochs": trainer.epochs,
-                "check_interval_minutes": trainer.check_interval / 60
+                "epochs": trainer.epochs
             },
-            "real_data": "Only real market data from Binance - no fake simulation",
-            "endless": "Loop runs forever, retraining with current and upcoming data"
+            "real_data": True
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/training/stop")
 def stop_training():
-    """Stop continuous training"""
     try:
         stopped = continuous_trainer.stop()
-        return {
-            "status": "stopped" if stopped else "not_running",
-            "message": "Continuous training stopped"
-        }
+        return {"status": "stopped" if stopped else "not_running"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/training/retrain/{symbol}")
 def retrain_symbol(symbol: str, epochs: int = Query(80, ge=10, le=200)):
-    """Force retrain a specific symbol with latest real market data"""
     try:
         if symbol not in config.data.supported_symbols:
-            raise HTTPException(status_code=400, detail=f"Symbol {symbol} not supported. Use {config.data.supported_symbols}")
-        
-        # Update data first with real Binance data
+            raise HTTPException(status_code=400, detail=f"Symbol {symbol} not supported")
         has_new = continuous_trainer.update_local_data(symbol)
-        
-        # Train
         results = continuous_trainer.train_symbol(symbol, epochs=epochs)
-        
         return {
             "symbol": symbol,
-            "message": f"Retrained {symbol} with real Binance market data - no fake data",
+            "message": f"Retrained {symbol} with real Binance data",
             "has_new_data": has_new,
             "epochs": epochs,
             "results": results,
-            "data": "Real market data from Binance",
-            "performance": results
+            "real_data": True
         }
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Retrain failed for {symbol}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/training/retrain")
 def retrain_all(req: TrainingRequest):
-    """Force retrain all symbols with latest real data"""
     try:
         symbols = req.symbols or continuous_trainer.symbols
         epochs = req.epochs or 80
-        
         results = {}
         for sym in symbols:
             try:
@@ -288,35 +340,20 @@ def retrain_all(req: TrainingRequest):
                 results[sym] = res
             except Exception as e:
                 results[sym] = {"error": str(e)}
-        
-        return {
-            "message": f"Retrained {len(results)} symbols with real market data",
-            "symbols": symbols,
-            "epochs": epochs,
-            "results": results,
-            "real_data": "All training uses real Binance OHLCV - no simulation"
-        }
+        return {"message": f"Retrained {len(results)} symbols with real data", "results": results, "real_data": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# === REAL TRADING CALLS - NO FAKE SIMULATION ===
+# === REAL TRADING CALLS ===
 
 @app.get("/trading/calls")
 def get_trading_calls(
-    symbols: Optional[str] = Query(None, description="Filter symbols comma-separated e.g., BTC-USD,ETH-USD"),
-    timeframe: str = Query("1d", description="1m, 5m, 15m, 1h, 4h, 1d, 1w"),
+    symbols: Optional[str] = Query(None, description="Filter symbols comma-separated"),
+    timeframe: str = Query("1d"),
     account_balance: float = Query(10000, ge=100, le=10000000),
     risk_per_trade: float = Query(0.02, ge=0.005, le=0.1),
     use_cache: bool = Query(True)
 ):
-    """
-    REAL TRADING CALLS - For actual trades with real money
-    - Entry = Live Binance price NOW
-    - SL = ATR 1.5x for real risk management  
-    - TP = 1:1, 1:2, 1:3 risk/reward for real profit taking
-    - Position size based on YOUR account balance
-    - No fake money simulation - these are actionable calls
-    """
     parsed_symbols: Optional[List[str]] = None
     if symbols:
         if "," in symbols:
@@ -324,38 +361,21 @@ def get_trading_calls(
         else:
             parsed_symbols = [symbols.strip()]
     symbols_list = parsed_symbols
-    
     global _calls_cache
     now = time.time()
-    
-    # Check cache - but short TTL for real trading (30s)
     if use_cache and _calls_cache["calls"] and (now - _calls_cache["timestamp"]) < CALLS_CACHE_TTL:
         if _calls_cache["account_balance"] == account_balance:
             cached = _calls_cache["calls"]
             if symbols_list:
                 filtered = [c for c in cached["calls"] if c["symbol"] in symbols_list]
-                return {
-                    "calls": filtered,
-                    "summary": cached["summary"],
-                    "count": len(filtered),
-                    "cached": True,
-                    "timestamp": cached["timestamp"],
-                    "real_trading": True,
-                    "data_source": "Live Binance - real market data",
-                    "warning": "Real trading calls - use proper risk management"
-                }
+                return {**cached, "calls": filtered, "count": len(filtered), "cached": True, "real_trading": True}
             return {**cached, "cached": True, "real_trading": True}
-    
     try:
         call_generator.risk_manager.risk_per_trade = risk_per_trade
-        target_symbols = symbols_list or config.data.supported_symbols[:6]  # Focus on main 6 with real data
-        
-        # Generate real trading calls with live Binance prices
+        target_symbols = symbols_list or config.data.supported_symbols[:6]
         calls = call_generator.generate_all_calls(symbols=target_symbols, timeframe=timeframe, account_balance=account_balance)
-        
         calls_dict = [c.to_dict() for c in calls]
         summary = call_generator.get_call_summary(calls)
-        
         result = {
             "calls": calls_dict,
             "summary": summary,
@@ -367,149 +387,448 @@ def get_trading_calls(
             "timestamp": datetime.utcnow().isoformat(),
             "cached": False,
             "real_trading": True,
-            "data_source": "Live Binance REST - real market prices",
-            "no_simulation": "These are REAL calls for actual trades - entry is live Binance price",
+            "data_source": "Live Binance - real market prices",
             "how_to_use": {
-                "entry": "Place limit order at entry_price (live Binance price)",
-                "stop_loss": "Set SL at stop_loss - never trade without SL",
-                "take_profit": "Set TP1, TP2, TP3 for partial profit taking",
+                "entry": "Place limit order at entry_price (live Binance)",
+                "stop_loss": "Set SL at stop_loss - mandatory",
+                "take_profit": "TP1, TP2, TP3 for partials",
                 "position": "Use position.size for your account",
-                "leverage": "Use suggested leverage, lower for high volatility",
-                "risk": f"Risk ${account_balance * risk_per_trade:.0f} per trade ({risk_per_trade*100}%)"
-            },
-            "warning": "Real money trading - high risk - not financial advice - do your own research"
+                "risk": f"Risk ${account_balance * risk_per_trade:.0f} per trade"
+            }
         }
-        
         _calls_cache["calls"] = result
         _calls_cache["timestamp"] = now
         _calls_cache["account_balance"] = account_balance
-        
         return result
-        
     except Exception as e:
         logger.error(f"Trading calls failed: {e}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/trading/call/{symbol}")
-def get_single_call(
-    symbol: str,
-    timeframe: str = Query("1d"),
-    account_balance: float = Query(10000, ge=100),
-    risk_per_trade: float = Query(0.02, ge=0.005, le=0.1)
-):
-    """REAL trading call for single symbol - live Binance price"""
+def get_single_call(symbol: str, timeframe: str = Query("1d"), account_balance: float = Query(10000, ge=100), risk_per_trade: float = Query(0.02, ge=0.005, le=0.1)):
     try:
         call_generator.risk_manager.risk_per_trade = risk_per_trade
         call = call_generator.generate_call(symbol=symbol, timeframe=timeframe, account_balance=account_balance)
         result = call.to_dict()
         result["real_trading"] = True
-        result["data_source"] = "Live Binance - real price"
-        result["how_to_trade"] = f"Entry at ${result['entry_price']:.2f} (live Binance), SL ${result['stop_loss']:.2f}, TP1 ${result['take_profits']['tp1']:.2f}"
+        result["data_source"] = "Live Binance"
         return result
     except Exception as e:
-        logger.error(f"Single call failed for {symbol}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/trading/summary")
 def get_trading_summary():
-    """Quick summary of real trading calls"""
     try:
         if _calls_cache["calls"] and (time.time() - _calls_cache["timestamp"]) < CALLS_CACHE_TTL:
             return _calls_cache["calls"]["summary"]
-        
         top_symbols = config.data.supported_symbols[:6]
         calls = call_generator.generate_all_calls(symbols=top_symbols, account_balance=10000)
         summary = call_generator.get_call_summary(calls)
         summary["real_trading"] = True
-        summary["data_source"] = "Live Binance"
         return summary
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/trading/real/guide")
 def real_trading_guide():
-    """Guide for real trading with these calls - no fake simulation"""
     return {
-        "title": "Real Trading Guide - How to Use These Calls for Actual Trades",
-        "warning": "These are REAL trading calls - you will use real money. High risk!",
-        "no_fake": "No paper trading, no simulation - live Binance prices, real entry/SL/TP",
+        "title": "Real Trading Guide - Actual Trades with Real Money",
+        "warning": "REAL trading - high risk!",
+        "no_fake": "No paper trading - live Binance prices, real entry/SL/TP",
         "steps": [
-            {
-                "step": 1,
-                "title": "Check Trading Call",
-                "description": "Get call from /trading/calls - entry is LIVE Binance price",
-                "example": "BTC-USD STRONG_BUY $116k, SL $113k, TP1 $119k, confidence 85%"
-            },
-            {
-                "step": 2,
-                "title": "Risk Management",
-                "description": "Set account balance and risk per trade - never risk more than 2%",
-                "formula": "Position size = (Account * Risk%) / |Entry - SL|",
-                "example": "$10k account, 2% risk = $200 risk per trade"
-            },
-            {
-                "step": 3,
-                "title": "Place Order on Binance",
-                "description": "Use Binance/Bybit to place real order",
-                "actions": [
-                    "Limit order at entry_price",
-                    "Stop loss at stop_loss - MANDATORY",
-                    "Take profits at TP1, TP2, TP3 - partial closes",
-                    "Use suggested leverage for futures, or spot without leverage"
-                ]
-            },
-            {
-                "step": 4,
-                "title": "Manage Trade",
-                "description": "Monitor and manage",
-                "actions": [
-                    "Move SL to breakeven at TP1",
-                    "Take 50% at TP1, 30% at TP2, 20% at TP3",
-                    "Never move SL against you",
-                    "Close if confidence drops or signal changes"
-                ]
-            }
+            {"step": 1, "title": "Check Real Call", "description": "Get call from /trading/calls - entry is LIVE Binance price", "example": "BTC-USD STRONG_BUY $116k, SL $113k, TP1 $119k, 85% conf"},
+            {"step": 2, "title": "Risk Management", "description": "Set account balance and risk per trade - max 2%", "formula": "Position size = (Account * Risk%) / |Entry - SL|", "example": "$10k, 2% = $200 risk"},
+            {"step": 3, "title": "Place Order on Binance", "description": "Real order on Binance/Bybit", "actions": ["Limit at entry_price", "SL at stop_loss - MANDATORY", "TP1, TP2, TP3 partials", "Use suggested leverage"]},
+            {"step": 4, "title": "Manage", "description": "Monitor", "actions": ["Move SL to BE at TP1", "50% at TP1, 30% at TP2, 20% at TP3", "Never move SL against you"]}
         ],
         "risk_management": {
-            "position_sizing": "Use calculator in call - based on your account",
-            "stop_loss": "ALWAYS use stop loss - 1.5x ATR from entry",
-            "take_profit": "TP1 1:1, TP2 1:2, TP3 1:3 risk/reward",
-            "leverage": "Low vol: 5x-10x, Med vol: 3x-5x, High vol: 1x-3x",
-            "max_risk": "Max 2% per trade, max 6% per day (3 trades)"
+            "position_sizing": "Use calculator in call",
+            "stop_loss": "ALWAYS use SL - 1.5x ATR",
+            "take_profit": "TP1 1:1, TP2 1:2, TP3 1:3",
+            "leverage": "Low vol: 5x-10x, Med: 3x-5x, High: 1x-3x",
+            "max_risk": "Max 2% per trade, 6% per day"
         },
         "real_data": {
-            "source": "Binance REST API - live market data",
-            "entry": "Live Binance price at generation time",
-            "models": "Continuously trained with real market data, retrain every 12h",
-            "no_simulation": "No fake OHLCV, no paper money - real market"
+            "source": "Binance Live",
+            "entry": "Live Binance price",
+            "models": "Continuously trained with real data every 12h"
         },
-        "disclaimer": "Not financial advice. Crypto trading is high risk. Past performance (2.57% MAPE) doesn't guarantee future. Do your own research. Never risk more than you can afford to lose."
+        "disclaimer": "Not financial advice. High risk. Past 2.57% MAPE doesn't guarantee future. Do your own research."
     }
 
 @app.post("/trading/calls")
 def post_trading_calls(req: TradingCallRequest):
-    """POST real trading calls"""
     try:
         call_generator.risk_manager.risk_per_trade = req.risk_per_trade
         target_symbols = req.symbols or config.data.supported_symbols[:6]
         calls = call_generator.generate_all_calls(symbols=target_symbols, timeframe=req.timeframe, account_balance=req.account_balance)
         calls_dict = [c.to_dict() for c in calls]
         summary = call_generator.get_call_summary(calls)
-        
+        return {"calls": calls_dict, "summary": summary, "count": len(calls_dict), "real_trading": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === PORTFOLIO - REAL TRADING ===
+
+@app.get("/portfolio")
+def get_portfolio():
+    """Get real portfolio with live P&L - real money tracking"""
+    try:
+        portfolio = portfolio_manager.get_portfolio()
         return {
-            "calls": calls_dict,
-            "summary": summary,
-            "count": len(calls_dict),
-            "timeframe": req.timeframe,
-            "account_balance": req.account_balance,
+            **portfolio.to_dict(),
             "real_trading": True,
-            "data_source": "Live Binance",
-            "warning": "Real trading calls - high risk"
+            "data_source": "Live Binance prices",
+            "no_fake": "Real P&L from actual positions"
         }
     except Exception as e:
-        logger.error(f"Trading calls POST failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/portfolio/open")
+def open_position(req: PortfolioOrderRequest):
+    """Open real position - actual trade tracking"""
+    try:
+        # Get live price if not provided
+        entry_price = req.entry_price
+        if not entry_price:
+            fetcher = BinanceRealtimeFetcher(symbol=req.symbol)
+            entry_price = fetcher.get_current_price()
+            if not entry_price:
+                raise HTTPException(status_code=400, detail="Could not get live price")
+        
+        # Get trading call for SL/TP if not provided
+        if not req.stop_loss or not req.take_profits:
+            try:
+                call = call_generator.generate_call(symbol=req.symbol, account_balance=portfolio_manager.cash + portfolio_manager.get_portfolio().positions_value)
+                stop_loss = req.stop_loss or call.stop_loss
+                take_profits = req.take_profits or call.take_profits
+            except:
+                # Fallback
+                atr = entry_price * 0.02
+                stop_loss = entry_price - atr * 1.5 if req.side == "LONG" else entry_price + atr * 1.5
+                risk = abs(entry_price - stop_loss)
+                if req.side == "LONG":
+                    take_profits = {"tp1": entry_price + risk, "tp2": entry_price + risk*2, "tp3": entry_price + risk*3}
+                else:
+                    take_profits = {"tp1": entry_price - risk, "tp2": entry_price - risk*2, "tp3": entry_price - risk*3}
+        else:
+            stop_loss = req.stop_loss
+            take_profits = req.take_profits
+        
+        position = portfolio_manager.open_position(
+            symbol=req.symbol,
+            side=req.side,
+            entry_price=entry_price,
+            quantity=req.quantity,
+            stop_loss=stop_loss,
+            take_profits=take_profits,
+            leverage=req.leverage
+        )
+        
+        return {
+            "message": f"Opened REAL position for {req.symbol} - actual trade tracking",
+            "position": position.to_dict(),
+            "portfolio": portfolio_manager.get_portfolio().to_dict(),
+            "real_trading": True,
+            "warning": "Real position tracking - use proper risk management"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/portfolio/close/{symbol}")
+def close_position(symbol: str, current_price: Optional[float] = None):
+    """Close real position"""
+    try:
+        pos = portfolio_manager.close_position(symbol, current_price)
+        if not pos:
+            raise HTTPException(status_code=404, detail=f"No open position for {symbol}")
+        
+        return {
+            "message": f"Closed REAL position for {symbol} - P&L ${pos.pnl:.2f}",
+            "closed_position": pos.to_dict(),
+            "portfolio": portfolio_manager.get_portfolio().to_dict(),
+            "real_trading": True
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/portfolio/performance")
+def portfolio_performance():
+    """Get portfolio performance - real trading metrics"""
+    try:
+        return portfolio_manager.get_performance()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === STRATEGIES - REAL TRADING BOTS ===
+
+@app.post("/strategies/dca")
+def create_dca_bot(req: DCABotRequest):
+    """Create DCA bot for real trading - dollar cost averaging"""
+    try:
+        result = strategy_manager.create_dca_bot(
+            symbol=req.symbol,
+            total_investment=req.total_investment,
+            num_orders=req.num_orders,
+            price_deviation_pct=req.price_deviation_pct,
+            take_profit_pct=req.take_profit_pct,
+            stop_loss_pct=req.stop_loss_pct
+        )
+        return {
+            "message": f"Created REAL DCA bot for {req.symbol} - real accumulation strategy",
+            "bot": result,
+            "real_trading": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/strategies/grid")
+def create_grid_bot(req: GridBotRequest):
+    """Create Grid bot for real trading - ranging market profits"""
+    try:
+        result = strategy_manager.create_grid_bot(
+            symbol=req.symbol,
+            lower_price=req.lower_price,
+            upper_price=req.upper_price,
+            num_grids=req.num_grids,
+            total_investment=req.total_investment
+        )
+        return {
+            "message": f"Created REAL Grid bot for {req.symbol} - profits from volatility",
+            "bot": result,
+            "real_trading": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/strategies/breakout/scan")
+def scan_breakouts(symbols: Optional[str] = Query(None)):
+    """Scan for breakouts with volume confirmation - real opportunities"""
+    try:
+        parsed = None
+        if symbols:
+            parsed = [s.strip() for s in symbols.split(",")] if "," in symbols else [symbols]
+        
+        results = strategy_manager.scan_breakouts(parsed)
+        return {
+            "timestamp": datetime.utcnow().isoformat(),
+            "count": len(results),
+            "breakouts": [r for r in results if "BREAKOUT" in r["signal"]],
+            "all_signals": results,
+            "real_data": True,
+            "source": "Real market data - volume confirmed"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/strategies/all")
+def get_all_strategies():
+    """Get all active strategy bots - real trading"""
+    try:
+        return strategy_manager.get_all_bots()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === ALERTS - REAL MARKET ALERTS ===
+
+@app.get("/alerts")
+def get_alerts():
+    try:
+        return alert_manager.to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/alerts/create")
+def create_alert(req: AlertRequest):
+    try:
+        alert = alert_manager.create_alert(
+            symbol=req.symbol,
+            alert_type=req.type,
+            target_price=req.target_price,
+            condition=req.condition
+        )
+        return {
+            "message": f"Created REAL alert for {req.symbol}",
+            "alert": asdict(alert),
+            "real_data": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/alerts/active")
+def get_active_alerts():
+    try:
+        return {
+            "active_alerts": alert_manager.get_active_alerts(),
+            "count": len(alert_manager.get_active_alerts()),
+            "real_data": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/alerts/check")
+def check_alerts():
+    try:
+        triggered = alert_manager.check_alerts()
+        return {
+            "triggered": [asdict(a) for a in triggered],
+            "count": len(triggered),
+            "timestamp": datetime.utcnow().isoformat(),
+            "real_data": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/alerts/{alert_id}")
+def cancel_alert(alert_id: str):
+    try:
+        success = alert_manager.cancel_alert(alert_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Alert not found")
+        return {"message": f"Cancelled alert {alert_id}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === MARKET SCANNER - REAL OPPORTUNITIES ===
+
+@app.get("/scanner")
+def market_scanner_all():
+    """Full market scan - real opportunities from live Binance data"""
+    try:
+        result = market_scanner.scan_all()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/scanner/volume")
+def scanner_volume():
+    try:
+        spikes = market_scanner.scan_volume_spikes()
+        return {
+            "type": "volume_spikes",
+            "count": len(spikes),
+            "spikes": spikes,
+            "real_data": True,
+            "message": "Volume spikes - potential whale activity, real trading opportunities"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/scanner/momentum")
+def scanner_momentum():
+    try:
+        momentum = market_scanner.scan_momentum()
+        return {
+            "type": "momentum",
+            "count": len(momentum),
+            "momentum": momentum,
+            "real_data": True,
+            "message": "Momentum movers - real market movers"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/scanner/rsi")
+def scanner_rsi():
+    try:
+        rsi = market_scanner.scan_oversold_overbought()
+        return {
+            "type": "rsi",
+            "count": len(rsi),
+            "signals": rsi,
+            "real_data": True,
+            "message": "RSI oversold/overbought - real reversal signals"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === ANALYTICS - REAL PERFORMANCE ===
+
+@app.get("/analytics")
+def get_analytics():
+    """Full analytics - real trading performance"""
+    try:
+        return analytics_manager.get_full_analytics()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/analytics/metrics")
+def analytics_metrics():
+    try:
+        return analytics_manager.calculate_metrics()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/analytics/equity")
+def analytics_equity():
+    try:
+        return {
+            "equity_curve": analytics_manager.get_equity_curve(),
+            "real_data": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/analytics/symbols")
+def analytics_symbols():
+    try:
+        return {
+            "symbol_performance": analytics_manager.get_symbol_performance(),
+            "real_data": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === JOURNAL - REAL TRADING JOURNAL ===
+
+@app.get("/journal")
+def get_journal(symbol: Optional[str] = None, tag: Optional[str] = None):
+    try:
+        entries = journal_manager.get_entries(symbol=symbol, tag=tag)
+        return {
+            "count": len(entries),
+            "entries": entries,
+            "stats": journal_manager.get_stats(),
+            "real_trading": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/journal/add")
+def add_journal_entry(req: JournalRequest):
+    try:
+        entry = journal_manager.add_entry(
+            symbol=req.symbol,
+            side=req.side,
+            entry_price=req.entry_price,
+            quantity=req.quantity,
+            strategy=req.strategy,
+            notes=req.notes,
+            emotions=req.emotions,
+            lessons=req.lessons,
+            tags=req.tags,
+            exit_price=req.exit_price,
+            pnl=req.pnl
+        )
+        return {
+            "message": "Added REAL journal entry - for actual trading improvement",
+            "entry": asdict(entry),
+            "real_trading": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/journal/stats")
+def journal_stats():
+    try:
+        return journal_manager.get_stats()
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # === MARKET DATA - REAL BINANCE ===
@@ -518,18 +837,14 @@ def post_trading_calls(req: TradingCallRequest):
 def market_tickers():
     global _market_cache
     now = time.time()
-    
     if _market_cache["tickers"] and (now - _market_cache["timestamp"]) < CACHE_TTL:
         return _market_cache["tickers"]
-    
     try:
         resp = requests.get("https://api.binance.com/api/v3/ticker/24hr", timeout=10)
         resp.raise_for_status()
         all_tickers = resp.json()
-        
         wanted = set(config.data.binance_map.values())
         filtered = [t for t in all_tickers if t["symbol"] in wanted]
-        
         reverse_map = {v: k for k, v in config.data.binance_map.items()}
         tickers = {}
         for t in filtered:
@@ -551,49 +866,21 @@ def market_tickers():
                     "real_data": True,
                     "source": "Binance Live"
                 }
-        
         result = {"tickers": tickers, "count": len(tickers), "timestamp": now, "source": "Binance Live - Real Data", "real_trading": True}
         _market_cache["tickers"] = result
         _market_cache["timestamp"] = now
         return result
-        
     except Exception as e:
         logger.warning(f"Binance ticker fetch failed: {e}")
-        try:
-            if realtime_manager:
-                prices = realtime_manager.get_prices()
-                tickers = {}
-                for sym, price in prices.items():
-                    if price:
-                        tickers[sym] = {
-                            "symbol": sym,
-                            "price": price,
-                            "lastPrice": price,
-                            "priceChangePercent": 0,
-                            "source": "realtime_manager"
-                        }
-                return {"tickers": tickers, "count": len(tickers), "source": "fallback"}
-        except:
-            pass
-        
         raise HTTPException(status_code=500, detail=f"Market data fetch failed: {e}")
 
 @app.get("/market/klines")
-def market_klines(
-    symbol: str = Query("BTC-USD"),
-    interval: str = Query("1d"),
-    limit: int = Query(200, ge=1, le=1000)
-):
+def market_klines(symbol: str = Query("BTC-USD"), interval: str = Query("1d"), limit: int = Query(200, ge=1, le=1000)):
     try:
         binance_symbol = config.data.binance_map.get(symbol, symbol.replace("-", ""))
-        resp = requests.get(
-            "https://api.binance.com/api/v3/klines",
-            params={"symbol": binance_symbol, "interval": interval, "limit": limit},
-            timeout=10
-        )
+        resp = requests.get("https://api.binance.com/api/v3/klines", params={"symbol": binance_symbol, "interval": interval, "limit": limit}, timeout=10)
         resp.raise_for_status()
         data = resp.json()
-        
         klines = []
         for d in data:
             klines.append({
@@ -608,21 +895,15 @@ def market_klines(
                 "timeISO": pd.to_datetime(d[0], unit='ms').isoformat(),
                 "real_data": True
             })
-        
         return {"symbol": symbol, "binanceSymbol": binance_symbol, "interval": interval, "klines": klines, "count": len(klines), "source": "Binance Live - Real Data"}
     except Exception as e:
-        logger.error(f"Klines fetch failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/market/orderbook")
 def market_orderbook(symbol: str = Query("BTC-USD"), limit: int = Query(20, ge=5, le=100)):
     try:
         binance_symbol = config.data.binance_map.get(symbol, symbol.replace("-", ""))
-        resp = requests.get(
-            "https://api.binance.com/api/v3/depth",
-            params={"symbol": binance_symbol, "limit": limit},
-            timeout=10
-        )
+        resp = requests.get("https://api.binance.com/api/v3/depth", params={"symbol": binance_symbol, "limit": limit}, timeout=10)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
@@ -635,11 +916,11 @@ def get_history(symbol: str = Query("BTC-USD"), period: str = Query("1y"), inter
         df = fetcher.load_or_fetch(symbol=symbol)
         df_tail = df.tail(300)
         try:
+            from crypto_prediction.features.sentiment import SentimentFeatureEngineer
             eng = SentimentFeatureEngineer()
             df_tail = eng.enrich_price_df(df_tail, symbol=symbol)
         except:
             pass
-
         data = {
             "symbol": symbol,
             "dates": df_tail.index.strftime('%Y-%m-%d').tolist(),
@@ -650,12 +931,10 @@ def get_history(symbol: str = Query("BTC-USD"), period: str = Query("1y"), inter
             "volume": df_tail['Volume'].tolist(),
             "rsi": df_tail['RSI'].tolist() if 'RSI' in df_tail.columns else [],
             "sentiment": df_tail['Sentiment_Compound'].tolist() if 'Sentiment_Compound' in df_tail.columns else [],
-            "real_data": True,
-            "source": "Real market data - Binance + local cache"
+            "real_data": True
         }
         return data
     except Exception as e:
-        logger.error(f"History fetch failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/predict", response_model=PredictResponse)
@@ -669,7 +948,6 @@ def predict_next(symbol: str = Query("BTC-USD"), period: str = Query("1y")):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Predict failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/forecast")
@@ -683,7 +961,6 @@ def forecast(symbol: str = Query("BTC-USD"), steps: int = Query(7, ge=1, le=30),
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Forecast failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/signal", response_model=SignalResponse)
@@ -693,7 +970,6 @@ def trading_signal(symbol: str = Query("BTC-USD"), steps: int = Query(7)):
         fc = predictor.forecast(steps=steps)
         signal = predictor.get_trading_signal(fc)
         signal['symbol'] = symbol
-        
         try:
             fetcher = BinanceRealtimeFetcher(symbol=symbol)
             live_price = fetcher.get_current_price()
@@ -704,10 +980,8 @@ def trading_signal(symbol: str = Query("BTC-USD"), steps: int = Query(7)):
                 signal['live_change_pct'] = (pred - live_price) / live_price * 100 if live_price else 0
         except:
             pass
-            
         return signal
     except Exception as e:
-        logger.error(f"Signal failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/sentiment")
@@ -721,7 +995,6 @@ def sentiment(symbol: str = Query("BTC-USD"), days: int = Query(14, ge=1, le=90)
         avg = float(df['sentiment_compound'].mean())
         return {"symbol": symbol, "daily": daily, "average_compound": avg}
     except Exception as e:
-        logger.error(f"Sentiment failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/sentiment/analyze")
@@ -741,7 +1014,6 @@ def realtime_price(symbol: str = Query("BTC-USD")):
         ticker = fetcher.fetch_ticker_rest()
         return {"symbol": symbol, "binance_symbol": fetcher.binance_symbol, "price": price, "ticker": ticker, "real_data": True, "source": "Binance Live"}
     except Exception as e:
-        logger.error(f"Realtime price failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/realtime/start")
@@ -771,17 +1043,12 @@ def realtime_prices():
 
 @app.post("/backtest")
 def backtest(req: BacktestRequest):
-    """
-    Backtesting for MODEL VALIDATION only - not fake trading simulation
-    Tests strategy on historical real data to validate model accuracy
-    """
     try:
         fetcher = CryptoDataFetcher(symbol=req.symbol)
         df = fetcher.load_or_fetch(symbol=req.symbol)
         from crypto_prediction.features.technical import FeatureEngineer
         eng = FeatureEngineer()
         df = eng.engineer(df)
-
         if req.strategy == "ma":
             strat = MovingAverageStrategy(short_window=20, long_window=50)
         elif req.strategy == "rsi":
@@ -803,10 +1070,8 @@ def backtest(req: BacktestRequest):
             strat = EnsembleSignalStrategy()
         else:
             strat = MovingAverageStrategy()
-
         engine = BacktestEngine(initial_capital=req.initial_capital)
         result = engine.run(df, strat)
-
         return {
             "symbol": req.symbol,
             "strategy": strat.name,
@@ -814,11 +1079,9 @@ def backtest(req: BacktestRequest):
             "metrics": result.metrics,
             "equity_curve": [{"date": idx.strftime('%Y-%m-%d'), "equity": float(val)} for idx, val in result.equity_curve.items()],
             "trades": result.trades.to_dict(orient='records') if not result.trades.empty else [],
-            "real_data": True,
-            "note": "Backtest validates model on real past data - for live trading use /trading/calls"
+            "real_data": True
         }
     except Exception as e:
-        logger.error(f"Backtest failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/backtest/compare")
@@ -829,24 +1092,14 @@ def backtest_compare(symbol: str = Query("BTC-USD"), period: str = Query("1y"), 
         from crypto_prediction.features.technical import FeatureEngineer
         eng = FeatureEngineer()
         df = eng.engineer(df)
-
-        strategies = [
-            MovingAverageStrategy(20, 50),
-            MovingAverageStrategy(10, 30),
-            RSIStrategy(30, 70),
-            EnsembleSignalStrategy()
-        ]
-
+        strategies = [MovingAverageStrategy(20, 50), MovingAverageStrategy(10, 30), RSIStrategy(30, 70), EnsembleSignalStrategy()]
         engine = BacktestEngine(initial_capital=initial_capital)
         results = engine.compare_strategies(df, strategies)
-
         comparison = {}
         for name, res in results.items():
             comparison[name] = res.metrics
-
         return {"symbol": symbol, "comparison": comparison, "purpose": "Model validation", "real_data": True}
     except Exception as e:
-        logger.error(f"Compare failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/symbols")
@@ -860,7 +1113,6 @@ def list_models():
     if not models_dir.exists():
         return {"models": []}
     files = [f.name for f in models_dir.glob("*")]
-    # Get training status
     trainer_status = continuous_trainer.get_status()
     return {
         "models": files,
@@ -878,58 +1130,18 @@ def get_settings():
             "sequence_length": config.data.sequence_length,
             "test_size": config.data.test_size,
             "val_size": config.data.val_size,
-            "real_data_source": "Binance Live REST + WebSocket"
+            "real_data_source": "Binance Live"
         },
-        "features": {
-            "use_technical": config.features.use_technical_indicators,
-            "use_sentiment": config.features.use_sentiment,
-            "use_advanced": config.features.use_advanced_indicators,
-            "count": 182,
-            "scaler": "RobustScaler for crypto outliers"
-        },
+        "features": {"count": 182, "scaler": "RobustScaler", "real_data": True},
         "models": {
-            "lstm": {
-                "hidden_size": config.model.lstm_hidden_size,
-                "num_layers": config.model.lstm_num_layers,
-                "bidirectional": config.model.lstm_bidirectional,
-                "use_attention": config.model.lstm_use_attention,
-                "improvements": "Bidir + Attention + HuberLoss + AdamW + Cosine"
-            },
-            "transformer": {
-                "d_model": config.model.transformer_d_model,
-                "nhead": config.model.transformer_nhead,
-                "num_layers": config.model.transformer_num_layers,
-                "use_learnable_pe": config.model.transformer_use_learnable_pe,
-                "improvements": "Learnable PE + Attn Pooling + Pre-LN + Huber"
-            },
-            "xgboost": {
-                "n_estimators": config.model.xgb_n_estimators,
-                "max_depth": config.model.xgb_max_depth,
-                "learning_rate": config.model.xgb_learning_rate,
-                "improvements": "1000 est, depth 8, reg_alpha/lambda"
-            },
-            "ensemble": {
-                "weights": config.model.ensemble_weights,
-                "use_stacking": config.model.ensemble_use_stacking,
-                "use_dynamic": config.model.ensemble_use_dynamic_weights,
-                "improvements": "Inverse MAPE dynamic + Ridge stacking"
-            }
+            "lstm": {"hidden_size": 256, "num_layers": 3, "bidirectional": True, "use_attention": True},
+            "transformer": {"d_model": 256, "nhead": 8, "num_layers": 4, "use_learnable_pe": True},
+            "xgboost": {"n_estimators": 1500, "max_depth": 8, "learning_rate": 0.02},
+            "ensemble": {"weights": config.model.ensemble_weights, "use_stacking": True, "use_dynamic": True}
         },
-        "trading": {
-            "risk_per_trade": 0.02,
-            "atr_sl_multiplier": 1.5,
-            "atr_tp_multiplier": 3.0,
-            "real_trading": True,
-            "no_simulation": "Real Binance prices for actual trades"
-        },
-        "continuous_training": {
-            "enabled": True,
-            "retrain_interval_hours": 12,
-            "check_interval_minutes": 60,
-            "epochs": 80,
-            "data": "Real Binance market data - endless self-learning",
-            "status": continuous_trainer.get_status()
-        }
+        "trading": {"risk_per_trade": 0.02, "atr_sl_multiplier": 1.5, "real_trading": True},
+        "continuous_training": {"enabled": True, "retrain_interval_hours": 12, "status": continuous_trainer.get_status()},
+        "extensive_features": ["Portfolio", "DCA Bot", "Grid Bot", "Breakout Scanner", "Alerts", "Market Scanner", "Analytics", "Journal"]
     }
 
 if __name__ == "__main__":

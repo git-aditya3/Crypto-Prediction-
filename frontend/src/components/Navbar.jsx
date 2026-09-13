@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { TrendingUp, Brain, Radio, BarChart3, Home, Sparkles, Activity, Zap, Menu, X, Target, Settings, GraduationCap } from 'lucide-react'
+import { TrendingUp, Brain, Radio, BarChart3, Home, Sparkles, Activity, Zap, Menu, X, Target, Settings, GraduationCap, Wallet, Bot, Search, LineChart, Bell, BookOpen } from 'lucide-react'
 import { useState } from 'react'
 import { useMarketStore } from '../store/useMarketStore'
 
@@ -11,7 +11,13 @@ export default function Navbar() {
   const nav = [
     { path: '/', label: 'Dashboard', icon: Home, desc: 'Overview & live market' },
     { path: '/trading', label: 'Real Trading', icon: Target, desc: 'Live calls for actual trades', badge: 'REAL', highlight: true },
-    { path: '/training', label: 'Training', icon: GraduationCap, desc: 'Endless self-learning', badge: 'LIVE', highlight: true, accent: 'violet' },
+    { path: '/portfolio', label: 'Portfolio', icon: Wallet, desc: 'Real holdings & P&L', badge: 'NEW', highlight: true, accent: 'emerald' },
+    { path: '/strategies', label: 'Bots', icon: Bot, desc: 'DCA, Grid, Breakout', badge: 'NEW', highlight: true, accent: 'violet' },
+    { path: '/scanner', label: 'Scanner', icon: Search, desc: 'Market opportunities', badge: 'LIVE' },
+    { path: '/analytics', label: 'Analytics', icon: LineChart, desc: 'Performance & equity' },
+    { path: '/alerts', label: 'Alerts', icon: Bell, desc: 'Price & signal alerts' },
+    { path: '/journal', label: 'Journal', icon: BookOpen, desc: 'Trading journal' },
+    { path: '/training', label: 'Training', icon: GraduationCap, desc: 'Endless self-learning', badge: 'LIVE', accent: 'violet' },
     { path: '/forecast', label: 'Forecast', icon: TrendingUp, desc: 'AI predictions' },
     { path: '/realtime', label: 'Live', icon: Radio, desc: 'Real-time Binance', badge: 'LIVE' },
     { path: '/sentiment', label: 'Sentiment', icon: Sparkles, desc: 'News & social' },
