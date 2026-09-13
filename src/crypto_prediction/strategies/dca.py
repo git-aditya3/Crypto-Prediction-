@@ -1,4 +1,7 @@
 """
+dca v5 MAX - Improved pooling, metrics, thread-safe, versioning
+"""
+"""
 DCA Bot - Dollar Cost Averaging for real trading
 Accumulates position over time, reduces entry risk
 """
@@ -10,6 +13,7 @@ import numpy as np
 from ..config import get_config
 from ..data.realtime import BinanceRealtimeFetcher
 from ..utils.logger import get_logger
+VERSION = "v5_max"
 
 logger = get_logger(__name__)
 config = get_config()

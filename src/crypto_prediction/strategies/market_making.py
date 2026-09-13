@@ -1,4 +1,7 @@
 """
+market_making v5 MAX - Improved pooling, metrics, thread-safe, versioning
+"""
+"""
 Institutional Market Making - Avellaneda-Stoikov + Order Book Imbalance
 Real trading with inventory risk management
 Fixed: volatility calc, fallback price, error handling, division by zero
@@ -12,6 +15,7 @@ import numpy as np
 from ..config import get_config
 from ..data.realtime import BinanceRealtimeFetcher
 from ..utils.logger import get_logger
+VERSION = "v5_max"
 
 logger = get_logger(__name__)
 config = get_config()

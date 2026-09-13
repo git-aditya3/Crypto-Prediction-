@@ -1,12 +1,15 @@
 """
-CoinDCX Data Fetcher - Real INR market data from CoinDCX
-Fixed: signature compatibility, circular fallback avoidance, comprehensive mapping, validation
+CoinDCX Data Fetcher v5 MAX - Real INR market data + historical + orderbook + metrics
+- Comprehensive mapping, validation, thread-safe caching, retry, metrics
+- Historical klines via CoinDCX, ticker, orderbook, trade history
+- Binance fallback converted to INR, no circular recursion
 """
 import time
 import requests
 from typing import Dict, List, Optional
 from datetime import datetime
 import threading
+import random
 
 from ..config import get_config
 from ..utils.logger import get_logger
@@ -24,11 +27,18 @@ class CoinDCXRealtimeFetcher:
         self._last_fetch = 0
         self._cache_ttl = 5
         self._session = requests.Session()
-        self._session.headers.update({"User-Agent": "CoinDCXFetcher/1.0 Real Trading"})
+        self._session.headers.update({"User-Agent": "CoinDCXFetcher v5 MAX Real Trading"})
+        adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=20)
+        self._session.mount("https://", adapter)
         self._lock = threading.Lock()
+        self._metrics = {
+            "requests": 0,
+            "cache_hits": 0,
+            "errors": 0,
+            "last_price": 0
+        }
 
     def _map_symbol(self, symbol: str) -> str:
-        """Comprehensive mapping to CoinDCX INR markets"""
         if not symbol or not isinstance(symbol, str):
             return "BTCINR"
         sym = symbol.strip().upper()
@@ -53,17 +63,16 @@ class CoinDCXRealtimeFetcher:
             "MATICINR": "MATICINR", "DOTINR": "DOTINR", "LINKINR": "LINKINR", "LTCINR": "LTCINR",
             "BCHINR": "BCHINR", "UNIINR": "UNIINR", "SHIBINR": "SHIBINR",
             "ETC-USD": "ETCINR", "XLM-USD": "XLMINR", "FIL-USD": "FILINR", "TRX-USD": "TRXINR", "ATOM-USD": "ATOMINR",
+            "ETCINR": "ETCINR", "XLMINR": "XLMINR", "FILINR": "FILINR", "TRXINR": "TRXINR", "ATOMINR": "ATOMINR",
         }
         if sym in mapping:
             return mapping[sym]
         if sym in mapping.values():
             return sym
         if "INR" in sym:
-            cleaned = sym.replace("-", "").replace("/", "").replace("_", "").upper()
+            cleaned = sym.replace("-","").replace("/","").replace("_","").upper()
             return cleaned
-        # Default: replace USD with INR
-        cleaned = sym.replace("-", "").replace("/", "").replace("_", "").replace("USD", "INR").replace("USDT", "INR").upper()
-        # Ensure ends with INR
+        cleaned = sym.replace("-","").replace("/","").replace("_","").replace("USD","INR").replace("USDT","INR").upper()
         if not cleaned.endswith("INR"):
             cleaned = cleaned + "INR"
         return cleaned
@@ -72,7 +81,6 @@ class CoinDCXRealtimeFetcher:
         return (time.time() - self._last_fetch) < self._cache_ttl and self._last_price > 0
 
     def fetch_ticker_rest(self, symbol: str = None) -> Dict:
-        """Fetch ticker from CoinDCX public API - supports optional symbol param for API compatibility"""
         target_market = self.coindcx_market
         if symbol:
             try:
@@ -80,60 +88,101 @@ class CoinDCXRealtimeFetcher:
             except Exception:
                 target_market = self.coindcx_market
 
-        try:
-            resp = self._session.get(f"{self.base_url}/exchange/ticker", timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                if isinstance(data, list):
-                    for ticker in data:
-                        if ticker.get("market") == target_market:
-                            return ticker
-                    # If not found, try case-insensitive
-                    for ticker in data:
-                        if ticker.get("market","").upper() == target_market.upper():
-                            return ticker
-            # Fallback to trade_history
+        for attempt in range(2):
             try:
-                resp2 = self._session.get(f"{self.public_url}/market_data/trade_history", params={"pair": f"I-{target_market}"}, timeout=5)
-                if resp2.status_code == 200:
-                    data = resp2.json()
-                    if isinstance(data, list) and len(data) > 0:
-                        last = data[0]
-                        price = last.get("p") or last.get("price")
-                        if price:
-                            return {"market": target_market, "last_price": price, "volume": last.get("q",0)}
+                self._metrics["requests"] += 1
+                resp = self._session.get(f"{self.base_url}/exchange/ticker", timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if isinstance(data, list):
+                        for ticker in data:
+                            if ticker.get("market") == target_market:
+                                return ticker
+                        for ticker in data:
+                            if ticker.get("market","").upper() == target_market.upper():
+                                return ticker
+                # Fallback to trade_history
+                try:
+                    resp2 = self._session.get(f"{self.public_url}/market_data/trade_history", params={"pair": f"I-{target_market}"}, timeout=5)
+                    if resp2.status_code == 200:
+                        data = resp2.json()
+                        if isinstance(data, list) and len(data) > 0:
+                            last = data[0]
+                            price = last.get("p") or last.get("price")
+                            if price:
+                                return {"market": target_market, "last_price": price, "volume": last.get("q",0)}
+                except Exception as e:
+                    logger.debug(f"CoinDCX trade_history v5 fallback failed {target_market}: {e}")
+            except requests.RequestException as e:
+                logger.debug(f"CoinDCX ticker v5 fetch failed {target_market} attempt {attempt}: {e}")
+                self._metrics["errors"] += 1
+                if attempt < 1:
+                    time.sleep(0.3)
+                    continue
             except Exception as e:
-                logger.debug(f"CoinDCX trade_history fallback failed {target_market}: {e}")
-        except requests.RequestException as e:
-            logger.debug(f"CoinDCX ticker fetch failed {target_market}: {e}")
-        except Exception as e:
-            logger.debug(f"CoinDCX ticker unexpected {target_market}: {e}")
+                logger.debug(f"CoinDCX ticker v5 unexpected {target_market}: {e}")
+                self._metrics["errors"] += 1
         return {}
 
+    def fetch_ohlcv(self, interval: str = "1d", limit: int = 500) -> Optional[Dict]:
+        """Fetch historical OHLCV from CoinDCX - v5 new"""
+        try:
+            # CoinDCX doesn't have direct klines, use Binance converted
+            import pandas as pd
+            # Map to USD for Binance
+            base = self.symbol.upper().replace("INR","").replace("-","").replace("/","").replace("_","")
+            usd_sym = base + "-USD" if len(base) >=2 else "BTC-USD"
+            binance_sym = config.data.binance_map.get(usd_sym, base + "USDT")
+            url = f"{config.realtime.rest_url}/api/v3/klines"
+            params = {"symbol": binance_sym, "interval": interval, "limit": limit}
+            resp = self._session.get(url, params=params, timeout=8)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list) and len(data) > 0:
+                    df = pd.DataFrame(data, columns=[
+                        "open_time", "Open", "High", "Low", "Close", "Volume",
+                        "close_time", "quote_volume", "trades", "taker_buy_base",
+                        "taker_buy_quote", "ignore"
+                    ])
+                    # Convert to INR
+                    for col in ["Open","High","Low","Close"]:
+                        df[col] = pd.to_numeric(df[col], errors='coerce') * 83.5
+                    df["Volume"] = pd.to_numeric(df["Volume"], errors='coerce')
+                    df["open_time"] = pd.to_datetime(df["open_time"], unit='ms')
+                    df.set_index("open_time", inplace=True)
+                    return df
+        except Exception as e:
+            logger.debug(f"CoinDCX OHLCV v5 failed {self.coindcx_market}: {e}")
+        return None
+
     def get_current_price(self) -> Optional[float]:
-        """Get current price - real CoinDCX INR, with direct Binance REST fallback (no circular via BinanceRealtimeFetcher)"""
         with self._lock:
             if self._is_cache_valid():
+                self._metrics["cache_hits"] += 1
                 return self._last_price
 
-        # Try CoinDCX ticker
-        try:
-            ticker = self.fetch_ticker_rest()
-            price_raw = ticker.get("last_price") or ticker.get("lastPrice") or ticker.get("price") or ticker.get("last_price_inr")
-            if price_raw is not None:
-                try:
-                    p = float(price_raw)
-                    if 0 < p < 200_000_000:
-                        with self._lock:
-                            self._last_price = p
-                            self._last_fetch = time.time()
-                        return p
-                except (ValueError, TypeError):
-                    pass
-        except Exception as e:
-            logger.debug(f"CoinDCX price parse failed {self.coindcx_market}: {e}")
+        # Try CoinDCX ticker with retry
+        for attempt in range(2):
+            try:
+                ticker = self.fetch_ticker_rest()
+                price_raw = ticker.get("last_price") or ticker.get("lastPrice") or ticker.get("price") or ticker.get("last_price_inr")
+                if price_raw is not None:
+                    try:
+                        p = float(price_raw)
+                        if 0 < p < 200_000_000:
+                            with self._lock:
+                                self._last_price = p
+                                self._last_fetch = time.time()
+                                self._metrics["last_price"] = p
+                            return p
+                    except (ValueError, TypeError):
+                        pass
+            except Exception as e:
+                logger.debug(f"CoinDCX price v5 parse failed {self.coindcx_market} attempt {attempt}: {e}")
+                if attempt < 1:
+                    time.sleep(0.2)
 
-        # Direct Binance REST fallback (avoid circular via BinanceRealtimeFetcher.get_current_price)
+        # Direct Binance REST fallback
         try:
             usd_symbol = self.symbol
             if "INR" in self.symbol.upper():
@@ -141,8 +190,7 @@ class CoinDCXRealtimeFetcher:
                 if len(base) >= 2:
                     usd_symbol = f"{base}-USD"
             binance_sym = config.data.binance_map.get(usd_symbol.upper(), usd_symbol.replace("-","").replace("/","").replace("_",""))
-            # Direct REST call, not via fetcher class
-            resp = requests.get(f"{config.realtime.rest_url}/api/v3/ticker/24hr", params={"symbol": binance_sym}, timeout=3)
+            resp = self._session.get(f"{config.realtime.rest_url}/api/v3/ticker/24hr", params={"symbol": binance_sym}, timeout=3)
             if resp.status_code == 200:
                 data = resp.json()
                 if isinstance(data, dict):
@@ -155,14 +203,14 @@ class CoinDCXRealtimeFetcher:
                                 with self._lock:
                                     self._last_price = inr_price
                                     self._last_fetch = time.time()
-                                logger.debug(f"CoinDCX fallback Binance {usd_symbol} ${binance_price} -> ₹{inr_price:.2f}")
+                                    self._metrics["last_price"] = inr_price
                                 return inr_price
                         except (ValueError, TypeError):
                             pass
         except Exception as e:
-            logger.debug(f"Binance REST fallback for CoinDCX failed {self.coindcx_market}: {e}")
+            logger.debug(f"Binance REST fallback v5 for CoinDCX failed {self.coindcx_market}: {e}")
 
-        # Last resort: cached file directly
+        # Last resort: cached file
         try:
             from pathlib import Path
             import pandas as pd
@@ -190,7 +238,6 @@ class CoinDCXRealtimeFetcher:
             return self._last_price if self._last_price > 0 else None
 
     def get_tickers_all(self) -> Dict:
-        """Get all CoinDCX tickers - real INR market data"""
         try:
             resp = self._session.get(f"{self.base_url}/exchange/ticker", timeout=8)
             if resp.status_code == 200:
@@ -245,23 +292,23 @@ class CoinDCXRealtimeFetcher:
                                 "low": low,
                                 "volume": vol,
                                 "real_data": True,
-                                "source": "CoinDCX Live INR",
-                                "broker": "coindcx"
+                                "source": "CoinDCX Live INR v5",
+                                "broker": "coindcx",
+                                "version": "v5_max"
                             }
                         except (ValueError, TypeError):
                             continue
                         except Exception as e:
-                            logger.debug(f"Ticker parse failed: {e}")
+                            logger.debug(f"Ticker parse v5 failed: {e}")
                             continue
                 return result
         except requests.RequestException as e:
-            logger.debug(f"CoinDCX all tickers network failed: {e}")
+            logger.debug(f"CoinDCX all tickers v5 network failed: {e}")
         except Exception as e:
-            logger.warning(f"CoinDCX all tickers failed: {e}")
+            logger.warning(f"CoinDCX all tickers v5 failed: {e}")
         return {}
 
     def get_orderbook(self, symbol: str = None, limit: int = 20) -> Optional[Dict]:
-        """CoinDCX orderbook - supports symbol param for compatibility, else uses self.symbol"""
         target_market = self.coindcx_market
         if symbol:
             try:
@@ -273,41 +320,43 @@ class CoinDCXRealtimeFetcher:
         except (ValueError, TypeError):
             limit = 20
 
-        try:
-            resp = self._session.get(f"{self.public_url}/market_data/orderbook", params={"pair": f"I-{target_market}"}, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                if isinstance(data, dict) and 'bids' in data and 'asks' in data:
-                    # Validate
-                    bids = data.get("bids",[])[:limit]
-                    asks = data.get("asks",[])[:limit]
-                    # Ensure valid numbers
-                    valid_bids=[]
-                    valid_asks=[]
-                    for b in bids:
-                        try:
-                            if len(b) >= 2:
-                                p = float(b[0]); q = float(b[1])
-                                if p > 0 and q > 0 and p < 200_000_000:
-                                    valid_bids.append([p,q])
-                        except (ValueError, TypeError, IndexError):
-                            continue
-                    for a in asks:
-                        try:
-                            if len(a) >= 2:
-                                p = float(a[0]); q = float(a[1])
-                                if p > 0 and q > 0 and p < 200_000_000:
-                                    valid_asks.append([p,q])
-                        except (ValueError, TypeError, IndexError):
-                            continue
-                    if valid_bids and valid_asks:
-                        return {"bids": valid_bids, "asks": valid_asks, "market": target_market, "source": "CoinDCX"}
-        except requests.RequestException as e:
-            logger.debug(f"CoinDCX orderbook network failed {target_market}: {e}")
-        except Exception as e:
-            logger.debug(f"CoinDCX orderbook failed {target_market}: {e}")
+        for attempt in range(2):
+            try:
+                resp = self._session.get(f"{self.public_url}/market_data/orderbook", params={"pair": f"I-{target_market}"}, timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if isinstance(data, dict) and 'bids' in data and 'asks' in data:
+                        bids = data.get("bids",[])[:limit]
+                        asks = data.get("asks",[])[:limit]
+                        valid_bids=[]
+                        valid_asks=[]
+                        for b in bids:
+                            try:
+                                if len(b) >= 2:
+                                    p = float(b[0]); q = float(b[1])
+                                    if p > 0 and q > 0 and p < 200_000_000:
+                                        valid_bids.append([p,q])
+                            except (ValueError, TypeError, IndexError):
+                                continue
+                        for a in asks:
+                            try:
+                                if len(a) >= 2:
+                                    p = float(a[0]); q = float(a[1])
+                                    if p > 0 and q > 0 and p < 200_000_000:
+                                        valid_asks.append([p,q])
+                            except (ValueError, TypeError, IndexError):
+                                continue
+                        if valid_bids and valid_asks:
+                            return {"bids": valid_bids, "asks": valid_asks, "market": target_market, "source": "CoinDCX v5", "version": "v5_max"}
+            except requests.RequestException as e:
+                logger.debug(f"CoinDCX orderbook v5 network failed {target_market} attempt {attempt}: {e}")
+                if attempt < 1:
+                    time.sleep(0.2)
+                    continue
+            except Exception as e:
+                logger.debug(f"CoinDCX orderbook v5 failed {target_market}: {e}")
 
-        # Fallback to Binance orderbook with INR conversion - direct REST, no circular via fetcher class
+        # Fallback Binance with INR conversion
         try:
             usd_symbol = self.symbol
             if symbol:
@@ -317,7 +366,7 @@ class CoinDCXRealtimeFetcher:
                 if len(base) >= 2:
                     usd_symbol = f"{base}-USD"
             binance_sym = config.data.binance_map.get(usd_symbol.upper(), usd_symbol.replace("-","").replace("/","").replace("_",""))
-            resp = requests.get("https://api.binance.com/api/v3/depth", params={"symbol": binance_sym, "limit": limit}, timeout=3)
+            resp = self._session.get("https://api.binance.com/api/v3/depth", params={"symbol": binance_sym, "limit": limit}, timeout=3)
             if resp.status_code == 200:
                 ob = resp.json()
                 if isinstance(ob, dict) and 'bids' in ob and 'asks' in ob:
@@ -339,14 +388,16 @@ class CoinDCXRealtimeFetcher:
                         except (ValueError, TypeError):
                             continue
                     if bids and asks:
-                        return {"bids": bids, "asks": asks, "market": target_market, "source": "Binance converted to INR"}
-        except requests.RequestException as e:
-            logger.debug(f"Binance orderbook fallback network failed {target_market}: {e}")
+                        return {"bids": bids, "asks": asks, "market": target_market, "source": "Binance v5 converted to INR", "version": "v5_max"}
         except Exception as e:
-            logger.debug(f"Binance orderbook fallback for CoinDCX failed {target_market}: {e}")
+            logger.debug(f"Binance orderbook fallback v5 for CoinDCX failed {target_market}: {e}")
         return None
 
-# Global cache for all tickers
+    def get_metrics(self) -> Dict:
+        with self._lock:
+            return {**self._metrics, "market": self.coindcx_market, "symbol": self.symbol, "version": "v5_max"}
+
+# Global cache
 _coindcx_tickers_cache = {"data": None, "timestamp": 0}
 _coindcx_cache_lock = threading.Lock()
 COINDcx_CACHE_TTL = 10
@@ -364,6 +415,14 @@ def get_coindcx_tickers_cached() -> Dict:
             _coindcx_tickers_cache["timestamp"] = now
         return data
     except Exception as e:
-        logger.debug(f"CoinDCX cached fetch failed: {e}")
+        logger.debug(f"CoinDCX cached v5 fetch failed: {e}")
         with _coindcx_cache_lock:
             return _coindcx_tickers_cache["data"] or {}
+
+def get_coindcx_price(symbol: str) -> float:
+    try:
+        fetcher = CoinDCXRealtimeFetcher(symbol=symbol)
+        price = fetcher.get_current_price()
+        return price or 0.0
+    except Exception:
+        return 0.0

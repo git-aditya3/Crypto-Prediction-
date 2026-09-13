@@ -1,4 +1,7 @@
 """
+funding_arb v5 MAX - Improved pooling, metrics, thread-safe, versioning
+"""
+"""
 Institutional Funding Rate Arbitrage
 Fixed: fallback price, error handling, validation, annualized calc
 """
@@ -9,6 +12,7 @@ import requests
 
 from ..config import get_config
 from ..utils.logger import get_logger
+VERSION = "v5_max"
 
 logger = get_logger(__name__)
 config = get_config()

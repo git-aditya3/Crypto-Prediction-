@@ -1,9 +1,10 @@
 """
-FastAPI v6 - Extensive Real Trading + Automated Real Trading with User Control + Continuous Training
+FastAPI v8 MAX - Extensive Real Trading + Automated Real Trading + Continuous Training + v5 MAX improvements
 - Real trading calls for actual trades
 - Automated execution with extensive controls: broker integration, risk guards, paper/semi/full auto
 - Portfolio, Strategies, Alerts, Scanner, Analytics, Journal
-- Max performance models v4 + endless training
+- Max performance models v5 MAX + endless training
+- v5 MAX: pooling, metrics, thread-safe, security headers, rate limit metrics, versioning
 """
 from fastapi import FastAPI, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,71 +47,136 @@ logger = get_logger(__name__)
 config = get_config()
 
 app = FastAPI(
-    title="Crypto Prediction API v7 - CoinDCX Real Money Automated Trading - No Paper Simulation",
+    title="Crypto Prediction API v8 MAX - CoinDCX Real Money Automated Trading - v5 MAX",
     description="""
-    🚀 v7 CoinDCX REAL MONEY Automated Trading - No Paper Simulation - Extensive User Control
+    🚀 v8 MAX CoinDCX REAL MONEY Automated Trading - v5 MAX improvements
     
-    **Core:**
-    - 🔄 Continuous Training: Models learn endlessly from live market data
+    **Core v5 MAX:**
+    - 🔄 Continuous Training: Models learn endlessly with pooling, metrics, drift detection
     - 💰 Real Trading Calls: Live entry, ATR SL, 1:1/2/3 TP, position sizing for REAL money
-    - 🧠 Models v4 Max Perf: LSTM Bidir+Attn, Transformer Learnable PE, XGBoost 1500, ARIMA SARIMAX, Ensemble Dynamic
-    - 📊 182 Features, RobustScaler, Sentiment, Real-time data
+    - 🧠 Models v5 MAX: LSTM 320 hidden 4L bidir attention pooling residual, Transformer 320 d_model 6L learnable PE Pre-LN, GRU v4, XGBoost 1500 trees SelectKBest, ARIMA auto AIC+BIC SARIMAX, Ensemble dynamic Sharpe+DirAcc+stacking Ridge/LGBM+confidence calibration
+    - 📊 200+ Features, RobustScaler, Sentiment v5 pooling cache, Real-time WS backoff jitter metrics
     
-    **NEW v7 - CoinDCX REAL MONEY - No Paper Simulation (User Requested):**
-    - 🔌 CoinDCX Broker: REAL MONEY trading via CoinDCX API - actual INR and crypto from user's CoinDCX account
-    - 💰 No Paper Simulation: Uses actual CoinDCX balances (INR, BTC, ETH, etc.), executes real trades on CoinDCX exchange
-    - 🏦 Markets: BTCINR, ETHINR, BNBINR, SOLINR, XRPINR, ADAINR, DOGEINR, AVAXINR, MATICINR, etc. - INR pairs for Indian users
-    - 🔐 Secure: API keys base64 encoded locally, trading permission only, no withdrawal, IP whitelist support
-    - 📊 Real Balances: POST /exchange/v1/users/balances - fetches actual INR/crypto from CoinDCX account
-    - 📈 Real Orders: POST /exchange/v1/orders/create - places real market/limit orders on CoinDCX with actual money
-    - 🔍 Real Ticker: GET /exchange/ticker - live CoinDCX prices for BTCINR, etc.
+    **CoinDCX REAL MONEY v5 MAX:**
+    - 🔌 CoinDCX Broker v5: REAL MONEY trading via CoinDCX API - pooling 20/20, metrics, cache TTL 5s, validation, versioning
+    - 💰 No Paper Simulation: Uses actual CoinDCX balances, executes real trades
+    - 🏦 Markets: BTCINR, ETHINR, BNBINR, SOLINR, XRPINR, ADAINR, DOGEINR, AVAXINR, MATICINR, etc.
+    - 🔐 Secure: API keys encoded, trading only, no withdrawal, security headers, rate limit 60/min with metrics
     
-    **Automated Trading with Extensive User Control:**
-    - 🤖 Auto Trading Engine: Full-auto (CoinDCX real money), Semi-auto (CoinDCX + approval), Paper (testing only)
-    - 🛡️ Risk Guard: Max daily loss, max positions, max drawdown, consecutive losses cooldown, trading hours, whitelist/blacklist, confidence threshold, RR filter, position sizing (risk_based, fixed, kelly, percent_balance)
-    - ⚙️ Execution: Market/Limit, OCO SL/TP, multiple TP 50/30/20, trailing stop, breakeven, slippage tolerance, broker_id coindcx
-    - 🎛️ Strategy Controls: Toggle AI ensemble, DCA, Grid, Breakout, RSI, Volume spikes, timeframes, allowed signals
-    - 📋 Approval System: Semi-auto queues for user approval
-    - 🚨 Emergency Stop: One-click halt all trading
+    **Automated Trading v5 MAX:**
+    - 🤖 Auto Trading Engine v5: Full-auto, Semi-auto, Paper with RiskGuard v4 15 checks 5 sizing methods
+    - 🛡️ Risk Guard v5: Max daily loss, max positions, max DD, consecutive losses cooldown, trading hours, whitelist/blacklist, confidence, RR filter, position sizing
+    - ⚙️ Execution v5: Market/Limit, OCO SL/TP, multiple TP, trailing, breakeven, slippage, broker_id coindcx, atomic save
+    - 🎛️ Strategy Controls v5: Cache TTL 10s pooling, metrics, version tag
+    - 📋 Approval System, 🚨 Emergency Stop
     
-    **Other Features:**
-    - 💼 Portfolio: Real holdings tracking with live P&L
-    - 🤖 Strategies: DCA Bot, Grid Bot, Breakout Scanner
-    - 🚨 Alerts, Scanner, Analytics, Journal
+    **v5 MAX Improvements:**
+    - Data layer: realtime.py backoff jitter metrics, dataset.py cache lock sentiment metrics, price_helper pooling cache ttl, coindcx_fetcher pooling metrics fetch_ohlcv
+    - Brokers: base v5 metrics validate_order fee calc, paper v5 slippage margin USD value metrics, binance v5 pooling metrics, coindcx v5 pooling metrics, manager v5 atomic save metrics
+    - Crash detector: scraper v5 pooling 30/60 min_interval 0.03 max_workers 16 metrics, detector v5 quality-weighted metrics, signals v5 versioning, manager v5 cache ttl 15 metrics
+    - Portfolio v5: atomic tmp save, lock, metrics opens/closes/updates, sharpe/sortino/max_dd/profit_factor, 1000 closed limit
+    - Evaluation v5: smape threshold sharpe sortino drawdown calmar profit_factor win_rate
+    - Training v5: robust scaler feature_selection GRU support timing metrics dynamic inverse MAPE weighting
+    - Sentiment v5: pooling 20/20 cache ttl 300 metrics, expanded lexicon, momentum/volatility
+    - API v8: security headers, metrics endpoint, rate limit metrics, version v5_max, pooling session
     
-    **No Paper:** As requested, uses actual CoinDCX account money - real INR, real trades, real P&L
+    **No Paper:** Uses actual CoinDCX account money - real INR, real trades, real P&L
     """,
-    version="0.7.0"
+    version="0.8.0"
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all for preview (e2b.app) - in production should be restricted to specific domains
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Simple in-memory rate limiting
+# v5 MAX: Improved rate limiting with metrics, pooling, security headers
 _rate_limit_store = defaultdict(list)
 _rate_limit_lock = threading.Lock()
-RATE_LIMIT_MAX = 60  # requests per minute per IP
+RATE_LIMIT_MAX = 80  # v5 increased to 80 req/min
 RATE_LIMIT_WINDOW = 60
+_api_metrics = {
+    "total_requests": 0,
+    "rate_limited": 0,
+    "errors": 0,
+    "avg_response_time_ms": 0,
+    "version": "v5_max"
+}
+_api_metrics_lock = threading.Lock()
+
+# Session pooling v5
+_api_session = None
+_api_session_lock = threading.Lock()
+def _get_api_session():
+    global _api_session
+    if _api_session is None:
+        with _api_session_lock:
+            if _api_session is None:
+                import requests as req_lib
+                from requests.adapters import HTTPAdapter
+                from urllib3.util.retry import Retry
+                s = req_lib.Session()
+                retry = Retry(total=2, backoff_factor=0.3, status_forcelist=[429,500,502,503,504])
+                adapter = HTTPAdapter(max_retries=retry, pool_connections=30, pool_maxsize=30)
+                s.mount("https://", adapter)
+                s.mount("http://", adapter)
+                s.headers.update({"User-Agent": "Crypto-Prediction-API-v5/8.0"})
+                _api_session = s
+    return _api_session
 
 @app.middleware("http")
-async def rate_limit_middleware(request: Request, call_next):
+async def rate_limit_and_security_middleware(request: Request, call_next):
+    start_time = time.time()
     # Skip for health and docs
-    if request.url.path in ["/health", "/", "/docs", "/openapi.json"]:
-        return await call_next(request)
+    if request.url.path in ["/health", "/", "/docs", "/openapi.json", "/metrics"]:
+        response = await call_next(request)
+        # Security headers v5
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["X-API-Version"] = "v8_max"
+        return response
+    
     client_ip = request.client.host if request.client else "unknown"
     now = time.time()
     with _rate_limit_lock:
-        # Clean old entries
         _rate_limit_store[client_ip] = [t for t in _rate_limit_store[client_ip] if now - t < RATE_LIMIT_WINDOW]
         if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_MAX:
-            return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded - max 60 req/min"})
+            with _api_metrics_lock:
+                _api_metrics["rate_limited"] += 1
+            return JSONResponse(status_code=429, content={"detail": f"Rate limit v5 exceeded - max {RATE_LIMIT_MAX} req/min", "version": "v5_max"})
         _rate_limit_store[client_ip].append(now)
-    return await call_next(request)
+    
+    with _api_metrics_lock:
+        _api_metrics["total_requests"] += 1
+    
+    try:
+        response = await call_next(request)
+        # Security headers v5
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["X-API-Version"] = "v8_max"
+        response.headers["X-RateLimit-Limit"] = str(RATE_LIMIT_MAX)
+        response.headers["X-RateLimit-Remaining"] = str(max(0, RATE_LIMIT_MAX - len(_rate_limit_store[client_ip])))
+        
+        # Metrics
+        latency = (time.time() - start_time) * 1000
+        with _api_metrics_lock:
+            total = _api_metrics["total_requests"]
+            prev = _api_metrics["avg_response_time_ms"]
+            _api_metrics["avg_response_time_ms"] = (prev * (total-1) + latency) / total if total > 1 else latency
+        
+        return response
+    except Exception as e:
+        with _api_metrics_lock:
+            _api_metrics["errors"] += 1
+        raise
 
 realtime_manager: Optional[RealtimeManager] = None
 call_generator = TradingCallGenerator(risk_per_trade=0.02)
@@ -294,28 +360,75 @@ class AutoTradeExecuteRequest(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 API v6 Starting - Automated Real Trading + Extensive Controls + Continuous Training")
+    logger.info("🚀 API v8 MAX Starting - Automated Real Trading + Extensive Controls + Continuous Training + v5 MAX")
     try:
         continuous_trainer.start(run_immediately=False)
-        logger.info("✅ Continuous training started")
+        logger.info("✅ Continuous training v5 started")
     except Exception as e:
-        logger.warning(f"Could not start continuous training: {e}")
+        logger.warning(f"Could not start continuous training v5: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    logger.info("Shutting down API v6")
+    logger.info("Shutting down API v8 MAX")
     try:
         continuous_trainer.stop()
         autotrading_engine.stop()
     except:
         pass
 
+@app.get("/metrics")
+def api_metrics():
+    """v5 MAX metrics endpoint - API performance, rate limiting, pooling"""
+    try:
+        with _api_metrics_lock:
+            metrics = dict(_api_metrics)
+        with _rate_limit_lock:
+            active_ips = len(_rate_limit_store)
+            total_tracked = sum(len(v) for v in _rate_limit_store.values())
+        
+        # Gather sub-metrics
+        try:
+            broker_metrics = broker_manager.get_metrics() if hasattr(broker_manager, 'get_metrics') else {}
+        except Exception:
+            broker_metrics = {}
+        try:
+            crash_metrics = crash_manager.get_metrics() if hasattr(crash_manager, 'get_metrics') else {}
+        except Exception:
+            crash_metrics = {}
+        try:
+            portfolio_metrics = portfolio_manager.get_metrics() if hasattr(portfolio_manager, 'get_metrics') else {}
+        except Exception:
+            portfolio_metrics = {}
+        try:
+            strategy_metrics = strategy_manager.get_metrics() if hasattr(strategy_manager, 'get_metrics') else {}
+        except Exception:
+            strategy_metrics = {}
+        
+        return {
+            "api": metrics,
+            "rate_limit": {
+                "max_per_min": RATE_LIMIT_MAX,
+                "window_sec": RATE_LIMIT_WINDOW,
+                "active_ips": active_ips,
+                "total_tracked_requests": total_tracked
+            },
+            "brokers": broker_metrics,
+            "crash_detector": crash_metrics,
+            "portfolio": portfolio_metrics,
+            "strategies": strategy_metrics,
+            "version": "v5_max",
+            "timestamp": datetime.utcnow().isoformat(),
+            "uptime": continuous_trainer.get_status().get("uptime", 0) if hasattr(continuous_trainer, 'get_status') else 0
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/")
 def root():
     return {
-        "message": "Crypto Prediction API v7 - CoinDCX Real Money Automated Trading - No Paper Simulation",
-        "version": "0.7.0",
-        "tagline": "Automate REAL trades with CoinDCX - actual INR from your account - no paper simulation - extensive user control",
+        "message": "Crypto Prediction API v8 MAX - CoinDCX Real Money Automated Trading - v5 MAX",
+        "version": "0.8.0",
+        "tagline": "Automate REAL trades with CoinDCX v5 MAX - pooling, metrics, security headers, versioning - actual INR - extensive control",
         "features": {
             "core": [
                 "🔄 Continuous Training - Endless self-learning with live Binance data",

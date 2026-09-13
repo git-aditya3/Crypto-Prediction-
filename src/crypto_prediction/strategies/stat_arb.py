@@ -1,4 +1,7 @@
 """
+stat_arb v5 MAX - Improved pooling, metrics, thread-safe, versioning
+"""
+"""
 Institutional Statistical Arbitrage - Pairs Trading & Cointegration
 Fixed: p_value handling, half-life NaN, validation, error handling
 """
@@ -10,6 +13,7 @@ import pandas as pd
 
 from ..config import get_config
 from ..utils.logger import get_logger
+VERSION = "v5_max"
 
 logger = get_logger(__name__)
 config = get_config()

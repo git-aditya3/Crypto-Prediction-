@@ -1,16 +1,19 @@
 """
-Institutional Risk Model - VaR, CVaR, Kelly, Drawdown Control
-Fixed: var_size formula, correlation NaN handling, error handling, validation
+Institutional Risk Model v5 MAX - VaR, CVaR, Kelly, Drawdown Control, metrics, pooling, thread-safe
+- Fixed var_size formula, correlation NaN handling, validation, versioning
+- Session pooling, cache, metrics, CoinDCX INR aware
 """
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional
 from datetime import datetime
+import threading
 import numpy as np
 import pandas as pd
 
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
+VERSION = "v5_max"
 
 @dataclass
 class RiskConfig:
@@ -25,6 +28,8 @@ class RiskConfig:
             self.confidence = 0.95
         if self.lookback_days < 20:
             self.lookback_days = 60
+        if self.lookback_days > 365:
+            self.lookback_days = 365
         if self.max_drawdown_pct <= 0:
             self.max_drawdown_pct = 10.0
         if self.max_position_pct <= 0 or self.max_position_pct > 100:
@@ -33,6 +38,22 @@ class RiskConfig:
             self.kelly_fraction = 0.5
 
 class InstitutionalRiskModel:
+    def __init__(self, cfg: RiskConfig = None):
+        self.config = cfg or RiskConfig()
+        self._lock = threading.Lock()
+        self._metrics = {
+            "var_calculations": 0,
+            "cvar_calculations": 0,
+            "position_sizings": 0,
+            "portfolio_risks": 0,
+            "errors": 0
+        }
+        self._returns_cache = {}
+        self._cache_lock = threading.Lock()
+        self._cache_ttl = 300
+        import time
+        self._cache_times = {}
+
     def get_live_price(self, symbol: str) -> float:
         try:
             from ..data.price_helper import get_live_price as unified_price
@@ -43,10 +64,16 @@ class InstitutionalRiskModel:
         except Exception:
             return 0
 
-    def __init__(self, cfg: RiskConfig = None):
-        self.config = cfg or RiskConfig()
-
     def fetch_returns(self, symbol: str) -> Optional[pd.Series]:
+        if not symbol or not isinstance(symbol, str):
+            return None
+        # Cache check
+        import time
+        with self._cache_lock:
+            if symbol in self._returns_cache:
+                ts = self._cache_times.get(symbol, 0)
+                if time.time() - ts < self._cache_ttl:
+                    return self._returns_cache[symbol]
         try:
             from ..data.fetcher import CryptoDataFetcher
             fetcher = CryptoDataFetcher(symbol=symbol)
@@ -56,31 +83,40 @@ class InstitutionalRiskModel:
             returns = df['Close'].pct_change().dropna().tail(self.config.lookback_days)
             if returns.empty:
                 return None
-            # Remove infinite and NaN
             returns = returns.replace([np.inf, -np.inf], np.nan).dropna()
-            return returns if not returns.empty else None
+            if returns.empty:
+                return None
+            with self._cache_lock:
+                self._returns_cache[symbol] = returns
+                self._cache_times[symbol] = time.time()
+            return returns
         except Exception as e:
-            logger.debug(f"Returns fetch failed {symbol}: {e}")
+            logger.debug(f"Returns fetch failed v5 {symbol}: {e}")
+            with self._lock:
+                self._metrics["errors"] += 1
             return None
 
     def calculate_var(self, returns: pd.Series, confidence: float = 0.95) -> float:
+        with self._lock:
+            self._metrics["var_calculations"] += 1
         try:
             if returns is None or len(returns) < 10:
                 return 0.02
-            # Filter non-finite
             clean = returns[np.isfinite(returns)]
             if len(clean) < 10:
                 return 0.02
             var = np.percentile(clean, (1-confidence)*100)
-            # VaR should be positive loss
             result = float(abs(var))
-            # Bound 0.1% to 20%
             return max(0.001, min(result, 0.20))
         except Exception as e:
-            logger.debug(f"VaR calc failed: {e}")
+            logger.debug(f"VaR v5 calc failed: {e}")
+            with self._lock:
+                self._metrics["errors"] += 1
             return 0.02
 
     def calculate_cvar(self, returns: pd.Series, confidence: float = 0.95) -> float:
+        with self._lock:
+            self._metrics["cvar_calculations"] += 1
         try:
             if returns is None or len(returns) < 10:
                 return 0.03
@@ -97,7 +133,9 @@ class InstitutionalRiskModel:
             result = float(abs(cvar))
             return max(0.001, min(result, 0.30))
         except Exception as e:
-            logger.debug(f"CVaR calc failed: {e}")
+            logger.debug(f"CVaR v5 calc failed: {e}")
+            with self._lock:
+                self._metrics["errors"] += 1
             return 0.03
 
     def kelly_criterion(self, win_rate: float, win_loss_ratio: float) -> float:
@@ -115,20 +153,18 @@ class InstitutionalRiskModel:
             kelly = max(0, min(kelly, self.config.max_position_pct/100))
             return float(kelly)
         except Exception as e:
-            logger.debug(f"Kelly calc failed: {e}")
+            logger.debug(f"Kelly v5 calc failed: {e}")
             return 0.02
 
     def calculate_drawdown(self, equity_curve: List[float]) -> Dict:
         try:
             if not equity_curve or len(equity_curve) < 2:
-                return {"max_drawdown_pct": 0, "current_drawdown_pct": 0, "is_breached": False}
+                return {"max_drawdown_pct": 0, "current_drawdown_pct": 0, "is_breached": False, "version": "v5_max"}
             equity = np.array(equity_curve, dtype=float)
-            # Remove non-finite
             equity = equity[np.isfinite(equity)]
             if len(equity) < 2:
-                return {"max_drawdown_pct": 0, "current_drawdown_pct": 0, "is_breached": False}
+                return {"max_drawdown_pct": 0, "current_drawdown_pct": 0, "is_breached": False, "version": "v5_max"}
             peak = np.maximum.accumulate(equity)
-            # Avoid division by zero
             peak = np.where(peak == 0, 1, peak)
             drawdown = (equity - peak) / peak * 100
             max_dd = float(np.min(drawdown)) if len(drawdown) else 0
@@ -140,13 +176,16 @@ class InstitutionalRiskModel:
             return {
                 "max_drawdown_pct": max_dd,
                 "current_drawdown_pct": current_dd,
-                "is_breached": abs(current_dd) > self.config.max_drawdown_pct
+                "is_breached": abs(current_dd) > self.config.max_drawdown_pct,
+                "version": "v5_max"
             }
         except Exception as e:
-            logger.debug(f"Drawdown calc failed: {e}")
-            return {"max_drawdown_pct": 0, "current_drawdown_pct": 0, "is_breached": False}
+            logger.debug(f"Drawdown v5 calc failed: {e}")
+            return {"max_drawdown_pct": 0, "current_drawdown_pct": 0, "is_breached": False, "version": "v5_max"}
 
     def portfolio_risk(self, symbols: List[str]) -> Dict:
+        with self._lock:
+            self._metrics["portfolio_risks"] += 1
         try:
             from ..data.fetcher import CryptoDataFetcher
             returns_dict = {}
@@ -163,16 +202,15 @@ class InstitutionalRiskModel:
                     "cvar_portfolio": 0.03,
                     "diversification": "high",
                     "num_assets": len(returns_dict),
-                    "warning": "Need at least 2 assets for correlation"
+                    "warning": "Need at least 2 assets for correlation v5",
+                    "version": "v5_max"
                 }
 
             df = pd.DataFrame(returns_dict).dropna()
             if df.empty or len(df) < 10:
-                return {"avg_correlation": 0.0, "correlation_risk": "low", "var_portfolio": 0.02, "cvar_portfolio": 0.03, "diversification": "high", "num_assets": len(returns_dict)}
+                return {"avg_correlation": 0.0, "correlation_risk": "low", "var_portfolio": 0.02, "cvar_portfolio": 0.03, "diversification": "high", "num_assets": len(returns_dict), "version": "v5_max"}
 
-            # Correlation with NaN handling
             corr = df.corr()
-            # Get upper triangle without diagonal
             mask = np.triu(np.ones(corr.shape), k=1).astype(bool)
             corr_values = corr.values[mask]
             corr_values = corr_values[np.isfinite(corr_values)]
@@ -205,13 +243,18 @@ class InstitutionalRiskModel:
                 "cvar_portfolio": cvar_p,
                 "diversification": diversification,
                 "num_assets": len(returns_dict),
-                "corr_matrix": corr.round(3).to_dict() if len(returns_dict) <= 5 else {}
+                "corr_matrix": corr.round(3).to_dict() if len(returns_dict) <= 5 else {},
+                "version": "v5_max"
             }
         except Exception as e:
-            logger.warning(f"Portfolio risk failed: {e}")
-            return {"error": str(e), "var_portfolio": 0.02, "cvar_portfolio": 0.03, "avg_correlation": 0.0}
+            logger.warning(f"Portfolio risk v5 failed: {e}")
+            with self._lock:
+                self._metrics["errors"] += 1
+            return {"error": str(e), "var_portfolio": 0.02, "cvar_portfolio": 0.03, "avg_correlation": 0.0, "version": "v5_max"}
 
     def position_size(self, symbol: str, account_balance: float, win_rate: float = 0.55, win_loss_ratio: float = 1.5) -> Dict:
+        with self._lock:
+            self._metrics["position_sizings"] += 1
         try:
             if account_balance <= 0:
                 raise ValueError("account_balance must be >0")
@@ -221,15 +264,11 @@ class InstitutionalRiskModel:
             cvar = self.calculate_cvar(returns, self.config.confidence) if returns is not None else 0.03
             kelly = self.kelly_criterion(win_rate, win_loss_ratio)
 
-            # Fixed: More realistic position sizing
-            # Risk 2% of account per trade
-            max_risk_amount = account_balance * 0.02
-
-            # Get current price for proper sizing
             try:
                 from ..data.price_helper import get_live_price as unified_price
-                fetcher = BinanceRealtimeFetcher(symbol=symbol)
-                current_price = fetcher.get_current_price()
+                current_price = unified_price(symbol)
+                if not current_price or current_price <= 0:
+                    current_price = self.get_live_price(symbol)
                 if not current_price or current_price <= 0:
                     from ..data.fetcher import CryptoDataFetcher
                     f = CryptoDataFetcher(symbol=symbol)
@@ -238,24 +277,17 @@ class InstitutionalRiskModel:
             except Exception:
                 current_price = 100000
 
-            # Position size based on VaR: if VaR is 2%, and we want to risk 2% of account,
-            # position size = risk_amount / (price * VaR) * price = risk_amount / VaR
-            # Actually: position_value = risk_amount / VaR
-            # Example: account 10k, risk 2% = $200, VaR 2% => position $10k, which is 100% - too high
-            # So use: position = account * (risk% / VaR) * kelly_adjustment, capped by max_position
-            # More conservative:
-            var_based_pct = 0.02 / max(var, 0.01)  # if var=2%, pct=1 (100%), if var=4%, pct=0.5 (50%)
+            var_based_pct = 0.02 / max(var, 0.01)
             var_based_pct = max(0.01, min(var_based_pct, self.config.max_position_pct/100))
             var_size = account_balance * var_based_pct
 
             kelly_size = account_balance * kelly
 
-            # Conservative: weighted average of var and kelly, capped
             recommended = min(
                 (var_size * 0.6 + kelly_size * 0.4),
                 account_balance * self.config.max_position_pct / 100
             )
-            recommended = max(account_balance * 0.01, recommended)  # at least 1%
+            recommended = max(account_balance * 0.01, recommended)
 
             return {
                 "symbol": symbol,
@@ -271,12 +303,14 @@ class InstitutionalRiskModel:
                 "recommended_pct": float(recommended / account_balance * 100) if account_balance else 0,
                 "recommended_quantity": float(recommended / current_price) if current_price else 0,
                 "max_position_pct": self.config.max_position_pct,
-                "method": "Institutional VaR + Kelly + Drawdown Control (Fixed)",
-                "timestamp": datetime.utcnow().isoformat()
+                "method": "Institutional VaR + Kelly + Drawdown Control v5 MAX",
+                "timestamp": datetime.utcnow().isoformat(),
+                "version": "v5_max"
             }
         except Exception as e:
-            logger.warning(f"Position size failed {symbol}: {e}")
-            # Safe fallback
+            logger.warning(f"Position size v5 failed {symbol}: {e}")
+            with self._lock:
+                self._metrics["errors"] += 1
             safe_size = account_balance * 0.05 if account_balance > 0 else 500
             return {
                 "symbol": symbol,
@@ -289,15 +323,22 @@ class InstitutionalRiskModel:
                 "recommended_size": safe_size,
                 "recommended_pct": 5.0,
                 "max_position_pct": self.config.max_position_pct,
-                "method": "Fallback - 5% due to error",
+                "method": "Fallback v5 - 5% due to error",
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
+                "version": "v5_max"
             }
+
+    def get_metrics(self) -> Dict:
+        with self._lock:
+            return {**self._metrics, "version": "v5_max"}
 
     def to_dict(self):
         return {
             "config": asdict(self.config),
             "type": "risk_model",
-            "strategy": "Institutional Risk - VaR, CVaR, Kelly, Drawdown",
-            "institutional": True
+            "strategy": "Institutional Risk - VaR, CVaR, Kelly, Drawdown v5 MAX",
+            "institutional": True,
+            "version": "v5_max",
+            "metrics": self.get_metrics()
         }

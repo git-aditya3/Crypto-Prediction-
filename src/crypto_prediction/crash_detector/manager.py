@@ -1,5 +1,7 @@
 """
-Crash Detector Manager - Fixed: thread safety, validation, persistence
+Crash Detector Manager v5 MAX - Thread-safe, validation, persistence, metrics, caching
+- Fast local processing, cached 20s, history, alerts, signals breakdown
+- CoinDCX INR integrated, versioning, metrics
 """
 import time
 import threading
@@ -9,14 +11,21 @@ from datetime import datetime
 from .detector import get_crash_detector, CrashReport
 
 class CrashManager:
-    def __init__(self, max_history: int=200):
+    def __init__(self, max_history: int=300):
         self.detector = get_crash_detector()
         self.history = deque(maxlen=max_history)
         self.last_report = None
-        self.alerts = deque(maxlen=100)
+        self.alerts = deque(maxlen=150)
         self._last_scan = 0
-        self._cache_ttl = 20
+        self._cache_ttl = 15  # Faster for v5
         self._lock = threading.Lock()
+        self._metrics = {
+            "total_scans": 0,
+            "cache_hits": 0,
+            "alerts_generated": 0,
+            "avg_fetch_time_ms": 0,
+            "avg_processing_time_ms": 0
+        }
 
     def scan(self, symbols: List[str]=None, force: bool=False) -> Dict:
         with self._lock:
@@ -24,41 +33,41 @@ class CrashManager:
             if not force and self.last_report and (now - self._last_scan) < self._cache_ttl:
                 d=self.last_report.to_dict()
                 d["cached"]=True
+                self._metrics["cache_hits"] += 1
                 return d
 
-            # Validate symbols
             if symbols:
                 if not isinstance(symbols, list):
                     symbols = [symbols]
                 symbols = [str(s).upper().strip() for s in symbols if s]
-                symbols = symbols[:10]  # limit
+                symbols = symbols[:15]
 
             try:
                 report: CrashReport = self.detector.scan(symbols)
             except Exception as e:
-                # Return last report if scan fails
                 if self.last_report:
                     d=self.last_report.to_dict()
                     d["cached"]=True
                     d["error"]=str(e)
-                    d["warning"]="Scan failed, returning cached"
+                    d["warning"]="Scan v5 failed, returning cached"
+                    d["version"] = "v5_max"
                     return d
-                # Create minimal report
                 report = CrashReport(
                     timestamp=datetime.utcnow().isoformat(),
                     crash_risk=20.0,
                     level="LOW",
                     confidence=30.0,
                     signals=[],
-                    summary=f"Scan failed: {e} - using fallback",
-                    action="⚠️ Scan failed - check manually, set tight SL",
+                    summary=f"Scan v5 failed: {e} - using fallback",
+                    action="⚠️ Scan v5 failed - check manually, set tight SL",
                     btc_price=0,
                     btc_change=0,
                     fetch_time_ms=0,
                     processing_time_ms=0,
                     data_quality=0.0,
-                    warnings=[f"Scan failed: {e}"],
-                    raw={}
+                    warnings=[f"Scan v5 failed: {e}"],
+                    raw={},
+                    version="v5_max"
                 )
 
             self.last_report=report
@@ -67,6 +76,16 @@ class CrashManager:
             except Exception:
                 pass
             self._last_scan=now
+            self._metrics["total_scans"] += 1
+            # Update avg times
+            try:
+                prev_fetch = self._metrics["avg_fetch_time_ms"]
+                total = self._metrics["total_scans"]
+                self._metrics["avg_fetch_time_ms"] = (prev_fetch * (total-1) + report.fetch_time_ms) / total if total > 1 else report.fetch_time_ms
+                prev_proc = self._metrics["avg_processing_time_ms"]
+                self._metrics["avg_processing_time_ms"] = (prev_proc * (total-1) + report.processing_time_ms) / total if total > 1 else report.processing_time_ms
+            except Exception:
+                pass
 
             if report.level in ["HIGH","CRITICAL"]:
                 try:
@@ -77,32 +96,36 @@ class CrashManager:
                         "btc_change": report.btc_change,
                         "summary": report.summary,
                         "action": report.action,
-                        "data_quality": report.data_quality
+                        "data_quality": report.data_quality,
+                        "version": "v5_max"
                     })
+                    self._metrics["alerts_generated"] += 1
                 except Exception:
                     pass
 
             out=report.to_dict()
             out["cached"]=False
+            out["metrics"] = dict(self._metrics)
+            out["version"] = "v5_max"
             return out
 
     def get_status(self) -> Dict:
         with self._lock:
             if not self.last_report:
-                # Release lock to avoid deadlock when calling scan
                 pass
             else:
                 d=self.last_report.to_dict()
                 d["cached"]=True
                 d["history_count"]=len(self.history)
                 d["alerts_count"]=len(self.alerts)
+                d["metrics"]=dict(self._metrics)
+                d["version"]="v5_max"
                 return d
-        # Outside lock
         return self.scan()
 
     def get_history(self, limit: int=50) -> List[Dict]:
         try:
-            limit = max(1, min(200, int(limit)))
+            limit = max(1, min(300, int(limit)))
         except (ValueError, TypeError):
             limit=50
         with self._lock:
@@ -110,7 +133,7 @@ class CrashManager:
 
     def get_alerts(self, limit: int=20) -> List[Dict]:
         try:
-            limit = max(1, min(100, int(limit)))
+            limit = max(1, min(150, int(limit)))
         except (ValueError, TypeError):
             limit=20
         with self._lock:
@@ -130,9 +153,10 @@ class CrashManager:
                     "warnings": self.last_report.warnings,
                     "signals": self.last_report.signals,
                     "btc_price": self.last_report.btc_price,
-                    "btc_change": self.last_report.btc_change
+                    "btc_change": self.last_report.btc_change,
+                    "metrics": dict(self._metrics),
+                    "version": "v5_max"
                 }
-        # Outside lock, trigger scan
         result = self.scan()
         return {
             "timestamp": result.get("timestamp"),
@@ -143,8 +167,14 @@ class CrashManager:
             "warnings": result.get("warnings",[]),
             "signals": result.get("signals",[]),
             "btc_price": result.get("btc_price"),
-            "btc_change": result.get("btc_change")
+            "btc_change": result.get("btc_change"),
+            "metrics": result.get("metrics", {}),
+            "version": "v5_max"
         }
+
+    def get_metrics(self) -> Dict:
+        with self._lock:
+            return {**self._metrics, "history_count": len(self.history), "alerts_count": len(self.alerts), "version": "v5_max"}
 
 _manager=None
 _manager_lock=threading.Lock()

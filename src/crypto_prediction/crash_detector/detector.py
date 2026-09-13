@@ -1,5 +1,5 @@
 """
-Crash Detector - Fixed with CoinDCX INR support, quality-weighted aggregation
+Crash Detector v5 MAX - Quality-weighted aggregation, CoinDCX INR support, metrics, thread-safe
 """
 import time
 import threading
@@ -32,6 +32,7 @@ class CrashReport:
     data_quality: float
     warnings: List[str]
     raw: Dict
+    version: str = "v5_max"
 
     def to_dict(self):
         return {
@@ -52,27 +53,37 @@ class CrashReport:
             "raw": self.raw,
             "local_processing": True,
             "efficient": True,
-            "fixed": True,
-            "price_source": "CoinDCX INR primary + Binance fallback"
+            "version": "v5_max",
+            "price_source": "CoinDCX v5 INR primary + Binance v5 fallback + CoinGecko global"
         }
 
 class CrashDetector:
     def __init__(self):
         self.scraper: FastScraper = get_scraper()
         self.weights = {
-            "price_drop": 1.5,
-            "liquidation": 1.3,
-            "orderbook": 1.2,
-            "stablecoin": 1.4,
-            "whale": 1.1,
-            "news": 1.2,
-            "funding": 1.0,
+            "price_drop": 1.6,
+            "liquidation": 1.4,
+            "orderbook": 1.3,
+            "stablecoin": 1.5,
+            "whale": 1.2,
+            "news": 1.3,
+            "funding": 1.1,
             "correlation": 1.0,
             "volume": 1.0,
-            "fear_greed": 0.8,
-            "open_interest": 0.9
+            "fear_greed": 0.9,
+            "open_interest": 1.0
         }
         self._oi_history = {}
+        self._metrics = {
+            "total_scans": 0,
+            "avg_risk": 0.0,
+            "critical_count": 0,
+            "high_count": 0,
+            "avg_data_quality": 0.0,
+            "avg_fetch_time_ms": 0,
+            "avg_processing_time_ms": 0
+        }
+        self._lock = threading.Lock()
 
     def _aggregate(self, signals: List[SignalResult], data_quality: float) -> tuple:
         try:
@@ -135,7 +146,7 @@ class CrashDetector:
             except Exception:
                 continue
 
-        confidence = 30 + avg_quality*40
+        confidence = 30 + avg_quality*45
         confidence += high_signals*8 + medium_signals*3
         confidence -= low_quality_count*5
 
@@ -164,14 +175,14 @@ class CrashDetector:
             data_quality = 0.0
         base = ""
         if data_quality < 0.3:
-            base = "⚠️ LOW DATA QUALITY - Binance may be blocked, using CoinDCX INR fallback - verify manually | "
+            base = "⚠️ LOW DATA QUALITY v5 - Binance may be blocked, using CoinDCX INR + CoinGecko fallback - verify manually | "
         if level=="CRITICAL":
-            return base + "🚨 CRITICAL CRASH IMMINENT - Exit longs, tighten SL, reduce leverage, move to stablecoins, watch liquidations"
+            return base + "🚨 CRITICAL v5 CRASH IMMINENT - Exit longs, tighten SL 1%, reduce leverage 75%, move to stablecoins, watch liquidations $500M+"
         if level=="HIGH":
-            return base + "⚠️ HIGH crash risk - Reduce position size 50%, set tight SL, avoid new longs, hedge with shorts, monitor orderbook"
+            return base + "⚠️ HIGH v5 crash risk - Reduce position size 50%, set tight SL 2%, avoid new longs, hedge with shorts 25%, monitor orderbook depth"
         if level=="MEDIUM":
-            return base + "⚡ MEDIUM risk - Caution, reduce leverage, set breakeven SL, watch funding & liquidations, prepare hedge"
-        return base + "✅ LOW risk - Normal trading, but keep SL, monitor whale sells & funding"
+            return base + "⚡ MEDIUM v5 risk - Caution, reduce leverage 30%, set breakeven SL, watch funding >0.1% & liquidations, prepare hedge"
+        return base + "✅ LOW v5 risk - Normal trading, but keep SL 3%, monitor whale sells & funding, CoinDCX INR live"
 
     def _summary(self, risk: float, signals: List[SignalResult], btc_change: float, data_quality: float) -> str:
         try:
@@ -182,19 +193,18 @@ class CrashDetector:
             risk = 0.0
             btc_change = 0.0
             data_quality = 0.0
-        # Top signals by score with decent quality
         try:
             top = sorted([s for s in signals if isinstance(s, SignalResult) and getattr(s, 'data_quality',0)>0.3], key=lambda x: float(getattr(x,'score',0)), reverse=True)[:3]
             if not top:
                 top = sorted([s for s in signals if isinstance(s, SignalResult)], key=lambda x: float(getattr(x,'score',0)), reverse=True)[:3]
-            top_str = ", ".join([f"{s.name} {float(getattr(s,'score',0)):.0f} ({getattr(s,'level','LOW')})" for s in top]) if top else "No strong signals"
+            top_str = ", ".join([f"{s.name} {float(getattr(s,'score',0)):.0f} ({getattr(s,'level','LOW')})" for s in top]) if top else "No strong signals v5"
         except Exception:
-            top_str = "Signal aggregation"
-        quality_note = f"Quality {data_quality:.0%}" if data_quality<0.5 else "Quality OK"
-        source_note = "CoinDCX INR + Binance"
+            top_str = "Signal aggregation v5"
+        quality_note = f"Quality {data_quality:.0%}" if data_quality<0.5 else "Quality OK v5"
+        source_note = "CoinDCX v5 INR + Binance v5 + CoinGecko"
         if risk>=60:
-            return f"Crash risk {risk:.0f}% - BTC {btc_change:.1f}% | Top: {top_str} | {quality_note} | {source_note} | Early warning before market-wide impact"
-        return f"Crash risk {risk:.0f}% - BTC {btc_change:.1f}% | Top: {top_str} | {quality_note} | {source_note} | No systemic crash"
+            return f"Crash v5 risk {risk:.0f}% - BTC {btc_change:.1f}% | Top: {top_str} | {quality_note} | {source_note} | Early warning v5 before market-wide impact"
+        return f"Crash v5 risk {risk:.0f}% - BTC {btc_change:.1f}% | Top: {top_str} | {quality_note} | {source_note} | No systemic crash v5"
 
     def scan(self, symbols: List[str]=None) -> CrashReport:
         if symbols is None:
@@ -217,7 +227,6 @@ class CrashDetector:
         try:
             scraped: ScrapedData = self.scraper.fetch_all(symbols)
         except Exception as e:
-            # Fallback empty data with all required fields including coindcx_tickers
             scraped = ScrapedData(
                 timestamp=datetime.utcnow().isoformat(),
                 spot_tickers={},
@@ -231,9 +240,11 @@ class CrashDetector:
                 reddit_posts=[],
                 news_titles=[],
                 coindcx_tickers={},
+                global_market={},
                 fetch_time_ms=0,
                 errors=[str(e)[:200]],
-                data_quality=0.0
+                data_quality=0.0,
+                version="v5_max"
             )
         fetch_ms = getattr(scraped, 'fetch_time_ms', 0) or 0
         t1=time.time()
@@ -244,16 +255,16 @@ class CrashDetector:
         except (ValueError, TypeError):
             dq = 0.0
         if dq < 0.3:
-            warnings.append(f"Low data quality {dq:.0%} - Binance may be blocked or rate limited, using CoinDCX INR fallback/cached")
+            warnings.append(f"Low data quality v5 {dq:.0%} - Binance may be blocked or rate limited, using CoinDCX INR + CoinGecko fallback/cached")
         try:
             if getattr(scraped, 'errors', None):
                 if len(scraped.errors) > 0:
-                    warnings.append(f"Fetch errors: {len(scraped.errors)} sources failed")
+                    warnings.append(f"Fetch v5 errors: {len(scraped.errors)} sources failed")
         except Exception:
             pass
         try:
             if not getattr(scraped, 'spot_tickers', None) or len(scraped.spot_tickers) == 0:
-                warnings.append("No spot tickers - price drop signal uncertain, using CoinDCX if available")
+                warnings.append("No spot tickers v5 - price drop signal uncertain, using CoinDCX if available")
         except Exception:
             pass
 
@@ -271,7 +282,7 @@ class CrashDetector:
             signals.append(calc_news_signal(getattr(scraped, 'news_titles', []) or [], getattr(scraped, 'reddit_posts', []) or []))
             signals.append(calc_oi_signal(getattr(scraped, 'open_interest', {}) or {}, getattr(scraped, 'spot_tickers', {}) or {}))
         except Exception as e:
-            warnings.append(f"Signal calculation error: {str(e)[:100]}")
+            warnings.append(f"Signal v5 calculation error: {str(e)[:100]}")
             if not signals:
                 try:
                     signals.append(calc_price_drop_signal({}))
@@ -297,7 +308,6 @@ class CrashDetector:
         except Exception:
             pass
 
-        # Cached BTC fallback
         if btc_price==0:
             try:
                 last = getattr(self.scraper, '_last_successful', None)
@@ -313,7 +323,7 @@ class CrashDetector:
                         except (ValueError, TypeError):
                             pass
                         if btc_price > 0:
-                            warnings.append("Using cached BTC price - live fetch failed, CoinDCX fallback attempted")
+                            warnings.append("Using cached BTC v5 price - live fetch failed, CoinDCX fallback attempted")
             except Exception:
                 pass
 
@@ -363,6 +373,26 @@ class CrashDetector:
             err_count = len(getattr(scraped, 'errors', []) or [])
         except Exception:
             err_count = 0
+        try:
+            global_market = getattr(scraped, 'global_market', {}) or {}
+        except Exception:
+            global_market = {}
+
+        with self._lock:
+            self._metrics["total_scans"] += 1
+            total = self._metrics["total_scans"]
+            prev_risk = self._metrics["avg_risk"]
+            self._metrics["avg_risk"] = (prev_risk * (total-1) + risk) / total if total>1 else risk
+            prev_dq = self._metrics["avg_data_quality"]
+            self._metrics["avg_data_quality"] = (prev_dq * (total-1) + dq) / total if total>1 else dq
+            prev_fetch = self._metrics["avg_fetch_time_ms"]
+            self._metrics["avg_fetch_time_ms"] = (prev_fetch * (total-1) + fetch_ms) / total if total>1 else fetch_ms
+            prev_proc = self._metrics["avg_processing_time_ms"]
+            self._metrics["avg_processing_time_ms"] = (prev_proc * (total-1) + proc_ms) / total if total>1 else proc_ms
+            if level == "CRITICAL":
+                self._metrics["critical_count"] += 1
+            if level == "HIGH":
+                self._metrics["high_count"] += 1
 
         report=CrashReport(
             timestamp=getattr(scraped, 'timestamp', datetime.utcnow().isoformat()),
@@ -391,8 +421,12 @@ class CrashDetector:
                 "news": news_count,
                 "errors": err_count,
                 "avg_signal_quality": round(float(avg_quality),2) if avg_quality else 0.0,
-                "price_source": "CoinDCX INR primary + Binance fallback"
-            }
+                "price_source": "CoinDCX v5 INR primary + Binance v5 fallback + CoinGecko global",
+                "global_market": global_market,
+                "metrics": dict(self._metrics),
+                "version": "v5_max"
+            },
+            version="v5_max"
         )
         return report
 
@@ -407,8 +441,8 @@ class CrashDetector:
                 "level": "LOW",
                 "confidence": 30.0,
                 "signals": [],
-                "summary": f"Quick scan failed: {e}",
-                "action": "⚠️ Scan failed - check manually",
+                "summary": f"Quick scan v5 failed: {e}",
+                "action": "⚠️ Scan v5 failed - check manually",
                 "btc_price": 0,
                 "btc_change": 0,
                 "fetch_time_ms": 0,
@@ -416,8 +450,13 @@ class CrashDetector:
                 "data_quality": 0.0,
                 "warnings": [str(e)],
                 "raw": {},
-                "error": str(e)
+                "error": str(e),
+                "version": "v5_max"
             }
+
+    def get_metrics(self) -> Dict:
+        with self._lock:
+            return {**self._metrics, "version": "v5_max"}
 
 _detector=None
 _detector_lock=threading.Lock()

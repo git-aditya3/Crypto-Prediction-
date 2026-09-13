@@ -1,25 +1,70 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import Navbar from './components/Navbar'
 import MarketTicker from './components/MarketTicker'
-import Dashboard from './pages/Dashboard'
-import Forecast from './pages/Forecast'
-import Sentiment from './pages/Sentiment'
-import Realtime from './pages/Realtime'
-import Backtest from './pages/Backtest'
-import Models from './pages/Models'
-import TradingCalls from './pages/TradingCalls'
-import Settings from './pages/Settings'
-import Training from './pages/Training'
-import Portfolio from './pages/Portfolio'
-import Strategies from './pages/Strategies'
-import Scanner from './pages/Scanner'
-import Analytics from './pages/Analytics'
-import Alerts from './pages/Alerts'
-import Journal from './pages/Journal'
-import AutoTrading from './pages/AutoTrading'
-import CrashDetector from './pages/CrashDetector'
 import { useSettingsStore, THEMES } from './store/useSettingsStore'
+
+// v5 MAX: Lazy loading for performance, code splitting, reliability
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Forecast = lazy(() => import('./pages/Forecast'))
+const Sentiment = lazy(() => import('./pages/Sentiment'))
+const Realtime = lazy(() => import('./pages/Realtime'))
+const Backtest = lazy(() => import('./pages/Backtest'))
+const Models = lazy(() => import('./pages/Models'))
+const TradingCalls = lazy(() => import('./pages/TradingCalls'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Training = lazy(() => import('./pages/Training'))
+const Portfolio = lazy(() => import('./pages/Portfolio'))
+const Strategies = lazy(() => import('./pages/Strategies'))
+const Scanner = lazy(() => import('./pages/Scanner'))
+const Analytics = lazy(() => import('./pages/Analytics'))
+const Alerts = lazy(() => import('./pages/Alerts'))
+const Journal = lazy(() => import('./pages/Journal'))
+const AutoTrading = lazy(() => import('./pages/AutoTrading'))
+const CrashDetector = lazy(() => import('./pages/CrashDetector'))
+
+// v5 MAX: Error Boundary for reliability
+import React from 'react'
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error, info) {
+    console.error('v5 MAX ErrorBoundary:', error, info)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-black text-white p-8">
+          <div className="max-w-md text-center space-y-4">
+            <div className="text-6xl">⚠️</div>
+            <h1 className="text-2xl font-black">Something went wrong v5</h1>
+            <p className="text-sm text-zinc-400">{this.state.error?.message || 'Unknown error'}</p>
+            <button onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black rounded-xl font-bold hover:bg-zinc-200 transition">
+              Reload v5 MAX
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="text-center space-y-3">
+        <div className="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+        <div className="text-[12px] text-zinc-500 font-bold uppercase tracking-wide">Loading v5 MAX...</div>
+      </div>
+    </div>
+  )
+}
 
 export default function App() {
   const { theme, accent, font, density, animations, blur, showMarketTicker } = useSettingsStore()
@@ -54,12 +99,12 @@ export default function App() {
   const currentTheme = THEMES[theme] || THEMES.dark
 
   return (
+    <ErrorBoundary>
     <BrowserRouter>
       <div className={`min-h-screen font-poppins selection:bg-[var(--accent)] selection:text-[var(--bg)] theme-bg ${isLight ? '' : ''}`} style={{ fontFamily: `var(--font, 'Poppins')` }}>
         {showMarketTicker && <MarketTicker />}
         <Navbar />
         <main className="min-h-[calc(100vh-200px)] relative">
-          {/* Subtle background pattern */}
           <div className="absolute inset-0 pointer-events-none opacity-[0.02]">
             <div className="absolute inset-0" style={{
               backgroundImage: `radial-gradient(circle at 1px 1px, var(--text) 1px, transparent 0)`,
@@ -67,6 +112,7 @@ export default function App() {
             }} />
           </div>
           <div className="relative z-10">
+            <Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/trading" element={<TradingCalls />} />
@@ -86,6 +132,7 @@ export default function App() {
               <Route path="/models" element={<Models />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
+            </Suspense>
           </div>
         </main>
         
@@ -98,9 +145,9 @@ export default function App() {
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[14px] shadow-lg ${isLight ? 'bg-black text-white' : 'bg-white text-black'}`}>₿</div>
                   <span className={`font-black text-[16px] ${isLight ? 'text-black' : 'text-white'}`}>CryptoPred</span>
-                  <span className="ui-pill-accent text-[9px] font-black px-2 py-1">V7</span>
+                  <span className="ui-pill-accent text-[9px] font-black px-2 py-1">V8 MAX</span>
                 </div>
-                <p className={`text-[12px] leading-relaxed ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Real trading intelligence • CoinDCX real money • {Object.keys(THEMES).length} themes • Endless learning</p>
+                <p className={`text-[12px] leading-relaxed ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Real trading intelligence v5 MAX • CoinDCX real money • {Object.keys(THEMES).length} themes • Pooling metrics security • Endless learning</p>
                 <div className="flex items-center gap-2">
                   <span className={`text-[10px] px-2 py-1 rounded-full border font-bold ${currentTheme.preview}`}>{currentTheme.icon} {currentTheme.name}</span>
                   <span className="ui-pill text-[10px]">{currentTheme.category}</span>
@@ -157,5 +204,6 @@ export default function App() {
         </footer>
       </div>
     </BrowserRouter>
+    </ErrorBoundary>
   )
 }

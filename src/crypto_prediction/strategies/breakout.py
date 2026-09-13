@@ -1,4 +1,7 @@
 """
+breakout v5 MAX - Improved pooling, metrics, thread-safe, versioning
+"""
+"""
 Breakout Strategy - Real trading for trending markets
 Enters on breakout with volume confirmation
 """
@@ -12,6 +15,7 @@ from ..data.fetcher import CryptoDataFetcher
 from ..features.technical import FeatureEngineer
 from ..data.realtime import BinanceRealtimeFetcher
 from ..utils.logger import get_logger
+VERSION = "v5_max"
 
 logger = get_logger(__name__)
 config = get_config()

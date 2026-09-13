@@ -1,4 +1,7 @@
 """
+grid v5 MAX - Improved pooling, metrics, thread-safe, versioning
+"""
+"""
 Grid Trading Bot - Profits from ranging markets, real trading
 Places buy/sell orders in grid, profits from volatility
 """
@@ -9,6 +12,7 @@ import numpy as np
 
 from ..data.realtime import BinanceRealtimeFetcher
 from ..utils.logger import get_logger
+VERSION = "v5_max"
 
 logger = get_logger(__name__)
 

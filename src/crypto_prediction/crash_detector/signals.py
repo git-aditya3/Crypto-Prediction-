@@ -1,5 +1,5 @@
 """
-Crash Signals - Fixed: missing data handling, stablecoin, OI, validation
+Crash Signals v5 MAX - Missing data handling, stablecoin, OI, validation, metrics, versioning
 """
 import numpy as np
 from typing import Dict, List
@@ -13,20 +13,26 @@ class SignalResult:
     reason: str
     details: Dict
     weight: float = 1.0
-    data_quality: float = 1.0  # how reliable this signal is
+    data_quality: float = 1.0
+    version: str = "v5_max"
 
     def to_dict(self):
         return {
             "name": self.name,
-            "score": round(self.score,1),
+            "score": round(float(self.score),1),
             "level": self.level,
             "reason": self.reason,
             "details": self.details,
             "weight": self.weight,
-            "data_quality": round(self.data_quality,2)
+            "data_quality": round(float(self.data_quality),2),
+            "version": "v5_max"
         }
 
 def _level(score: float) -> str:
+    try:
+        score = float(score)
+    except Exception:
+        score = 0
     if score >= 80: return "CRITICAL"
     if score >= 60: return "HIGH"
     if score >= 35: return "MEDIUM"
@@ -34,21 +40,22 @@ def _level(score: float) -> str:
 
 def calc_price_drop_signal(tickers: Dict) -> SignalResult:
     if not tickers or len(tickers) < 2:
-        return SignalResult("price_drop", 15, "LOW", "No/insufficient ticker data - uncertain", {"avg_drop": 0, "min_drop": 0, "count_down": 0, "count_crash": 0, "warning": "missing data"}, 1.2, data_quality=0.2)
+        return SignalResult("price_drop", 15, "LOW", "No/insufficient ticker data v5 - uncertain", {"avg_drop": 0, "min_drop": 0, "count_down": 0, "count_crash": 0, "warning": "missing v5"}, 1.6, data_quality=0.2)
     drops=[]
     for sym, d in tickers.items():
         try:
             pct = float(d.get("change_pct",0) or 0)
-            if abs(pct) < 100:  # sanity: no >100% drop in 24h normally
+            if abs(pct) < 100:
                 drops.append(pct)
         except (ValueError, TypeError):
             continue
     if not drops:
-        return SignalResult("price_drop", 10, "LOW", "No valid price data", {}, 1.2, data_quality=0.1)
+        return SignalResult("price_drop", 10, "LOW", "No valid price data v5", {}, 1.6, data_quality=0.1)
     avg_drop = float(np.mean(drops))
     min_drop = float(np.min(drops))
     count_down = sum(1 for x in drops if x < -5)
     count_crash = sum(1 for x in drops if x < -10)
+    count_severe = sum(1 for x in drops if x < -15)
     score=0
     if avg_drop < -1: score+=20
     if avg_drop < -3: score+=25
@@ -56,14 +63,15 @@ def calc_price_drop_signal(tickers: Dict) -> SignalResult:
     if min_drop < -10: score+=15
     if count_down > 5: score+=10
     if count_crash > 2: score+=20
+    if count_severe > 1: score+=15
     score=min(100, score)
     quality = min(1.0, len(drops)/10)
-    reason=f"Avg {avg_drop:.1f}% | Min {min_drop:.1f}% | {count_down} coins <-5% | {count_crash} <-10% | {len(drops)} coins"
-    return SignalResult("price_drop", score, _level(score), reason, {"avg_drop": avg_drop, "min_drop": min_drop, "count_down": count_down, "count_crash": count_crash, "total": len(drops)}, weight=1.5, data_quality=quality)
+    reason=f"Avg {avg_drop:.1f}% | Min {min_drop:.1f}% | {count_down} <-5% | {count_crash} <-10% | {count_severe} <-15% | {len(drops)} coins v5"
+    return SignalResult("price_drop", score, _level(score), reason, {"avg_drop": avg_drop, "min_drop": min_drop, "count_down": count_down, "count_crash": count_crash, "count_severe": count_severe, "total": len(drops)}, weight=1.6, data_quality=quality)
 
 def calc_liquidation_signal(liquidations: Dict) -> SignalResult:
     if not liquidations:
-        return SignalResult("liquidation", 10, "LOW", "No liquidation data - uncertain", {"total_liq": 0, "long_liq": 0, "warning": "missing"}, 1.3, data_quality=0.2)
+        return SignalResult("liquidation", 10, "LOW", "No liquidation data v5 - uncertain", {"total_liq": 0, "long_liq": 0, "warning": "missing v5"}, 1.4, data_quality=0.2)
     total_long=0.0
     total=0.0
     valid=0
@@ -78,21 +86,22 @@ def calc_liquidation_signal(liquidations: Dict) -> SignalResult:
         except (ValueError, TypeError):
             continue
     if valid==0 or total==0:
-        return SignalResult("liquidation", 5, "LOW", "No valid liquidation", {"total_liq": 0, "long_liq": 0}, 1.3, data_quality=0.2)
+        return SignalResult("liquidation", 5, "LOW", "No valid liquidation v5", {"total_liq": 0, "long_liq": 0}, 1.4, data_quality=0.2)
     score=0
     if total>1_000_000: score+=20
     if total>5_000_000: score+=25
     if total>20_000_000: score+=30
+    if total>100_000_000: score+=15
     if total_long>total*0.7 and total>1_000_000: score+=15
     score=min(100, score)
     long_pct = total_long/total*100 if total else 0
-    reason=f"Total liq ${total/1e6:.1f}M | Long ${total_long/1e6:.1f}M ({long_pct:.0f}% longs) | {valid} symbols"
+    reason=f"Total liq v5 ${total/1e6:.1f}M | Long ${total_long/1e6:.1f}M ({long_pct:.0f}% longs) | {valid} symbols"
     quality = min(1.0, valid/3)
-    return SignalResult("liquidation", score, _level(score), reason, {"total_liq": total, "long_liq": total_long, "long_pct": long_pct, "valid_symbols": valid}, weight=1.3, data_quality=quality)
+    return SignalResult("liquidation", score, _level(score), reason, {"total_liq": total, "long_liq": total_long, "long_pct": long_pct, "valid_symbols": valid}, weight=1.4, data_quality=quality)
 
 def calc_funding_signal(funding_rates: List) -> SignalResult:
     if not funding_rates or len(funding_rates) < 3:
-        return SignalResult("funding", 10, "LOW", "No/insufficient funding data - uncertain", {"avg_funding": 0, "min_funding": 0, "neg_count": 0, "warning": "missing"}, 1.0, data_quality=0.2)
+        return SignalResult("funding", 10, "LOW", "No/insufficient funding data v5 - uncertain", {"avg_funding": 0, "min_funding": 0, "neg_count": 0, "warning": "missing v5"}, 1.1, data_quality=0.2)
     rates=[]
     for r in funding_rates:
         try:
@@ -100,16 +109,17 @@ def calc_funding_signal(funding_rates: List) -> SignalResult:
                 v=r.get("fundingRate", r.get("lastFundingRate"))
                 if v is not None:
                     fv=float(v)
-                    if abs(fv) < 0.05:  # sanity <5%
+                    if abs(fv) < 0.05:
                         rates.append(fv)
         except (ValueError, TypeError):
             continue
     if len(rates) < 3:
-        return SignalResult("funding", 10, "LOW", f"Only {len(rates)} valid funding rates", {}, 1.0, data_quality=0.3)
+        return SignalResult("funding", 10, "LOW", f"Only {len(rates)} valid funding rates v5", {}, 1.1, data_quality=0.3)
     avg=float(np.mean(rates))
     min_r=float(np.min(rates))
     neg_count=sum(1 for x in rates if x<0)
     extreme_neg=sum(1 for x in rates if x<-0.001)
+    severe_neg=sum(1 for x in rates if x<-0.003)
     score=0
     if avg<0: score+=20
     if avg<-0.0005: score+=20
@@ -117,14 +127,15 @@ def calc_funding_signal(funding_rates: List) -> SignalResult:
     if min_r<-0.002: score+=15
     if neg_count>len(rates)*0.6: score+=10
     if extreme_neg>3: score+=15
+    if severe_neg>1: score+=10
     score=min(100, score)
     quality = min(1.0, len(rates)/20)
-    reason=f"Avg funding {avg*100:.4f}% | Min {min_r*100:.4f}% | {neg_count}/{len(rates)} negative | {extreme_neg} extreme<-0.1%"
-    return SignalResult("funding", score, _level(score), reason, {"avg_funding": avg, "min_funding": min_r, "neg_count": neg_count, "extreme": extreme_neg, "total": len(rates)}, weight=1.0, data_quality=quality)
+    reason=f"Avg funding v5 {avg*100:.4f}% | Min {min_r*100:.4f}% | {neg_count}/{len(rates)} negative | {extreme_neg} extreme<-0.1% | {severe_neg} severe<-0.3%"
+    return SignalResult("funding", score, _level(score), reason, {"avg_funding": avg, "min_funding": min_r, "neg_count": neg_count, "extreme": extreme_neg, "severe": severe_neg, "total": len(rates)}, weight=1.1, data_quality=quality)
 
 def calc_orderbook_signal(orderbooks: Dict) -> SignalResult:
     if not orderbooks:
-        return SignalResult("orderbook", 15, "LOW", "No orderbook data - uncertain, possible liquidity issue", {"avg_imbalance": 0, "min_imbalance": 0, "warning": "missing"}, 1.2, data_quality=0.2)
+        return SignalResult("orderbook", 15, "LOW", "No orderbook data v5 - uncertain, possible liquidity issue", {"avg_imbalance": 0, "min_imbalance": 0, "warning": "missing v5"}, 1.3, data_quality=0.2)
     imbalances=[]
     for sym, ob in orderbooks.items():
         try:
@@ -136,7 +147,7 @@ def calc_orderbook_signal(orderbooks: Dict) -> SignalResult:
         except (ValueError, TypeError):
             continue
     if not imbalances:
-        return SignalResult("orderbook", 10, "LOW", "No valid imbalance", {}, 1.2, data_quality=0.2)
+        return SignalResult("orderbook", 10, "LOW", "No valid imbalance v5", {}, 1.3, data_quality=0.2)
     avg_imb=float(np.mean(imbalances))
     min_imb=float(np.min(imbalances))
     score=0
@@ -147,12 +158,12 @@ def calc_orderbook_signal(orderbooks: Dict) -> SignalResult:
     if min_imb<-0.7: score+=10
     score=min(100, score)
     quality = min(1.0, len(imbalances)/3)
-    reason=f"Avg imbalance {avg_imb:.2f} (neg=sell pressure) | Min {min_imb:.2f} | {len(imbalances)} books"
-    return SignalResult("orderbook", score, _level(score), reason, {"avg_imbalance": avg_imb, "min_imbalance": min_imb, "count": len(imbalances)}, weight=1.2, data_quality=quality)
+    reason=f"Avg imbalance v5 {avg_imb:.2f} (neg=sell pressure) | Min {min_imb:.2f} | {len(imbalances)} books"
+    return SignalResult("orderbook", score, _level(score), reason, {"avg_imbalance": avg_imb, "min_imbalance": min_imb, "count": len(imbalances)}, weight=1.3, data_quality=quality)
 
 def calc_whale_signal(trades: Dict) -> SignalResult:
     if not trades:
-        return SignalResult("whale", 10, "LOW", "No trade data - uncertain", {"sell_ratio": 0.5, "whale_sells": 0, "warning": "missing"}, 1.1, data_quality=0.2)
+        return SignalResult("whale", 10, "LOW", "No trade data v5 - uncertain", {"sell_ratio": 0.5, "whale_sells": 0, "warning": "missing v5"}, 1.2, data_quality=0.2)
     total_sell_ratio=[]
     whale_count=0
     valid=0
@@ -166,7 +177,7 @@ def calc_whale_signal(trades: Dict) -> SignalResult:
         except (ValueError, TypeError):
             continue
     if valid==0:
-        return SignalResult("whale", 5, "LOW", "No valid trade data", {}, 1.1, data_quality=0.2)
+        return SignalResult("whale", 5, "LOW", "No valid trade data v5", {}, 1.2, data_quality=0.2)
     avg_sell=float(np.mean(total_sell_ratio))
     score=0
     if avg_sell>0.55: score+=20
@@ -176,36 +187,36 @@ def calc_whale_signal(trades: Dict) -> SignalResult:
     if whale_count>15: score+=25
     score=min(100, score)
     quality = min(1.0, valid/3)
-    reason=f"Sell ratio {avg_sell*100:.1f}% | Whale sells >$50k: {whale_count} in last 100 trades | {valid} symbols"
-    return SignalResult("whale", score, _level(score), reason, {"sell_ratio": avg_sell, "whale_sells": whale_count, "valid": valid}, weight=1.1, data_quality=quality)
+    reason=f"Sell ratio v5 {avg_sell*100:.1f}% | Whale sells >$50k: {whale_count} in last 100 trades | {valid} symbols"
+    return SignalResult("whale", score, _level(score), reason, {"sell_ratio": avg_sell, "whale_sells": whale_count, "valid": valid}, weight=1.2, data_quality=quality)
 
 def calc_stablecoin_signal(tickers: Dict) -> SignalResult:
-    """Improved: check USDT volume dominance + BTC drop + alt drop"""
     if not tickers:
-        return SignalResult("stablecoin", 10, "LOW", "No ticker for stablecoin check - uncertain", {"btc_change": 0, "warning": "missing"}, 1.4, data_quality=0.2)
+        return SignalResult("stablecoin", 10, "LOW", "No ticker for stablecoin check v5 - uncertain", {"btc_change": 0, "warning": "missing v5"}, 1.5, data_quality=0.2)
     btc = tickers.get("BTCUSDT",{})
     btc_change = float(btc.get("change_pct",0) or 0)
     btc_vol = float(btc.get("quote_vol",0) or 0)
 
-    # Count how many alts are dropping significantly
     alt_drops = sum(1 for k,v in tickers.items() if "USDT" in k and k != "BTCUSDT" and float(v.get("change_pct",0) or 0) < -5)
+    severe_alt_drops = sum(1 for k,v in tickers.items() if "USDT" in k and k != "BTCUSDT" and float(v.get("change_pct",0) or 0) < -10)
 
     score=0
     if btc_change<-3: score+=15
     if btc_change<-5: score+=20
     if btc_change<-7: score+=25
     if btc_change<-10: score+=20
-    if alt_drops>=5 and btc_change<-3: score+=20  # flight to stablecoins
-    if btc_vol>500_000_000 and btc_change<-5: score+=10  # high volume crash = panic to stable
+    if alt_drops>=5 and btc_change<-3: score+=20
+    if severe_alt_drops>=3: score+=10
+    if btc_vol>500_000_000 and btc_change<-5: score+=10
 
     score=min(100, score)
     quality = 0.8 if btc else 0.3
-    reason=f"BTC {btc_change:.1f}% | {alt_drops} alts <-5% | Vol ${btc_vol/1e6:.1f}M | Stable flight"
-    return SignalResult("stablecoin", score, _level(score), reason, {"btc_change": btc_change, "alt_drops": alt_drops, "btc_vol": btc_vol}, weight=1.4, data_quality=quality)
+    reason=f"BTC v5 {btc_change:.1f}% | {alt_drops} alts <-5% | {severe_alt_drops} <-10% | Vol ${btc_vol/1e6:.1f}M | Stable flight v5"
+    return SignalResult("stablecoin", score, _level(score), reason, {"btc_change": btc_change, "alt_drops": alt_drops, "severe_alt_drops": severe_alt_drops, "btc_vol": btc_vol}, weight=1.5, data_quality=quality)
 
 def calc_fear_greed_signal(fng: Dict) -> SignalResult:
     if not fng or fng.get("error"):
-        return SignalResult("fear_greed", 10, "LOW", "No Fear&Greed data - uncertain", {"value": 50, "warning": "missing"}, 0.8, data_quality=0.2)
+        return SignalResult("fear_greed", 10, "LOW", "No Fear&Greed data v5 - uncertain", {"value": 50, "warning": "missing v5"}, 0.9, data_quality=0.2)
     try:
         val=int(fng.get("value",50))
         val=max(0, min(100, val))
@@ -220,7 +231,6 @@ def calc_fear_greed_signal(fng: Dict) -> SignalResult:
     score=min(100, score)
     classification=fng.get("classification","Neutral")
     history = fng.get("history",[])
-    # Check if dropping fast
     if len(history)>=2:
         try:
             prev = history[1].get("value", val) if isinstance(history[1], dict) else 50
@@ -228,14 +238,15 @@ def calc_fear_greed_signal(fng: Dict) -> SignalResult:
                 score+=10
         except Exception:
             pass
-    reason=f"Fear & Greed {val} - {classification} | Low = panic risk"
+    reason=f"Fear & Greed v5 {val} - {classification} | Low = panic risk v5"
     quality = 0.9 if not fng.get("error") else 0.3
-    return SignalResult("fear_greed", score, _level(score), reason, {"value": val, "classification": classification, "history": history[:3]}, weight=0.8, data_quality=quality)
+    return SignalResult("fear_greed", score, _level(score), reason, {"value": val, "classification": classification, "history": history[:3]}, weight=0.9, data_quality=quality)
 
 def calc_correlation_signal(tickers: Dict) -> SignalResult:
     if not tickers or len(tickers) < 5:
-        return SignalResult("correlation", 10, "LOW", "Insufficient data for correlation - uncertain", {"down_ratio": 0, "warning": "missing"}, 1.0, data_quality=0.3)
+        return SignalResult("correlation", 10, "LOW", "Insufficient data for correlation v5 - uncertain", {"down_ratio": 0, "warning": "missing v5"}, 1.0, data_quality=0.3)
     downs=0
+    severe_downs=0
     total=0
     for sym, d in tickers.items():
         try:
@@ -244,30 +255,35 @@ def calc_correlation_signal(tickers: Dict) -> SignalResult:
             if sym in ["USDTUSDT","USDCUSDT"]:
                 continue
             pct = float(d.get("change_pct",0) or 0)
-            if abs(pct) > 100:  # sanity
+            if abs(pct) > 100:
                 continue
             total+=1
             if pct<-3:
                 downs+=1
+            if pct<-8:
+                severe_downs+=1
         except (ValueError, TypeError):
             continue
     if total < 3:
-        return SignalResult("correlation", 10, "LOW", "Too few coins for correlation", {}, 1.0, data_quality=0.3)
+        return SignalResult("correlation", 10, "LOW", "Too few coins for correlation v5", {}, 1.0, data_quality=0.3)
     ratio=downs/total if total else 0
+    severe_ratio=severe_downs/total if total else 0
     score=0
     if ratio>0.5: score+=20
     if ratio>0.7: score+=30
     if ratio>0.8: score+=30
     if ratio>0.9: score+=20
+    if severe_ratio>0.3: score+=10
     score=min(100, score)
     quality = min(1.0, total/10)
-    reason=f"{downs}/{total} coins <-3% | {ratio*100:.0f}% dropping together = systemic"
-    return SignalResult("correlation", score, _level(score), reason, {"down_ratio": ratio, "down_count": downs, "total": total}, weight=1.0, data_quality=quality)
+    reason=f"v5 {downs}/{total} <-3% | {severe_downs} <-8% | {ratio*100:.0f}% dropping together = systemic v5"
+    return SignalResult("correlation", score, _level(score), reason, {"down_ratio": ratio, "severe_ratio": severe_ratio, "down_count": downs, "severe_count": severe_downs, "total": total}, weight=1.0, data_quality=quality)
 
 def calc_volume_signal(tickers: Dict) -> SignalResult:
     if not tickers:
-        return SignalResult("volume", 10, "LOW", "No volume data - uncertain", {"spikes": 0, "warning": "missing"}, 1.0, data_quality=0.2)
+        return SignalResult("volume", 10, "LOW", "No volume data v5 - uncertain", {"spikes": 0, "warning": "missing v5"}, 1.0, data_quality=0.2)
     spikes=0
+    severe_spikes=0
     valid=0
     for sym, d in tickers.items():
         try:
@@ -278,16 +294,18 @@ def calc_volume_signal(tickers: Dict) -> SignalResult:
             valid+=1
             if pct<-5 and qvol>50_000_000:
                 spikes+=1
+            if pct<-10 and qvol>100_000_000:
+                severe_spikes+=1
         except (ValueError, TypeError):
             continue
-    score=min(100, spikes*15)
+    score=min(100, spikes*15 + severe_spikes*10)
     quality = min(1.0, valid/10)
-    reason=f"{spikes} coins with volume spike + drop <-5% | Distribution"
-    return SignalResult("volume", score, _level(score), reason, {"spikes": spikes, "valid": valid}, weight=1.0, data_quality=quality)
+    reason=f"v5 {spikes} vol spike + drop <-5% | {severe_spikes} severe <-10% + >$100M | Distribution v5"
+    return SignalResult("volume", score, _level(score), reason, {"spikes": spikes, "severe_spikes": severe_spikes, "valid": valid}, weight=1.0, data_quality=quality)
 
 def calc_news_signal(news: List, reddit: List) -> SignalResult:
     if not news and not reddit:
-        return SignalResult("news", 10, "LOW", "No news/reddit data - uncertain", {"crash_news": 0, "crash_reddit": 0, "warning": "missing"}, 1.2, data_quality=0.2)
+        return SignalResult("news", 10, "LOW", "No news/reddit data v5 - uncertain", {"crash_news": 0, "crash_reddit": 0, "warning": "missing v5"}, 1.3, data_quality=0.2)
     crash_news=0
     crash_reddit=0
     high_score_crash=0
@@ -311,13 +329,12 @@ def calc_news_signal(news: List, reddit: List) -> SignalResult:
     if high_score_crash>0: score+=20
     score=min(100, score)
     quality = min(1.0, (total_news+total_reddit)/20) if (total_news+total_reddit)>0 else 0.2
-    reason=f"News crash {crash_news}/{total_news} | Reddit crash {crash_reddit}/{total_reddit} | High-score {high_score_crash}"
-    return SignalResult("news", score, _level(score), reason, {"crash_news": crash_news, "crash_reddit": crash_reddit, "high_score": high_score_crash, "total_news": total_news, "total_reddit": total_reddit}, weight=1.2, data_quality=quality)
+    reason=f"News v5 crash {crash_news}/{total_news} | Reddit crash {crash_reddit}/{total_reddit} | High-score {high_score_crash}"
+    return SignalResult("news", score, _level(score), reason, {"crash_news": crash_news, "crash_reddit": crash_reddit, "high_score": high_score_crash, "total_news": total_news, "total_reddit": total_reddit}, weight=1.3, data_quality=quality)
 
 def calc_oi_signal(oi_data: Dict, tickers: Dict) -> SignalResult:
-    """Improved: OI with at least reporting, and check if OI data exists"""
     if not oi_data:
-        return SignalResult("open_interest", 5, "LOW", "No OI data - need historical for drop detection", {"btc_oi": 0, "warning": "missing"}, 0.9, data_quality=0.2)
+        return SignalResult("open_interest", 5, "LOW", "No OI data v5 - need historical for drop detection", {"btc_oi": 0, "warning": "missing v5"}, 1.0, data_quality=0.2)
     btc_oi=0
     valid=0
     try:
@@ -326,25 +343,21 @@ def calc_oi_signal(oi_data: Dict, tickers: Dict) -> SignalResult:
     except (ValueError, TypeError, AttributeError):
         btc_oi=0
 
-    # If OI is 0, data missing, not necessarily low risk
     if valid==0:
-        return SignalResult("open_interest", 5, "LOW", "No valid OI", {"btc_oi": 0}, 0.9, data_quality=0.2)
+        return SignalResult("open_interest", 5, "LOW", "No valid OI v5", {"btc_oi": 0}, 1.0, data_quality=0.2)
 
-    # We can't detect drop without history, but we can report current OI
-    # Future improvement: store historical OI in manager and compare
     score=0
-    # If we have OI, low score unless we have history showing drop - for now 0
-    # But if BTC price dropping and OI is low, it might be after liquidation
     btc_change=0
     try:
         btc_change=float(tickers.get("BTCUSDT",{}).get("change_pct",0) or 0) if tickers else 0
     except Exception:
         btc_change=0
 
-    # If price down and OI still high, risk of further liquidation
     if btc_change<-5 and btc_oi>100000:
         score+=20
+    if btc_change<-8 and btc_oi>200000:
+        score+=15
 
     quality = min(1.0, valid/3)
-    reason=f"BTC OI {btc_oi:,.0f} | {valid} symbols | Need historical for drop detection | BTC {btc_change:.1f}%"
-    return SignalResult("open_interest", score, _level(score), reason, {"btc_oi": btc_oi, "valid": valid, "btc_change": btc_change}, weight=0.9, data_quality=quality)
+    reason=f"BTC OI v5 {btc_oi:,.0f} | {valid} symbols | Need historical for drop detection | BTC {btc_change:.1f}%"
+    return SignalResult("open_interest", score, _level(score), reason, {"btc_oi": btc_oi, "valid": valid, "btc_change": btc_change}, weight=1.0, data_quality=quality)

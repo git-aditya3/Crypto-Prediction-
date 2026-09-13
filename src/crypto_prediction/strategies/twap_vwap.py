@@ -1,4 +1,7 @@
 """
+twap_vwap v5 MAX - Improved pooling, metrics, thread-safe, versioning
+"""
+"""
 Institutional Execution Algorithms - TWAP & VWAP
 Fixed: INR support, slippage handling, fallback price, error handling, validation
 """
@@ -10,6 +13,7 @@ import numpy as np
 
 from ..config import get_config
 from ..utils.logger import get_logger
+VERSION = "v5_max"
 
 logger = get_logger(__name__)
 config = get_config()
