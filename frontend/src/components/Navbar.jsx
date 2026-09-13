@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { TrendingUp, Brain, Radio, BarChart3, Home, Sparkles, Activity, Zap, Menu, X, Target, Settings, GraduationCap, Wallet, Bot, Search, LineChart, Bell, BookOpen } from 'lucide-react'
+import { TrendingUp, Brain, Radio, BarChart3, Home, Sparkles, Activity, Zap, Menu, X, Target, Settings, GraduationCap, Wallet, Bot, Search, LineChart, Bell, BookOpen, Cpu } from 'lucide-react'
 import { useState } from 'react'
 import { useMarketStore } from '../store/useMarketStore'
 
@@ -11,6 +11,7 @@ export default function Navbar() {
   const nav = [
     { path: '/', label: 'Dashboard', icon: Home, desc: 'Overview & live market' },
     { path: '/trading', label: 'Real Trading', icon: Target, desc: 'Live calls for actual trades', badge: 'REAL', highlight: true },
+    { path: '/autotrade', label: 'Auto Trade', icon: Cpu, desc: 'Automated real trading', badge: 'NEW', highlight: true, accent: 'emerald' },
     { path: '/portfolio', label: 'Portfolio', icon: Wallet, desc: 'Real holdings & P&L', badge: 'NEW', highlight: true, accent: 'emerald' },
     { path: '/strategies', label: 'Bots', icon: Bot, desc: 'DCA, Grid, Breakout', badge: 'NEW', highlight: true, accent: 'violet' },
     { path: '/scanner', label: 'Scanner', icon: Search, desc: 'Market opportunities', badge: 'LIVE' },
@@ -44,10 +45,10 @@ export default function Navbar() {
           <div className="hidden sm:block">
             <div className="font-bold text-[17px] tracking-tight leading-none flex items-center gap-2">
               CryptoPred
-              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500/20 to-violet-500/20 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold tracking-widest">V4 • REAL TRADING</span>
+              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500/20 to-violet-500/20 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold tracking-widest">V6 • AUTO REAL TRADING</span>
             </div>
             <div className="text-[11px] text-crypto-muted font-medium tracking-wide mt-0.5 flex items-center gap-2">
-              <span>REAL TRADES • ENDLESS LEARNING • LIVE DATA</span>
+              <span>AUTO REAL TRADES • EXTENSIVE CONTROL • LIVE DATA</span>
               {isLive && (
                 <span className="flex items-center gap-1 text-emerald-400">
                   <span className="live-dot !w-1.5 !h-1.5"></span> LIVE

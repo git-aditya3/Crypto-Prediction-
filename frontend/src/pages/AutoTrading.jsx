@@ -1,0 +1,587 @@
+import { useEffect, useState } from 'react'
+import { Bot, Play, Square, AlertTriangle, Settings, Wallet, Shield, Zap, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react'
+
+export default function AutoTrading() {
+  const [config, setConfig] = useState(null)
+  const [status, setStatus] = useState(null)
+  const [brokers, setBrokers] = useState({})
+  const [trades, setTrades] = useState([])
+  const [pending, setPending] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('control')
+  const [brokerForm, setBrokerForm] = useState({ broker_id: 'binance_live', broker_type: 'binance', api_key: '', api_secret: '', testnet: true, initial_balance: 10000 })
+  const [showBrokerForm, setShowBrokerForm] = useState(false)
+
+  const fetchData = async () => {
+    try {
+      const [cfgRes, statusRes, brokersRes, tradesRes, pendingRes] = await Promise.all([
+        fetch('/api/autotrade/config').then(r => r.json()),
+        fetch('/api/autotrade/status').then(r => r.json()),
+        fetch('/api/brokers').then(r => r.json()),
+        fetch('/api/autotrade/trades?limit=50').then(r => r.json()),
+        fetch('/api/autotrade/pending').then(r => r.json())
+      ])
+      setConfig(cfgRes)
+      setStatus(statusRes)
+      setBrokers(brokersRes.brokers || {})
+      setTrades(tradesRes.trades || [])
+      setPending(pendingRes.pending || [])
+    } catch (e) { console.error(e) } finally { setLoading(false) }
+  }
+
+  useEffect(() => { fetchData(); const i = setInterval(fetchData, 5000); return () => clearInterval(i) }, [])
+
+  const updateConfig = async (newConfig) => {
+    try {
+      const res = await fetch('/api/autotrade/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: newConfig })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setConfig(data.config)
+        fetchData()
+      } else alert(data.detail)
+    } catch (e) { alert(e.message) }
+  }
+
+  const toggleEnabled = () => {
+    if (!config) return
+    updateConfig({ ...config, enabled: !config.enabled })
+  }
+
+  const changeMode = (mode) => {
+    if (!config) return
+    updateConfig({ ...config, mode, execution: { ...config.execution, broker_id: config.execution.broker_id || 'paper' } })
+  }
+
+  const startTrading = async () => {
+    try {
+      const res = await fetch('/api/autotrade/start', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) { alert(data.message); fetchData() } else alert(data.detail)
+    } catch (e) { alert(e.message) }
+  }
+
+  const stopTrading = async () => {
+    try {
+      const res = await fetch('/api/autotrade/stop', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) fetchData()
+    } catch (e) { console.error(e) }
+  }
+
+  const emergencyStop = async () => {
+    if (!confirm('🚨 EMERGENCY STOP - Halt all trading immediately?')) return
+    try {
+      const res = await fetch('/api/autotrade/emergency/stop', { method: 'POST' })
+      const data = await res.json()
+      alert(data.message)
+      fetchData()
+    } catch (e) { alert(e.message) }
+  }
+
+  const executeManual = async (symbol) => {
+    try {
+      const res = await fetch('/api/autotrade/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, manual: true })
+      })
+      const data = await res.json()
+      if (data.success) alert(`✅ ${data.message}`)
+      else if (data.requires_approval) alert(`📋 Requires approval: ${data.approval_id}`)
+      else alert(`Failed: ${data.reason}`)
+      fetchData()
+    } catch (e) { alert(e.message) }
+  }
+
+  const approveTrade = async (id) => {
+    try {
+      const res = await fetch(`/api/autotrade/approve/${id}`, { method: 'POST' })
+      const data = await res.json()
+      if (data.success) { alert('Approved and executed'); fetchData() } else alert(data.reason)
+    } catch (e) { alert(e.message) }
+  }
+
+  const rejectTrade = async (id) => {
+    try {
+      const res = await fetch(`/api/autotrade/reject/${id}`, { method: 'POST' })
+      fetchData()
+    } catch (e) { console.error(e) }
+  }
+
+  const connectBroker = async () => {
+    try {
+      const res = await fetch('/api/brokers/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(brokerForm)
+      })
+      const data = await res.json()
+      if (res.ok) { setShowBrokerForm(false); fetchData(); alert(data.message) } else alert(data.detail)
+    } catch (e) { alert(e.message) }
+  }
+
+  if (loading) return <div className="p-6 text-center">Loading automated trading engine - extensive controls...</div>
+
+  return (
+    <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black flex items-center gap-3">
+            <Bot className="text-emerald-400" /> Automated Real Trading
+            <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-bold">EXTENSIVE CONTROL</span>
+            {status?.real_trading && <span className="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold animate-pulse">REAL MONEY</span>}
+            {status?.paper_mode && <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-bold">PAPER SAFE</span>}
+          </h1>
+          <p className="text-crypto-muted mt-1">Automate real trades with full control - broker integration, risk guards, paper/semi/full auto, emergency stop</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={emergencyStop} className="px-4 py-2 rounded-xl bg-red-500 text-white font-bold flex items-center gap-2 hover:bg-red-400">
+            <AlertTriangle size={16} /> Emergency Stop
+          </button>
+          {status?.is_running ? (
+            <button onClick={stopTrading} className="px-4 py-2 rounded-xl bg-crypto-card border border-crypto-border flex items-center gap-2">
+              <Square size={16} /> Stop
+            </button>
+          ) : (
+            <button onClick={startTrading} className="px-4 py-2 rounded-xl bg-emerald-500 text-black font-bold flex items-center gap-2 hover:bg-emerald-400">
+              <Play size={16} /> Start Auto
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Status Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
+          <div className="text-[10px] text-crypto-muted uppercase">Status</div>
+          <div className={`text-lg font-black flex items-center gap-2 ${status?.is_running ? 'text-emerald-400' : 'text-crypto-muted'}`}>
+            {status?.is_running ? <><div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div> Running</> : 'Stopped'}
+          </div>
+          <div className="text-xs text-crypto-muted mt-1">Mode: {status?.mode}</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
+          <div className="text-[10px] text-crypto-muted uppercase">Broker</div>
+          <div className="text-sm font-bold">{status?.broker_id}</div>
+          <div className="text-xs text-crypto-muted mt-1">{status?.broker_connected ? 'Connected' : 'Not connected'}</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
+          <div className="text-[10px] text-crypto-muted uppercase">Open Positions</div>
+          <div className="text-lg font-black">{status?.open_positions || 0} / {status?.config?.risk?.max_positions || 5}</div>
+          <div className="text-xs text-crypto-muted mt-1">Max {config?.risk?.max_positions}</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
+          <div className="text-[10px] text-crypto-muted uppercase">Daily Trades</div>
+          <div className="text-lg font-black">{status?.daily_trades || 0} / {config?.max_daily_trades || 10}</div>
+          <div className="text-xs text-crypto-muted mt-1">Today</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
+          <div className="text-[10px] text-crypto-muted uppercase">Pending Approvals</div>
+          <div className="text-lg font-black text-amber-400">{status?.pending_approvals || 0}</div>
+          <div className="text-xs text-crypto-muted mt-1">Semi-auto</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
+          <div className="text-[10px] text-crypto-muted uppercase">Risk/Trade</div>
+          <div className="text-lg font-black">{config?.risk?.risk_per_trade_pct || 2}%</div>
+          <div className="text-xs text-crypto-muted mt-1">${(config?.account_balance * (config?.risk?.risk_per_trade_pct / 100)).toFixed(0)} risk</div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 p-1 rounded-xl bg-crypto-card border border-crypto-border w-fit">
+        {[
+          { id: 'control', label: 'Control Panel', icon: Settings },
+          { id: 'brokers', label: 'Brokers', icon: Wallet },
+          { id: 'risk', label: 'Risk Guard', icon: Shield },
+          { id: 'trades', label: 'Trades', icon: TrendingUp },
+          { id: 'pending', label: `Pending (${pending.length})`, icon: Clock }
+        ].map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${activeTab === t.id ? 'bg-white text-black' : 'text-crypto-muted hover:text-white'}`}>
+            <t.icon size={14} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Control Panel */}
+      {activeTab === 'control' && config && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Main Controls */}
+          <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border space-y-5">
+            <h3 className="font-bold flex items-center gap-2"><Zap size={16} className="text-emerald-400" /> Main Controls - Extensive User Control</h3>
+            
+            <div className="flex items-center justify-between p-3 rounded-xl bg-crypto-bg border border-crypto-border/50">
+              <div>
+                <div className="font-medium">Auto Trading Enabled</div>
+                <div className="text-xs text-crypto-muted">Master switch for automation</div>
+              </div>
+              <button onClick={toggleEnabled} className={`w-12 h-6 rounded-full transition flex items-center ${config.enabled ? 'bg-emerald-500 justify-end' : 'bg-crypto-card justify-start'} p-1`}>
+                <div className="w-4 h-4 bg-white rounded-full"></div>
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs text-crypto-muted uppercase">Trading Mode - Extensive Control</label>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {[
+                  { id: 'paper', label: 'Paper', desc: 'Safe simulation, real prices', color: 'blue' },
+                  { id: 'semi_auto', label: 'Semi-Auto', desc: 'Requires approval', color: 'amber' },
+                  { id: 'full_auto', label: 'Full-Auto', desc: 'Real auto execution', color: 'red' }
+                ].map(m => (
+                  <button key={m.id} onClick={() => changeMode(m.id)} className={`p-3 rounded-xl border text-left transition ${config.mode === m.id ? (m.color === 'red' ? 'bg-red-500/10 border-red-500/30 text-red-400' : m.color === 'amber' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400') : 'bg-crypto-bg border-crypto-border/50 text-crypto-muted hover:border-crypto-border'}`}>
+                    <div className="font-bold text-sm">{m.label}</div>
+                    <div className="text-[10px] mt-1">{m.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-crypto-muted">Account Balance $</label>
+                <input type="number" value={config.account_balance} onChange={e => updateConfig({ ...config, account_balance: parseFloat(e.target.value) })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              </div>
+              <div>
+                <label className="text-xs text-crypto-muted">Max Daily Trades</label>
+                <input type="number" value={config.max_daily_trades} onChange={e => updateConfig({ ...config, max_daily_trades: parseInt(e.target.value) })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+              <div className="text-xs font-bold text-amber-400">⚠️ Real Trading Warning</div>
+              <div className="text-xs text-crypto-muted mt-1">Paper mode = safe simulation with real prices, no real money. Full-auto with real broker = REAL MONEY, can lose. Start with paper, test thoroughly, use risk guards. Never grant withdrawal permission to API keys.</div>
+            </div>
+          </div>
+
+          {/* Strategy & Execution Controls */}
+          <div className="space-y-6">
+            <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border">
+              <h3 className="font-bold mb-3">Strategy Controls - Toggle Strategies</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'use_ai_ensemble', label: 'AI Ensemble' },
+                  { key: 'use_breakout', label: 'Breakout' },
+                  { key: 'use_rsi_signals', label: 'RSI Signals' },
+                  { key: 'use_volume_spikes', label: 'Volume Spikes' },
+                  { key: 'use_dca_bot', label: 'DCA Bot' },
+                  { key: 'use_grid_bot', label: 'Grid Bot' }
+                ].map(s => (
+                  <label key={s.key} className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
+                    <input type="checkbox" checked={config.strategies[s.key]} onChange={e => updateConfig({ ...config, strategies: { ...config.strategies, [s.key]: e.target.checked } })} className="rounded" />
+                    <span className="text-sm">{s.label}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-crypto-muted">Confidence Threshold %</label>
+                  <input type="number" value={config.strategies.ai_confidence_threshold} onChange={e => updateConfig({ ...config, strategies: { ...config.strategies, ai_confidence_threshold: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                </div>
+                <div>
+                  <label className="text-xs text-crypto-muted">Min RR Ratio</label>
+                  <input type="number" step="0.1" value={config.strategies.min_risk_reward} onChange={e => updateConfig({ ...config, strategies: { ...config.strategies, min_risk_reward: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border">
+              <h3 className="font-bold mb-3">Symbol Controls - Whitelist/Blacklist</h3>
+              <div>
+                <label className="text-xs text-crypto-muted">Whitelist (comma separated, empty = all)</label>
+                <input value={config.symbols.whitelist.join(',')} onChange={e => updateConfig({ ...config, symbols: { ...config.symbols, whitelist: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } })} placeholder="BTC-USD,ETH-USD,BNB-USD,SOL-USD" className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              </div>
+              <div className="mt-3">
+                <label className="text-xs text-crypto-muted">Blacklist</label>
+                <input value={config.symbols.blacklist.join(',')} onChange={e => updateConfig({ ...config, symbols: { ...config.symbols, blacklist: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } })} placeholder="DOGE-USD,SHIB-USD" className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              </div>
+              <div className="mt-3">
+                <label className="text-xs text-crypto-muted">Max Positions Per Symbol</label>
+                <input type="number" value={config.symbols.max_positions_per_symbol} onChange={e => updateConfig({ ...config, symbols: { ...config.symbols, max_positions_per_symbol: parseInt(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Brokers Tab */}
+      {activeTab === 'brokers' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold">Broker Integration - Real Trading Connections</h3>
+            <button onClick={() => setShowBrokerForm(true)} className="px-4 py-2 rounded-xl bg-emerald-500 text-black font-bold">Connect Broker</button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(brokers).map(([id, broker]) => (
+              <div key={id} className={`p-4 rounded-2xl border ${broker.paper_mode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold">{broker.name || id}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${broker.paper_mode ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-black'}`}>{broker.paper_mode ? 'PAPER' : 'REAL'}</span>
+                </div>
+                <div className="mt-3 space-y-1 text-xs">
+                  <div className="flex justify-between"><span className="text-crypto-muted">Type</span><span>{broker.type}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">Connected</span><span className={broker.connected ? 'text-emerald-400' : 'text-red-400'}>{broker.connected ? 'Yes' : 'No'}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">Has Keys</span><span>{broker.has_keys ? 'Yes (secure)' : 'No (paper)'}</span></div>
+                  {broker.balances && Object.keys(broker.balances).length > 0 && (
+                    <div className="mt-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50">
+                      <div className="text-[10px] text-crypto-muted uppercase">Balances</div>
+                      {Object.entries(broker.balances).slice(0, 3).map(([asset, bal]) => (
+                        <div key={asset} className="flex justify-between text-xs"><span>{asset}</span><span>{bal.total?.toFixed(4)}</span></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button onClick={async () => { const res = await fetch(`/api/brokers/${id}/test`); const data = await res.json(); alert(JSON.stringify(data, null, 2)) }} className="flex-1 py-1.5 rounded-lg bg-crypto-bg border border-crypto-border text-xs">Test</button>
+                  <button onClick={async () => { if (confirm(`Remove broker ${id}?`)) { await fetch(`/api/brokers/${id}/remove`, { method: 'DELETE' }); fetchData() } }} className="flex-1 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 text-xs">Remove</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
+            <h4 className="font-bold text-sm">Broker Integration Guide - Secure Real Trading</h4>
+            <div className="mt-2 text-xs text-crypto-muted space-y-1">
+              <div>• <span className="text-emerald-400">Paper Broker</span>: Safe simulation with real Binance prices, no real money, perfect for testing</div>
+              <div>• <span className="text-amber-400">Binance Testnet</span>: Real API but testnet funds, test real execution safely</div>
+              <div>• <span className="text-red-400">Binance Live</span>: REAL MONEY - requires API key/secret with trading permission ONLY, NEVER withdrawal</div>
+              <div>• Generate API keys on Binance: API Management → Create API → Enable Trading, Disable Withdrawal, Enable IP whitelist</div>
+              <div>• Keys are base64 encoded locally, not plain text, never shared, stored in data/brokers.json</div>
+              <div>• For real trading, also set ENABLE_REAL_TRADING=true env var and enable_real_trading in config for safety</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Risk Tab */}
+      {activeTab === 'risk' && config && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border space-y-4">
+            <h3 className="font-bold flex items-center gap-2"><Shield size={16} className="text-violet-400" /> Risk Controls - Extensive Protection</h3>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-crypto-muted">Risk Per Trade %</label>
+                <input type="number" step="0.1" value={config.risk.risk_per_trade_pct} onChange={e => updateConfig({ ...config, risk: { ...config.risk, risk_per_trade_pct: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <div className="text-[10px] text-crypto-muted mt-1">Recommended 1-2%</div>
+              </div>
+              <div>
+                <label className="text-xs text-crypto-muted">Max Daily Loss %</label>
+                <input type="number" step="0.1" value={config.risk.max_daily_loss_pct} onChange={e => updateConfig({ ...config, risk: { ...config.risk, max_daily_loss_pct: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <div className="text-[10px] text-crypto-muted mt-1">Halt if exceeded</div>
+              </div>
+              <div>
+                <label className="text-xs text-crypto-muted">Max Positions</label>
+                <input type="number" value={config.risk.max_positions} onChange={e => updateConfig({ ...config, risk: { ...config.risk, max_positions: parseInt(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              </div>
+              <div>
+                <label className="text-xs text-crypto-muted">Max Drawdown %</label>
+                <input type="number" value={config.risk.max_drawdown_pct} onChange={e => updateConfig({ ...config, risk: { ...config.risk, max_drawdown_pct: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              </div>
+              <div>
+                <label className="text-xs text-crypto-muted">Max Leverage</label>
+                <input type="number" value={config.risk.max_leverage} onChange={e => updateConfig({ ...config, risk: { ...config.risk, max_leverage: parseInt(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              </div>
+              <div>
+                <label className="text-xs text-crypto-muted">Max Consecutive Losses</label>
+                <input type="number" value={config.risk.max_consecutive_losses} onChange={e => updateConfig({ ...config, risk: { ...config.risk, max_consecutive_losses: parseInt(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-crypto-muted">Position Size Method</label>
+              <select value={config.risk.position_size_method} onChange={e => updateConfig({ ...config, risk: { ...config.risk, position_size_method: e.target.value } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
+                <option value="risk_based">Risk Based (risk% / |entry-SL|)</option>
+                <option value="fixed">Fixed $ amount</option>
+                <option value="percent_balance">% of Balance</option>
+                <option value="kelly">Kelly Criterion (advanced)</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
+                <input type="checkbox" checked={config.risk.use_trailing_stop} onChange={e => updateConfig({ ...config, risk: { ...config.risk, use_trailing_stop: e.target.checked } })} />
+                <span className="text-sm">Use Trailing Stop</span>
+              </label>
+              <label className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
+                <input type="checkbox" checked={config.risk.move_sl_to_breakeven_at_tp1} onChange={e => updateConfig({ ...config, risk: { ...config.risk, move_sl_to_breakeven_at_tp1: e.target.checked } })} />
+                <span className="text-sm">Move SL to Breakeven at TP1</span>
+              </label>
+              <label className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
+                <input type="checkbox" checked={config.risk.daily_loss_halt} onChange={e => updateConfig({ ...config, risk: { ...config.risk, daily_loss_halt: e.target.checked } })} />
+                <span className="text-sm">Halt Trading if Daily Loss Exceeded</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border">
+              <h3 className="font-bold mb-3">Execution Controls</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-crypto-muted">Order Type</label>
+                  <select value={config.execution.order_type} onChange={e => updateConfig({ ...config, execution: { ...config.execution, order_type: e.target.value } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
+                    <option value="MARKET">Market (instant)</option>
+                    <option value="LIMIT">Limit (better price)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-crypto-muted">Broker</label>
+                  <select value={config.execution.broker_id} onChange={e => updateConfig({ ...config, execution: { ...config.execution, broker_id: e.target.value } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
+                    {Object.keys(brokers).map(id => <option key={id} value={id}>{id} - {brokers[id].type}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-crypto-muted">Slippage Tolerance %</label>
+                  <input type="number" step="0.1" value={config.execution.slippage_tolerance_pct} onChange={e => updateConfig({ ...config, execution: { ...config.execution, slippage_tolerance_pct: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                </div>
+                <div>
+                  <label className="text-xs text-crypto-muted">Cooldown Between Trades (min)</label>
+                  <input type="number" value={config.trading_hours.cooldown_between_trades_minutes} onChange={e => updateConfig({ ...config, trading_hours: { ...config.trading_hours, cooldown_between_trades_minutes: parseInt(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                </div>
+              </div>
+              <div className="mt-3 space-y-2">
+                <label className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
+                  <input type="checkbox" checked={config.execution.auto_sl_tp} onChange={e => updateConfig({ ...config, execution: { ...config.execution, auto_sl_tp: e.target.checked } })} />
+                  <span className="text-sm">Auto SL/TP (OCO)</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
+                  <input type="checkbox" checked={config.execution.multiple_tp} onChange={e => updateConfig({ ...config, execution: { ...config.execution, multiple_tp: e.target.checked } })} />
+                  <span className="text-sm">Multiple TP (50/30/20)</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 rounded-lg bg-red-500/5 border border-red-500/20 cursor-pointer">
+                  <input type="checkbox" checked={config.execution.enable_real_trading} onChange={e => updateConfig({ ...config, execution: { ...config.execution, enable_real_trading: e.target.checked } })} />
+                  <span className="text-sm text-red-400 font-bold">Enable REAL Trading (requires API keys + safety flag)</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-violet-500/5 border border-violet-500/20">
+              <h4 className="font-bold text-sm text-violet-400">Risk Guard - How It Protects You</h4>
+              <div className="mt-2 text-xs text-crypto-muted space-y-1">
+                <div>• Checks emergency stop, enabled, trading hours, daily loss, max positions, max drawdown, consecutive losses, daily trades, cooldown, symbol whitelist/blacklist, confidence, RR, position size</div>
+                <div>• Position sizing: risk_based = (balance * risk%) / |entry-SL|, capped by max leverage</div>
+                <div>• Daily loss halt: stops trading if daily P&L &lt; -max_daily_loss%</div>
+                <div>• Cooldown: prevents over-trading, waits between trades and after losses</div>
+                <div>• All checks must pass to allow trade - extensive user control</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trades Tab */}
+      {activeTab === 'trades' && (
+        <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border">
+          <h3 className="font-bold mb-4">Auto Trading History - Real & Paper Trades</h3>
+          {trades.length === 0 ? (
+            <div className="text-center py-12 text-crypto-muted">No auto trades yet - start auto trading or execute manual trades</div>
+          ) : (
+            <div className="space-y-2 max-h-[600px] overflow-auto">
+              {trades.slice().reverse().map((trade, i) => (
+                <div key={i} className={`p-3 rounded-xl border flex items-center justify-between ${trade.real_trading ? 'bg-red-500/5 border-red-500/20' : 'bg-crypto-bg border-crypto-border/50'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold">{trade.symbol}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${trade.side === 'BUY' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{trade.side}</span>
+                    <span className="text-xs text-crypto-muted">{trade.quantity?.toFixed(4)} @ ${trade.entry_price?.toFixed(2)}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${trade.real_trading ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>{trade.real_trading ? 'REAL' : 'PAPER'}</span>
+                    <span className="text-xs text-crypto-muted">{trade.signal} {trade.confidence?.toFixed(0)}%</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-crypto-muted">{new Date(trade.timestamp).toLocaleString()}</div>
+                    <div className="text-xs">{trade.mode} • {trade.broker}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pending Tab */}
+      {activeTab === 'pending' && (
+        <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border">
+          <h3 className="font-bold mb-4 flex items-center gap-2"><Clock size={16} className="text-amber-400" /> Pending Approvals - Semi-Auto Mode</h3>
+          {pending.length === 0 ? (
+            <div className="text-center py-12 text-crypto-muted">No pending approvals - semi-auto mode queues trades here for your approval</div>
+          ) : (
+            <div className="space-y-3">
+              {pending.map((approval) => (
+                <div key={approval.id} className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-lg">{approval.symbol}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${approval.call.signal.includes('BUY') ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>{approval.call.signal}</span>
+                        <span className="text-xs text-crypto-muted">{approval.quantity?.toFixed(4)} @ ${approval.call.entry_price?.toFixed(2)} • {approval.call.confidence?.toFixed(0)}% conf</span>
+                      </div>
+                      <div className="text-xs text-crypto-muted mt-1">SL ${approval.call.stop_loss?.toFixed(2)} • TP1 ${approval.call.take_profits?.tp1?.toFixed(2)} • RR {approval.call.risk_reward?.toFixed(2)}</div>
+                      <div className="text-[10px] text-crypto-muted mt-1">ID: {approval.id} • {new Date(approval.timestamp).toLocaleString()}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => approveTrade(approval.id)} className="px-4 py-2 rounded-xl bg-emerald-500 text-black font-bold flex items-center gap-1"><CheckCircle size={14} /> Approve & Execute</button>
+                      <button onClick={() => rejectTrade(approval.id)} className="px-4 py-2 rounded-xl bg-crypto-bg border border-crypto-border flex items-center gap-1"><XCircle size={14} /> Reject</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Broker Form Modal */}
+      {showBrokerForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4">
+          <div className="p-6 rounded-2xl bg-crypto-card border border-crypto-border w-full max-w-md">
+            <h3 className="font-bold text-lg mb-4">Connect Broker - Secure Real Trading</h3>
+            <div className="space-y-3">
+              <input placeholder="Broker ID e.g. binance_live" value={brokerForm.broker_id} onChange={e => setBrokerForm({ ...brokerForm, broker_id: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              <select value={brokerForm.broker_type} onChange={e => setBrokerForm({ ...brokerForm, broker_type: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
+                <option value="binance">Binance (Real/Testnet)</option>
+                <option value="paper">Paper Trading (Safe)</option>
+              </select>
+              {brokerForm.broker_type === 'binance' && (
+                <>
+                  <input placeholder="API Key (trading permission only, no withdrawal)" value={brokerForm.api_key} onChange={e => setBrokerForm({ ...brokerForm, api_key: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                  <input placeholder="API Secret" type="password" value={brokerForm.api_secret} onChange={e => setBrokerForm({ ...brokerForm, api_secret: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={brokerForm.testnet} onChange={e => setBrokerForm({ ...brokerForm, testnet: e.target.checked })} />
+                    Use Testnet (safe testing)
+                  </label>
+                </>
+              )}
+              {brokerForm.broker_type === 'paper' && (
+                <input type="number" placeholder="Initial Balance" value={brokerForm.initial_balance} onChange={e => setBrokerForm({ ...brokerForm, initial_balance: parseFloat(e.target.value) })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              )}
+              <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-xs">
+                <div className="font-bold text-red-400">Security Warning</div>
+                <div className="text-crypto-muted mt-1">Never grant withdrawal permission. Use IP whitelist. Keys are base64 encoded locally, not encrypted. For real trading, also need ENABLE_REAL_TRADING env var and enable_real_trading flag. Start with paper/testnet.</div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setShowBrokerForm(false)} className="flex-1 py-2 rounded-xl bg-crypto-bg border border-crypto-border">Cancel</button>
+                <button onClick={connectBroker} className="flex-1 py-2 rounded-xl bg-emerald-500 text-black font-bold">Connect Securely</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Execute Quick Panel */}
+      <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
+        <h4 className="font-bold text-sm mb-3">Quick Manual Execute - Test Auto Trading</h4>
+        <div className="flex flex-wrap gap-2">
+          {['BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD', 'ADA-USD'].map(sym => (
+            <button key={sym} onClick={() => executeManual(sym)} className="px-3 py-1.5 rounded-lg bg-crypto-bg border border-crypto-border hover:border-emerald-500/30 text-sm">
+              Execute {sym}
+            </button>
+          ))}
+        </div>
+        <div className="text-xs text-crypto-muted mt-2">Executes trade via auto engine with risk checks - respects mode (paper/semi/full auto)</div>
+      </div>
+    </div>
+  )
+}
