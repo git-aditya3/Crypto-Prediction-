@@ -1,6 +1,22 @@
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// In production preview (e2b.app), use relative /api which is proxied by Vite to backend
+// In local dev, use localhost:8000 or VITE_API_URL env
+function getApiBase() {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  // If we're in a preview environment (e2b.app) or production, use /api proxy
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (host.includes('e2b.app') || host.includes('arena')) {
+      return '/api'
+    }
+  }
+  return 'http://localhost:8000'
+}
+
+const API_BASE = getApiBase()
 
 const client = axios.create({
   baseURL: API_BASE,
@@ -21,6 +37,9 @@ export const api = {
   getRealtimePrices: () => client.get('/realtime/prices').then(r => r.data),
   backtest: (payload) => client.post('/backtest', payload).then(r => r.data),
   backtestCompare: (symbol) => client.get(`/backtest/compare?symbol=${symbol}`).then(r => r.data),
+  // New market endpoints
+  getMarketTickers: () => client.get('/market/tickers').then(r => r.data).catch(() => ({ tickers: {} })),
+  getMarketKlines: (symbol, interval='1d', limit=200) => client.get(`/market/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`).then(r => r.data),
 }
 
 export default client

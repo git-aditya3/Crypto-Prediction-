@@ -1,21 +1,53 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
-import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { fetchKlines } from '../api/binance'
+import { useMarketStore } from '../store/useMarketStore'
+import PriceChart from '../components/PriceChart'
+import GlassCard from '../components/GlassCard'
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts'
+import { TrendingUp, Brain, Zap, Target, Clock, BarChart3 } from 'lucide-react'
 
 export default function Forecast() {
-  const [symbol, setSymbol] = useState('BTC-USD')
+  const { selectedSymbol, setSelectedSymbol, prices } = useMarketStore()
   const [steps, setSteps] = useState(7)
   const [forecast, setForecast] = useState(null)
+  const [history, setHistory] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [activeModel, setActiveModel] = useState('ensemble')
 
-  const load = () => {
+  const load = async () => {
     setLoading(true)
-    api.getForecast(symbol, steps).then(setForecast).catch(e=>alert(e.message)).finally(()=>setLoading(false))
+    try {
+      const [f, h] = await Promise.all([
+        api.getForecast(selectedSymbol, steps).catch(() => null),
+        api.getHistory(selectedSymbol, '1y').catch(async () => {
+          try {
+            const k = await fetchKlines(selectedSymbol, '1d', 200)
+            return {
+              dates: k.map(x => x.time),
+              open: k.map(x => x.open),
+              high: k.map(x => x.high),
+              low: k.map(x => x.low),
+              close: k.map(x => x.close),
+              volume: k.map(x => x.volume),
+            }
+          } catch { return null }
+        })
+      ])
+      if (f) setForecast(f)
+      if (h) setHistory(h)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
-  useEffect(()=>{load()}, [symbol, steps])
 
-  const chartData = forecast?.dates?.map((d,i)=>({
-    date: d,
+  useEffect(() => { load() }, [selectedSymbol, steps])
+
+  const chartData = forecast?.dates?.map((d, i) => ({
+    date: d.slice(5),
+    fullDate: d,
     lstm: forecast.lstm?.[i],
     transformer: forecast.transformer?.[i],
     xgboost: forecast.xgboost?.[i],
@@ -23,64 +55,195 @@ export default function Forecast() {
     ensemble: forecast.ensemble?.[i]
   })) || []
 
+  const livePrice = prices[selectedSymbol] || forecast?.current_price || 0
+
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Forecast</h1>
-        <div className="flex gap-2">
-          <select value={symbol} onChange={e=>setSymbol(e.target.value)} className="bg-crypto-card border border-crypto-border rounded-lg px-3 py-2">
-            {['BTC-USD','ETH-USD','SOL-USD','BNB-USD','XRP-USD'].map(s=><option key={s}>{s}</option>)}
-          </select>
-          <select value={steps} onChange={e=>setSteps(parseInt(e.target.value))} className="bg-crypto-card border border-crypto-border rounded-lg px-3 py-2">
-            {[7,14,21,30].map(n=><option key={n} value={n}>{n} days</option>)}
-          </select>
-          <button onClick={load} className="btn-primary">Refresh</button>
-        </div>
-      </div>
-
-      <div className="card">
-        <h3 className="font-semibold mb-4">Ensemble Forecast ({steps}d) - Current: ${forecast?.current_price?.toFixed(2)}</h3>
-        {loading ? <div>Loading...</div> : (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData}>
-              <XAxis dataKey="date" stroke="#6b7280" />
-              <YAxis stroke="#6b7280" domain={['auto','auto']} />
-              <Tooltip contentStyle={{background:'#151a21', border:'1px solid #232a34'}} />
-              <Legend />
-              <Line type="monotone" dataKey="lstm" stroke="#00b7eb" dot={false} strokeDasharray="5 5" />
-              <Line type="monotone" dataKey="transformer" stroke="#f59e0b" dot={false} strokeWidth={2} />
-              <Line type="monotone" dataKey="xgboost" stroke="#8b5cf6" dot={false} />
-              <Line type="monotone" dataKey="arima" stroke="#6b7280" dot={false} />
-              <Line type="monotone" dataKey="ensemble" stroke="#00d395" dot={false} strokeWidth={3} />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {forecast && (
-        <div className="card">
-          <h3 className="font-semibold mb-3">Detailed Forecast Table</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-gray-400 border-b border-crypto-border">
-                <tr><th className="text-left p-2">Date</th><th>LSTM</th><th>Transformer</th><th>XGBoost</th><th>ARIMA</th><th>Ensemble</th></tr>
-              </thead>
-              <tbody>
-                {chartData.map((row,i)=>(
-                  <tr key={i} className="border-b border-crypto-border/50">
-                    <td className="p-2">{row.date}</td>
-                    <td className="p-2 mono">${row.lstm?.toFixed(2) || '-'}</td>
-                    <td className="p-2 mono">${row.transformer?.toFixed(2) || '-'}</td>
-                    <td className="p-2 mono">${row.xgboost?.toFixed(2) || '-'}</td>
-                    <td className="p-2 mono">${row.arima?.toFixed(2) || '-'}</td>
-                    <td className="p-2 mono font-bold text-crypto-accent">${row.ensemble?.toFixed(2) || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div className="min-h-screen bg-crypto-bg relative">
+      <div className="absolute inset-0 bg-gradient-mesh opacity-20 pointer-events-none"></div>
+      
+      <div className="relative max-w-[1600px] mx-auto p-6 space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">
+              <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-crypto-accent to-crypto-accent3 flex items-center justify-center shadow-lg">
+                <TrendingUp size={20} className="text-black" />
+              </span>
+              <span className="text-white">AI Forecast</span>
+              <span className="px-3 py-1 rounded-full bg-crypto-accent2/10 border border-crypto-accent2/20 text-crypto-accent2 text-xs font-bold tracking-widest">ENSEMBLE</span>
+            </h1>
+            <p className="text-crypto-muted text-sm mt-2">Multi-model predictions • LSTM + Transformer TFT + XGBoost + ARIMA • Weighted ensemble</p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="bg-crypto-card border border-crypto-border rounded-xl px-4 py-2.5 text-sm font-medium text-white">
+              {['BTC-USD','ETH-USD','BNB-USD','SOL-USD','XRP-USD','ADA-USD','DOGE-USD','AVAX-USD'].map(s => <option key={s}>{s}</option>)}
+            </select>
+            <select value={steps} onChange={e => setSteps(parseInt(e.target.value))} className="bg-crypto-card border border-crypto-border rounded-xl px-4 py-2.5 text-sm font-medium text-white">
+              {[7,14,21,30].map(n => <option key={n} value={n}>{n} days</option>)}
+            </select>
+            <button onClick={load} className="btn-primary flex items-center gap-2">
+              <Zap size={14} /> Refresh
+            </button>
           </div>
         </div>
-      )}
+
+        {history && forecast && (
+          <PriceChart data={history} forecast={forecast} realtimePrice={livePrice} symbol={selectedSymbol} height={460} />
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <GlassCard className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <BarChart3 size={18} className="text-crypto-accent" />
+                  Forecast Comparison ({steps} days) • Current: ${forecast?.current_price?.toFixed(2) || livePrice.toFixed(2)}
+                </h3>
+                <div className="flex gap-1 p-1 rounded-xl bg-crypto-bg border border-crypto-border">
+                  {['ensemble','transformer','lstm','xgboost','arima'].map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setActiveModel(m)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold uppercase transition ${activeModel === m ? 'bg-white text-black' : 'text-crypto-muted hover:text-white'}`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {loading ? (
+                <div className="h-[400px] flex items-center justify-center">
+                  <div className="text-crypto-muted">Loading forecast...</div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={400}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="ensembleGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#00d395" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#00d395" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="date" stroke="#475569" fontSize={11} />
+                    <YAxis stroke="#475569" fontSize={11} domain={['auto','auto']} />
+                    <Tooltip 
+                      contentStyle={{ background: '#10161f', border: '1px solid #1e2a3a', borderRadius: '12px' }}
+                      labelStyle={{ color: '#e2e8f0' }}
+                    />
+                    <Legend />
+                    <Area type="monotone" dataKey="ensemble" stroke="#00d395" fill="url(#ensembleGrad)" strokeWidth={3} dot={false} />
+                    <Line type="monotone" dataKey="transformer" stroke="#6366f1" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                    <Line type="monotone" dataKey="lstm" stroke="#06b6d4" strokeWidth={1.5} dot={false} />
+                    <Line type="monotone" dataKey="xgboost" stroke="#8b5cf6" strokeWidth={1} dot={false} />
+                    <Line type="monotone" dataKey="arima" stroke="#64748b" strokeWidth={1} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </GlassCard>
+          </div>
+
+          <div className="space-y-6">
+            <GlassCard className="p-6">
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                <Target size={16} className="text-crypto-accent" />
+                Prediction Details
+              </h3>
+              {forecast ? (
+                <div className="space-y-3">
+                  {chartData.slice(0, 7).map((row, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-crypto-bg/40 border border-crypto-border/20 hover:border-crypto-border/40 transition">
+                      <div>
+                        <div className="text-xs font-bold text-white">{row.fullDate}</div>
+                        <div className="text-[11px] text-crypto-muted">Day {i+1}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="mono font-bold text-sm text-white">${row[activeModel]?.toFixed(2) || row.ensemble?.toFixed(2)}</div>
+                        <div className={`text-xs font-bold ${row.ensemble > livePrice ? 'text-crypto-bull' : 'text-crypto-bear'}`}>
+                          {(((row.ensemble - livePrice) / livePrice) * 100).toFixed(2)}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-crypto-muted text-sm">No forecast data</div>
+              )}
+            </GlassCard>
+
+            <GlassCard className="p-6">
+              <h3 className="font-bold text-white mb-3 flex items-center gap-2">
+                <Brain size={16} className="text-crypto-accent2" />
+                Model Weights
+              </h3>
+              <div className="space-y-3">
+                {[
+                  { name: 'Transformer TFT', weight: 35, color: 'from-crypto-accent2 to-purple-500' },
+                  { name: 'LSTM', weight: 35, color: 'from-cyan-500 to-blue-500' },
+                  { name: 'XGBoost', weight: 20, color: 'from-violet-500 to-purple-500' },
+                  { name: 'ARIMA', weight: 10, color: 'from-gray-500 to-gray-600' },
+                ].map(m => (
+                  <div key={m.name} className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="font-medium text-white">{m.name}</span>
+                        <span className="font-bold text-white">{m.weight}%</span>
+                      </div>
+                      <div className="h-1.5 bg-crypto-bg rounded-full overflow-hidden">
+                        <div className={`h-full bg-gradient-to-r ${m.color} rounded-full`} style={{ width: `${m.weight}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 p-3 rounded-xl bg-crypto-accent/5 border border-crypto-accent/10">
+                <div className="text-xs text-crypto-muted leading-relaxed">
+                  <span className="text-white font-medium">Ensemble:</span> Weighted average of all models. Transformer excels at long-range dependencies, LSTM at sequential patterns, XGBoost at feature importance, ARIMA as statistical baseline.
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        </div>
+
+        {forecast && (
+          <GlassCard className="p-6">
+            <h3 className="font-bold text-white mb-4">Detailed Forecast Table • {steps} Days</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[11px] font-bold tracking-widest text-crypto-muted uppercase border-b border-crypto-border/30">
+                    <th className="text-left p-3">Date</th>
+                    <th className="text-right p-3">LSTM</th>
+                    <th className="text-right p-3">Transformer</th>
+                    <th className="text-right p-3">XGBoost</th>
+                    <th className="text-right p-3">ARIMA</th>
+                    <th className="text-right p-3">Ensemble</th>
+                    <th className="text-right p-3">Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chartData.map((row, i) => {
+                    const change = ((row.ensemble - livePrice) / livePrice * 100)
+                    return (
+                      <tr key={i} className="border-b border-crypto-border/20 hover:bg-crypto-card/30 transition">
+                        <td className="p-3 font-medium text-white">{row.fullDate}</td>
+                        <td className="p-3 text-right mono text-crypto-muted">${row.lstm?.toFixed(2) || '-'}</td>
+                        <td className="p-3 text-right mono text-crypto-accent2">${row.transformer?.toFixed(2) || '-'}</td>
+                        <td className="p-3 text-right mono text-violet-400">${row.xgboost?.toFixed(2) || '-'}</td>
+                        <td className="p-3 text-right mono text-gray-400">${row.arima?.toFixed(2) || '-'}</td>
+                        <td className="p-3 text-right mono font-bold text-crypto-accent">${row.ensemble?.toFixed(2) || '-'}</td>
+                        <td className={`p-3 text-right mono font-bold ${change >= 0 ? 'text-crypto-bull' : 'text-crypto-bear'}`}>
+                          {change >= 0 ? '+' : ''}{change.toFixed(2)}%
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </GlassCard>
+        )}
+      </div>
     </div>
   )
 }

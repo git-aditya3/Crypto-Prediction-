@@ -1,13 +1,17 @@
 """
 FastAPI for Crypto Prediction - v2 with Sentiment, Realtime, Transformer, Backtesting
+Polished UI with real-time Binance feed
 """
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 import sys
 from pathlib import Path
 import pandas as pd
+import requests
+import time
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
@@ -25,13 +29,14 @@ config = get_config()
 
 app = FastAPI(
     title="Crypto Prediction API v2",
-    description="End-to-end crypto forecasting: LSTM, Transformer (TFT), XGBoost, ARIMA, Sentiment, Realtime Binance, Backtesting",
+    description="End-to-end crypto forecasting: LSTM, Transformer (TFT), XGBoost, ARIMA, Sentiment, Realtime Binance, Backtesting - Polished UI with real-time data",
     version="0.2.0"
 )
 
+# CORS - allow all for preview environment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.api.cors_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,6 +44,10 @@ app.add_middleware(
 
 # Global realtime manager
 realtime_manager: Optional[RealtimeManager] = None
+
+# Cache for market data
+_market_cache = {"tickers": None, "timestamp": 0}
+CACHE_TTL = 10  # seconds
 
 class ForecastResponse(BaseModel):
     symbol: str
@@ -78,16 +87,145 @@ class BacktestRequest(BaseModel):
 @app.get("/")
 def root():
     return {
-        "message": "Crypto Prediction API v2",
+        "message": "Crypto Prediction API v2 - Polished Real-time Edition",
         "version": "0.2.0",
-        "features": ["LSTM", "Transformer", "XGBoost", "ARIMA", "Ensemble", "Sentiment", "Realtime Binance", "Backtesting", "React Frontend"],
+        "features": ["LSTM", "Transformer", "XGBoost", "ARIMA", "Ensemble", "Sentiment", "Realtime Binance", "Backtesting", "React Polished UI"],
         "supported_symbols": config.data.supported_symbols,
-        "endpoints": ["/predict", "/forecast", "/signal", "/history", "/sentiment", "/realtime/price", "/realtime/start", "/backtest", "/health"]
+        "binance_map": config.data.binance_map,
+        "data_status": {
+            "historical": "987 rows each (BTC, ETH, SOL, BNB, XRP, ADA) 2023-2025",
+            "realtime": "Binance WebSocket + REST live feed",
+            "total_assets": 10
+        },
+        "endpoints": ["/predict", "/forecast", "/signal", "/history", "/sentiment", "/realtime/price", "/realtime/start", "/market/tickers", "/market/klines", "/backtest", "/health"]
     }
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "0.2.0"}
+    return {"status": "ok", "version": "0.2.0", "realtime": realtime_manager is not None}
+
+# === MARKET DATA - Real-time Binance proxy ===
+
+@app.get("/market/tickers")
+def market_tickers():
+    """Fetch all tickers from Binance - acts as proxy to avoid CORS and provide caching"""
+    global _market_cache
+    now = time.time()
+    
+    # Return cached if fresh
+    if _market_cache["tickers"] and (now - _market_cache["timestamp"]) < CACHE_TTL:
+        return _market_cache["tickers"]
+    
+    try:
+        # Fetch from Binance
+        resp = requests.get("https://api.binance.com/api/v3/ticker/24hr", timeout=10)
+        resp.raise_for_status()
+        all_tickers = resp.json()
+        
+        # Filter to our symbols
+        wanted = set(config.data.binance_map.values())
+        filtered = [t for t in all_tickers if t["symbol"] in wanted]
+        
+        # Map to our format
+        reverse_map = {v: k for k, v in config.data.binance_map.items()}
+        tickers = {}
+        for t in filtered:
+            our_sym = reverse_map.get(t["symbol"])
+            if our_sym:
+                tickers[our_sym] = {
+                    "symbol": our_sym,
+                    "binanceSymbol": t["symbol"],
+                    "price": float(t["lastPrice"]),
+                    "lastPrice": float(t["lastPrice"]),
+                    "priceChange": float(t["priceChange"]),
+                    "priceChangePercent": float(t["priceChangePercent"]),
+                    "high": float(t["highPrice"]),
+                    "low": float(t["lowPrice"]),
+                    "volume": float(t["volume"]),
+                    "quoteVolume": float(t["quoteVolume"]),
+                    "open": float(t["openPrice"]),
+                    "trades": t["count"],
+                    "raw": t
+                }
+        
+        result = {"tickers": tickers, "count": len(tickers), "timestamp": now, "source": "binance"}
+        _market_cache["tickers"] = result
+        _market_cache["timestamp"] = now
+        return result
+        
+    except Exception as e:
+        logger.warning(f"Binance ticker fetch failed: {e}, using fallback")
+        # Fallback to our realtime fetchers if available
+        try:
+            if realtime_manager:
+                prices = realtime_manager.get_prices()
+                tickers = {}
+                for sym, price in prices.items():
+                    if price:
+                        tickers[sym] = {
+                            "symbol": sym,
+                            "price": price,
+                            "lastPrice": price,
+                            "priceChangePercent": 0,
+                            "source": "realtime_manager"
+                        }
+                return {"tickers": tickers, "count": len(tickers), "source": "fallback"}
+        except:
+            pass
+        
+        raise HTTPException(status_code=500, detail=f"Market data fetch failed: {e}")
+
+@app.get("/market/klines")
+def market_klines(
+    symbol: str = Query("BTC-USD"),
+    interval: str = Query("1d", description="1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 3d, 1w, 1M"),
+    limit: int = Query(200, ge=1, le=1000)
+):
+    """Fetch klines/candles from Binance"""
+    try:
+        binance_symbol = config.data.binance_map.get(symbol, symbol.replace("-", ""))
+        resp = requests.get(
+            "https://api.binance.com/api/v3/klines",
+            params={"symbol": binance_symbol, "interval": interval, "limit": limit},
+            timeout=10
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        klines = []
+        for d in data:
+            klines.append({
+                "openTime": d[0],
+                "open": float(d[1]),
+                "high": float(d[2]),
+                "low": float(d[3]),
+                "close": float(d[4]),
+                "volume": float(d[5]),
+                "closeTime": d[6],
+                "time": pd.to_datetime(d[0], unit='ms').strftime('%Y-%m-%d'),
+                "timeISO": pd.to_datetime(d[0], unit='ms').isoformat()
+            })
+        
+        return {"symbol": symbol, "binanceSymbol": binance_symbol, "interval": interval, "klines": klines, "count": len(klines)}
+    except Exception as e:
+        logger.error(f"Klines fetch failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/market/orderbook")
+def market_orderbook(symbol: str = Query("BTC-USD"), limit: int = Query(20, ge=5, le=100)):
+    try:
+        binance_symbol = config.data.binance_map.get(symbol, symbol.replace("-", ""))
+        resp = requests.get(
+            "https://api.binance.com/api/v3/depth",
+            params={"symbol": binance_symbol, "limit": limit},
+            timeout=10
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === HISTORY ===
 
 @app.get("/history")
 def get_history(symbol: str = Query("BTC-USD"), period: str = Query("1y"), interval: str = Query("1d")):
@@ -153,6 +291,18 @@ def trading_signal(symbol: str = Query("BTC-USD"), steps: int = Query(7)):
         fc = predictor.forecast(steps=steps)
         signal = predictor.get_trading_signal(fc)
         signal['symbol'] = symbol
+        
+        # Enrich with live price if available
+        try:
+            fetcher = BinanceRealtimeFetcher(symbol=symbol)
+            live_price = fetcher.get_current_price()
+            if live_price:
+                signal['live_price'] = live_price
+                pred = signal['predicted_price']
+                signal['live_change_pct'] = (pred - live_price) / live_price * 100 if live_price else 0
+        except:
+            pass
+            
         return signal
     except Exception as e:
         logger.error(f"Signal failed: {e}")
@@ -209,6 +359,9 @@ def realtime_start(symbols: List[str] = Query(["BTC-USD"])):
 def realtime_prices():
     global realtime_manager
     if not realtime_manager:
+        # Try to return from market cache
+        if _market_cache["tickers"]:
+            return {"prices": {k: v["price"] for k, v in _market_cache["tickers"]["tickers"].items()}, "source": "cache"}
         raise HTTPException(status_code=400, detail="Realtime not started. POST /realtime/start")
     try:
         prices = realtime_manager.get_prices()
@@ -232,15 +385,11 @@ def backtest(req: BacktestRequest):
         elif req.strategy == "rsi":
             strat = RSIStrategy(rsi_low=30, rsi_high=70)
         elif req.strategy == "prediction":
-            # Use predictor if available
             try:
                 predictor = CryptoPredictor(symbol=req.symbol)
                 fc = predictor.forecast(steps=len(df), period=req.period)
-                # Use ensemble forecast as prediction col
                 if 'ensemble' in fc:
-                    # Align
                     pred_series = pd.Series(fc['ensemble'], index=pd.to_datetime(fc['dates']))
-                    # Merge
                     df = df.copy()
                     df['Predicted'] = pred_series.reindex(df.index, method='ffill').fillna(method='bfill')
                     strat = PredictionStrategy(prediction_col="Predicted", threshold=0.01)

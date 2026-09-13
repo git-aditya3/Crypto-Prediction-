@@ -1,25 +1,131 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
   font-family: 'Inter', sans-serif;
-  background: #0a0e13;
-  color: #e5e7eb;
+  background: #060a0f;
+  color: #e2e8f0;
+  overflow-x: hidden;
 }
 
 .mono {
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0e13;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2a3a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a3a4f;
+}
+
+/* Glass & Cards */
 .card {
-  @apply bg-crypto-card border border-crypto-border rounded-xl p-5;
+  @apply bg-crypto-card border border-crypto-border rounded-2xl p-5 backdrop-blur-xl transition-all duration-300;
+}
+.card:hover {
+  @apply border-crypto-borderLight bg-crypto-cardHover;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02) inset;
+}
+
+.card-glass {
+  background: linear-gradient(135deg, rgba(16,22,31,0.8) 0%, rgba(16,22,31,0.4) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.05);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.03) inset;
 }
 
 .btn-primary {
-  @apply bg-crypto-accent text-black font-semibold px-4 py-2 rounded-lg hover:bg-opacity-90 transition;
+  @apply bg-gradient-to-r from-crypto-accent to-crypto-accent3 text-black font-semibold px-5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-crypto-accent/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98];
 }
 
 .btn-secondary {
-  @apply bg-crypto-card border border-crypto-border text-white px-4 py-2 rounded-lg hover:bg-crypto-border transition;
+  @apply bg-crypto-card border border-crypto-border text-white px-5 py-2.5 rounded-xl hover:bg-crypto-cardHover hover:border-crypto-borderLight transition-all duration-200 font-medium;
+}
+
+.btn-ghost {
+  @apply text-crypto-muted hover:text-white hover:bg-crypto-card px-4 py-2 rounded-xl transition-all duration-200;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #00d395 0%, #06b6d4 50%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-border {
+  position: relative;
+  background: linear-gradient(#10161f, #10161f) padding-box,
+              linear-gradient(135deg, rgba(0,211,149,0.3), rgba(99,102,241,0.3)) border-box;
+  border: 1px solid transparent;
+}
+
+/* Ticker */
+.ticker-wrap {
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ticker {
+  display: inline-block;
+  animation: ticker 120s linear infinite;
+}
+.ticker:hover {
+  animation-play-state: paused;
+}
+
+/* Glow effects */
+.glow-accent {
+  box-shadow: 0 0 20px rgba(0,211,149,0.15), 0 0 40px rgba(0,211,149,0.05);
+}
+.glow-accent2 {
+  box-shadow: 0 0 20px rgba(99,102,241,0.15), 0 0 40px rgba(99,102,241,0.05);
+}
+
+/* Live dot */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: #00d395;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(0,211,149,0.7);
+  animation: livePulse 2s infinite;
+}
+@keyframes livePulse {
+  0% { box-shadow: 0 0 0 0 rgba(0,211,149,0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(0,211,149,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,211,149,0); }
+}
+
+/* Shimmer loading */
+.shimmer {
+  background: linear-gradient(90deg, #10161f 25%, #151d2a 50%, #10161f 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Chart container */
+.chart-container {
+  background: radial-gradient(ellipse at top, rgba(0,211,149,0.03) 0%, transparent 60%),
+              radial-gradient(ellipse at bottom right, rgba(99,102,241,0.03) 0%, transparent 60%),
+              #10161f;
 }
