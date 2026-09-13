@@ -4,7 +4,6 @@ import Navbar from './components/Navbar'
 import MarketTicker from './components/MarketTicker'
 import { useSettingsStore, THEMES } from './store/useSettingsStore'
 
-// v5 MAX: Lazy loading for performance, code splitting, reliability
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Forecast = lazy(() => import('./pages/Forecast'))
 const Sentiment = lazy(() => import('./pages/Sentiment'))
@@ -23,30 +22,20 @@ const Journal = lazy(() => import('./pages/Journal'))
 const AutoTrading = lazy(() => import('./pages/AutoTrading'))
 const CrashDetector = lazy(() => import('./pages/CrashDetector'))
 
-// v5 MAX: Error Boundary for reliability
 import React from 'react'
 class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = { hasError: false, error: null }
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error }
-  }
-  componentDidCatch(error, info) {
-    console.error('v5 MAX ErrorBoundary:', error, info)
-  }
+  constructor(props) { super(props); this.state = { hasError: false, error: null } }
+  static getDerivedStateFromError(error) { return { hasError: true, error } }
+  componentDidCatch(error, info) { console.error('ErrorBoundary:', error, info) }
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-black text-white p-8">
+        <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white p-8">
           <div className="max-w-md text-center space-y-4">
-            <div className="text-6xl">⚠️</div>
-            <h1 className="text-2xl font-black">Something went wrong v5</h1>
-            <p className="text-sm text-zinc-400">{this.state.error?.message || 'Unknown error'}</p>
-            <button onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black rounded-xl font-bold hover:bg-zinc-200 transition">
-              Reload v5 MAX
-            </button>
+            <div className="w-12 h-12 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center mx-auto font-medium">!</div>
+            <h1 className="text-[18px] font-semibold">Something went wrong</h1>
+            <p className="text-[13px] text-zinc-500">{this.state.error?.message || 'Unknown'}</p>
+            <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black text-[13px] font-medium">Reload</button>
           </div>
         </div>
       )
@@ -57,10 +46,10 @@ class ErrorBoundary extends React.Component {
 
 function LoadingFallback() {
   return (
-    <div className="min-h-[60vh] flex items-center justify-center">
+    <div className="min-h-[50vh] flex items-center justify-center">
       <div className="text-center space-y-3">
-        <div className="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-        <div className="text-[12px] text-zinc-500 font-bold uppercase tracking-wide">Loading v5 MAX...</div>
+        <div className="w-6 h-6 border border-zinc-200 dark:border-zinc-700 border-t-zinc-900 dark:border-t-white rounded-full animate-spin mx-auto" />
+        <div className="text-[11px] text-zinc-500 font-medium uppercase tracking-wide">Loading</div>
       </div>
     </div>
   )
@@ -71,48 +60,29 @@ export default function App() {
 
   useEffect(() => {
     const html = document.documentElement
-    // Remove all theme classes
     Object.keys(THEMES).forEach(t => html.classList.remove(t))
     html.classList.remove('light', 'dark')
     const themeId = THEMES[theme] ? theme : 'dark'
     html.classList.add(themeId)
-    const isLight = ['light', 'sakura', 'mono'].includes(themeId)
+    const isLight = themeId === 'light' || themeId === 'mono'
     html.classList.add(isLight ? 'light' : 'dark')
     html.setAttribute('data-theme', themeId)
-    html.setAttribute('data-accent', accent || 'emerald')
-    html.setAttribute('data-font', font || 'poppins')
+    html.setAttribute('data-accent', 'zinc')
+    html.setAttribute('data-font', font || 'geist')
     html.setAttribute('data-density', density || 'comfortable')
     html.setAttribute('data-animations', animations ? 'true' : 'false')
     html.setAttribute('data-blur', blur ? 'true' : 'false')
-    
-    // Apply font
-    const fontMap = {
-      poppins: "'Poppins', sans-serif",
-      inter: "'Inter', sans-serif",
-      space: "'Space Grotesk', sans-serif",
-      outfit: "'Outfit', sans-serif"
-    }
-    document.body.style.fontFamily = fontMap[font] || fontMap.poppins
+    document.body.style.fontFamily = "'Geist', system-ui, sans-serif"
   }, [theme, accent, font, density, animations, blur])
-
-  const isLight = ['light', 'sakura', 'mono'].includes(theme)
-  const currentTheme = THEMES[theme] || THEMES.dark
 
   return (
     <ErrorBoundary>
     <BrowserRouter>
-      <div className={`min-h-screen font-poppins selection:bg-[var(--accent)] selection:text-[var(--bg)] theme-bg ${isLight ? '' : ''}`} style={{ fontFamily: `var(--font, 'Poppins')` }}>
+      <div className="min-h-screen theme-bg selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-black">
         {showMarketTicker && <MarketTicker />}
         <Navbar />
-        <main className="min-h-[calc(100vh-200px)] relative">
-          <div className="absolute inset-0 pointer-events-none opacity-[0.02]">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `radial-gradient(circle at 1px 1px, var(--text) 1px, transparent 0)`,
-              backgroundSize: '40px 40px'
-            }} />
-          </div>
-          <div className="relative z-10">
-            <Suspense fallback={<LoadingFallback />}>
+        <main className="min-h-[calc(100vh-120px)]">
+          <Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/trading" element={<TradingCalls />} />
@@ -132,72 +102,21 @@ export default function App() {
               <Route path="/models" element={<Models />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
-            </Suspense>
-          </div>
+          </Suspense>
         </main>
         
-        {/* Enhanced Footer */}
-        <footer className={`mt-16 border-t backdrop-blur-xl relative overflow-hidden ${isLight ? 'bg-white/80 border-black/5' : 'bg-[var(--card)]/80 border-[var(--border)]'} glass`}>
-          <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent)]/5 via-transparent to-[var(--accent)]/5 pointer-events-none" />
-          <div className="max-w-[1600px] mx-auto px-6 py-8 relative z-10">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[14px] shadow-lg ${isLight ? 'bg-black text-white' : 'bg-white text-black'}`}>₿</div>
-                  <span className={`font-black text-[16px] ${isLight ? 'text-black' : 'text-white'}`}>CryptoPred</span>
-                  <span className="ui-pill-accent text-[9px] font-black px-2 py-1">V8 MAX</span>
-                </div>
-                <p className={`text-[12px] leading-relaxed ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Real trading intelligence v5 MAX • CoinDCX real money • {Object.keys(THEMES).length} themes • Pooling metrics security • Endless learning</p>
-                <div className="flex items-center gap-2">
-                  <span className={`text-[10px] px-2 py-1 rounded-full border font-bold ${currentTheme.preview}`}>{currentTheme.icon} {currentTheme.name}</span>
-                  <span className="ui-pill text-[10px]">{currentTheme.category}</span>
-                </div>
-              </div>
-              
-              <div>
-                <div className={`font-bold text-[12px] uppercase tracking-wide mb-3 ${isLight ? 'text-black' : 'text-white'}`}>Trading</div>
-                <div className={`space-y-2 text-[12px] ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
-                  <div>• Live Binance + CoinDCX</div>
-                  <div>• Real entry/SL/TP</div>
-                  <div>• No simulation</div>
-                  <div>• Auto trading bots</div>
-                </div>
-              </div>
-              
-              <div>
-                <div className={`font-bold text-[12px] uppercase tracking-wide mb-3 ${isLight ? 'text-black' : 'text-white'}`}>AI Models</div>
-                <div className={`space-y-2 text-[12px] ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
-                  <div className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-violet-500" /> LSTM v3 + Attention</div>
-                  <div className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-cyan-500" /> Transformer Learnable PE</div>
-                  <div className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-emerald-500" /> XGBoost 1500 trees</div>
-                  <div className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-orange-500" /> ARIMA 2.57% MAPE</div>
-                </div>
-              </div>
-              
-              <div>
-                <div className={`font-bold text-[12px] uppercase tracking-wide mb-3 ${isLight ? 'text-black' : 'text-white'}`}>Themes</div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {Object.values(THEMES).slice(0, 8).map(t => (
-                    <div key={t.id} className={`w-8 h-8 rounded-lg border flex items-center justify-center text-[14px] hover:scale-110 transition-transform cursor-pointer ${t.preview}`} title={`${t.name} - ${t.desc}`}>
-                      {t.icon}
-                    </div>
-                  ))}
-                </div>
-                <div className={`text-[10px] mt-2 ${isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>{Object.keys(THEMES).length} themes • Minimal to Cyberpunk</div>
-              </div>
-            </div>
-            
-            <div className={`pt-6 border-t flex flex-col md:flex-row items-center justify-between gap-3 text-[11px] ${isLight ? 'border-black/5 text-zinc-500' : 'border-white/5 text-zinc-500'}`}>
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="flex items-center gap-2">
-                  <span className="live-dot"></span> LIVE • REAL DATA • NO SIMULATION
-                </span>
-                <span className="hidden md:inline w-1 h-1 rounded-full bg-[var(--border)]" />
-                <span className="hidden md:inline">182 features • RobustScaler • Dynamic ensemble</span>
+        <footer className="mt-12 border-t bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+          <div className="max-w-[1600px] mx-auto px-6 py-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-[11px] text-zinc-500">
+              <div className="flex items-center gap-3">
+                <span className="w-6 h-6 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center font-medium text-[11px]">₿</span>
+                <span className="font-medium text-zinc-900 dark:text-white">CryptoPred</span>
+                <span className="px-2 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-black text-[9px] font-medium">MINIMAL</span>
+                <span className="hidden md:inline-flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-zinc-900 dark:bg-white animate-pulse" /> LIVE • REAL • NO SIMULATION • 120FPS</span>
               </div>
               <div className="flex items-center gap-2">
-                <span>Built for real traders • CoinDCX INR • Endless learning</span>
-                <span className="ui-pill-accent text-[9px]">V7 • {new Date().getFullYear()}</span>
+                <span>Monochrome • No colors • GPU accelerated</span>
+                <span className="px-2 py-0.5 rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px]">2026</span>
               </div>
             </div>
           </div>

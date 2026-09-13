@@ -1,321 +1,211 @@
 import { useState, useEffect } from 'react'
-import GlassCard, { FeatureCard, MetricCard } from '../components/GlassCard'
-import { useSettingsStore, THEMES, THEME_CATEGORIES } from '../store/useSettingsStore'
+import GlassCard from '../components/GlassCard'
+import { useSettingsStore, THEMES } from '../store/useSettingsStore'
 import { api } from '../api/client'
-import { Settings as SettingsIcon, DollarSign, Brain, Bell, Palette, Save, RotateCcw, Sliders, Sun, Moon, Sparkles, Monitor, Zap, Eye, Layers, Type, Droplets, Wand2, Check, Paintbrush, Layout, MousePointer } from 'lucide-react'
+import { Settings as SettingsIcon, DollarSign, Palette, Save, RotateCcw, Eye, Type, Layout, Zap } from 'lucide-react'
 
 export default function SettingsPage() {
   const settings = useSettingsStore()
-  const [activeTab, setActiveTab] = useState('themes')
+  const [activeTab, setActiveTab] = useState('appearance')
   const [saved, setSaved] = useState(false)
-  const [themeCategory, setThemeCategory] = useState('All')
   const currentTheme = THEMES[settings.theme] || THEMES.dark
-  const isLight = ['light', 'sakura', 'mono'].includes(settings.theme)
+  const isLight = settings.theme === 'light' || settings.theme === 'mono'
 
   useEffect(() => { api.getSettings().catch(() => null) }, [])
 
   const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
 
   const tabs = [
-    { id: 'themes', label: 'Themes', icon: Palette, desc: `${Object.keys(THEMES).length} themes`, color: 'from-violet-500 to-pink-500' },
-    { id: 'appearance', label: 'Appearance', icon: Eye, desc: 'Visual tweaks', color: 'from-cyan-500 to-blue-500' },
-    { id: 'trading', label: 'Trading', icon: DollarSign, desc: 'Risk & balance', color: 'from-emerald-500 to-teal-500' },
-    { id: 'models', label: 'Models', icon: Brain, desc: 'AI weights', color: 'from-orange-500 to-red-500' },
-    { id: 'interface', label: 'Interface', icon: Layout, desc: 'Layout & UX', color: 'from-blue-500 to-violet-500' },
-    { id: 'advanced', label: 'Advanced', icon: Sliders, desc: 'System', color: 'from-zinc-500 to-zinc-700' },
+    { id: 'appearance', label: 'Appearance', icon: Eye, desc: 'Theme & visuals' },
+    { id: 'trading', label: 'Trading', icon: DollarSign, desc: 'Risk & balance' },
+    { id: 'interface', label: 'Interface', icon: Layout, desc: 'Layout' },
   ]
 
-  const filteredThemes = themeCategory === 'All' ? Object.values(THEMES) : Object.values(THEMES).filter(t => t.category === themeCategory)
-
-  const accentColors = [
-    { id: 'emerald', name: 'Emerald', color: '#10b981' },
-    { id: 'violet', name: 'Violet', color: '#8b5cf6' },
-    { id: 'cyan', name: 'Cyan', color: '#06b6d4' },
-    { id: 'orange', name: 'Orange', color: '#f97316' },
-    { id: 'pink', name: 'Pink', color: '#ec4899' },
-    { id: 'blue', name: 'Blue', color: '#3b82f6' },
-  ]
+  const minimalThemes = Object.values(THEMES).slice(0, 4) // Only show minimal ones
 
   return (
-    <div className={`min-h-screen font-poppins theme-bg ${isLight ? '' : ''}`}>
-      <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6">
-        {/* Header */}
-        <div className="ui-card p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent)]/5 via-transparent to-transparent pointer-events-none" />
-          <div className="flex items-center gap-4 relative z-10">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${isLight ? 'bg-black text-white' : 'bg-white text-black'} animate-pulse`}>
-              <SettingsIcon size={20} />
+    <div className="min-h-screen theme-bg">
+      <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-5">
+        <div className="rounded-xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 gpu-accelerated">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center">
+              <SettingsIcon size={16} />
             </div>
             <div>
-              <h1 className={`text-2xl font-black tracking-tight flex items-center gap-3 ${isLight ? 'text-black' : 'text-white'}`}>
+              <h1 className="text-[18px] font-semibold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2">
                 Settings
-                <span className="ui-pill-accent text-[10px] px-2.5 py-1 font-black">{Object.keys(THEMES).length} THEMES</span>
-                <span className={`hidden md:inline-flex text-[10px] px-2.5 py-1 rounded-full border font-bold ${currentTheme.preview}`}>{currentTheme.icon} {currentTheme.name}</span>
+                <span className="px-2 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-black text-[10px] font-medium">MINIMAL</span>
               </h1>
-              <p className={`text-[13px] mt-1 ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Customize everything • {currentTheme.desc} • Real trading preferences</p>
+              <p className="text-[12px] mt-0.5 text-zinc-500">Minimal monochrome • 120fps • No colors</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 relative z-10">
-            <button onClick={() => { settings.resetSettings(); handleSave() }} className="ui-btn ui-btn-ghost px-4 py-2.5 text-[12px] font-semibold flex items-center gap-2">
-              <RotateCcw size={14} /> Reset
+          <div className="flex items-center gap-2">
+            <button onClick={() => { settings.resetSettings(); handleSave() }} className="px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-700 text-[12px] font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all duration-200 flex items-center gap-1.5 gpu-accelerated hover:scale-[1.02]">
+              <RotateCcw size={12} /> Reset
             </button>
-            <button onClick={handleSave} className={`px-5 py-2.5 rounded-xl text-[12px] font-bold flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 transition-all ${isLight ? 'bg-black text-white' : 'bg-white text-black'}`}>
-              <Save size={14} /> {saved ? 'Saved ✓' : 'Save Changes'}
+            <button onClick={handleSave} className="px-4 py-1.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black text-[12px] font-medium hover:scale-[1.02] transition-transform duration-200 gpu-accelerated flex items-center gap-1.5">
+              <Save size={12} /> {saved ? 'Saved' : 'Save'}
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Sidebar */}
-          <div className="lg:col-span-3 space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="lg:col-span-3 space-y-2">
             {tabs.map(tab => {
               const active = activeTab === tab.id
               return (
                 <button 
                   key={tab.id} 
                   onClick={() => setActiveTab(tab.id)} 
-                  className={`w-full text-left p-4 rounded-xl border flex items-center gap-3 transition-all group hover:scale-[1.02] hover:shadow-lg relative overflow-hidden ${
+                  className={`w-full text-left p-3 rounded-xl border flex items-center gap-2.5 transition-all duration-200 gpu-accelerated hover:scale-[1.01] ${
                     active 
-                      ? 'bg-[var(--accent)] text-[var(--bg)] border-[var(--accent)] shadow-lg shadow-[var(--accent)]/20 scale-[1.02]' 
-                      : 'ui-card hover:border-[var(--accent)]/30'
+                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-black border-zinc-900 dark:border-white shadow-sm' 
+                      : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-400'
                   }`}
                 >
-                  {active && <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent pointer-events-none" />}
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:scale-110 group-hover:rotate-3 shrink-0 ${active ? 'bg-black/20 text-white' : `bg-gradient-to-br ${tab.color} text-white shadow-md`}`}>
-                    <tab.icon size={18} />
-                  </div>
-                  <div className="flex-1 min-w-0 relative z-10">
-                    <div className="font-bold text-[13px] flex items-center gap-2">
-                      {tab.label}
-                      {active && <Check size={12} className="bg-white text-black rounded-full p-0.5 w-4 h-4" />}
-                    </div>
-                    <div className={`text-[11px] ${active ? 'text-white/70' : isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>{tab.desc}</div>
+                  <tab.icon size={14} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-[13px]">{tab.label}</div>
+                    <div className={`text-[11px] ${active ? 'text-white/60 dark:text-black/60' : 'text-zinc-500'}`}>{tab.desc}</div>
                   </div>
                 </button>
               )
             })}
 
-            {/* Quick stats */}
-            <GlassCard className="p-4">
-              <div className={`text-[10px] font-bold uppercase tracking-wide mb-3 ${isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>Current Setup</div>
+            <div className="rounded-xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 p-4">
+              <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500 mb-3">Current</div>
               <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className={`text-[12px] ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Theme</span>
-                  <span className={`text-[12px] font-bold px-2 py-1 rounded-full border ${currentTheme.preview}`}>{currentTheme.icon} {currentTheme.name}</span>
+                <div className="flex items-center justify-between text-[12px]">
+                  <span className="text-zinc-500">Theme</span>
+                  <span className="font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
+                    {currentTheme.icon} {currentTheme.name}
+                  </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className={`text-[12px] ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Balance</span>
-                  <span className={`text-[12px] font-bold mono ${isLight ? 'text-black' : 'text-white'}`}>${settings.accountBalance}</span>
+                <div className="flex items-center justify-between text-[12px]">
+                  <span className="text-zinc-500">Balance</span>
+                  <span className="font-medium mono text-zinc-900 dark:text-white">${settings.accountBalance}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className={`text-[12px] ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Risk</span>
-                  <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">{settings.riskPerTrade*100}%</span>
+                <div className="flex items-center justify-between text-[12px]">
+                  <span className="text-zinc-500">Risk</span>
+                  <span className="font-medium px-2 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-black text-[11px]">{settings.riskPerTrade*100}%</span>
                 </div>
               </div>
-            </GlassCard>
+            </div>
           </div>
 
-          {/* Content */}
-          <div className="lg:col-span-9 space-y-5">
-            {activeTab === 'themes' && (
-              <>
-                {/* Category filter */}
-                <GlassCard className="p-4">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <h3 className={`font-bold flex items-center gap-2 ${isLight ? 'text-black' : 'text-white'}`}>
-                      <Paintbrush size={16} className="text-[var(--accent)]" /> Theme Gallery • {Object.keys(THEMES).length} themes
-                    </h3>
-                    <div className="flex gap-1.5 p-1 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border)]">
-                      {THEME_CATEGORIES.map(cat => (
-                        <button
-                          key={cat}
-                          onClick={() => setThemeCategory(cat)}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${themeCategory === cat ? 'bg-[var(--accent)] text-[var(--bg)] shadow-md' : isLight ? 'text-zinc-600 hover:text-black hover:bg-white' : 'text-zinc-400 hover:text-white hover:bg-white/10'}`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </GlassCard>
-
-                {/* Theme grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredThemes.map(t => {
-                    const active = settings.theme === t.id
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() => settings.updateTheme(t.id)}
-                        className={`group p-5 rounded-2xl border cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl relative overflow-hidden ${
-                          active 
-                            ? 'bg-[var(--accent)] text-[var(--bg)] border-[var(--accent)] shadow-xl shadow-[var(--accent)]/20 scale-[1.02] ring-2 ring-[var(--accent)]/30' 
-                            : 'ui-card hover:border-[var(--accent)]/30'
-                        }`}
-                      >
-                        {/* Preview */}
-                        <div className={`w-full h-24 rounded-xl border-2 mb-4 relative overflow-hidden transition-all group-hover:scale-[1.02] ${t.preview} flex items-center justify-center`}>
-                          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-                          <div className="text-2xl relative z-10 group-hover:scale-125 transition-transform">{t.icon}</div>
-                          <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                          <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-black/20 text-white text-[8px] font-bold">{t.category}</div>
-                          <div className="absolute bottom-2 left-2 right-2 h-1 rounded-full bg-white/20 overflow-hidden">
-                            <div className="h-full w-2/3 bg-white/60 rounded-full animate-pulse" />
-                          </div>
-                        </div>
-
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-bold text-[14px] flex items-center gap-2">
-                              {t.name}
-                              {active && <Check size={14} className="bg-white text-black rounded-full p-0.5 w-5 h-5 animate-scaleIn" />}
-                            </div>
-                            <div className={`text-[12px] mt-1 ${active ? 'text-white/70' : isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>{t.desc}</div>
-                            <div className="flex gap-1 mt-2">
-                              {Object.values(t.colors).slice(0, 4).map((c, i) => (
-                                <div key={i} className="w-4 h-4 rounded-full border border-white/20 shadow-sm" style={{ background: c }} />
-                              ))}
-                            </div>
-                          </div>
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${active ? 'bg-black/20 text-white rotate-12' : 'bg-[var(--accent-soft)] text-[var(--text-muted)] group-hover:bg-[var(--accent)] group-hover:text-[var(--bg)] group-hover:rotate-12'}`}>
-                            <Palette size={14} />
-                          </div>
-                        </div>
-
-                        {active && <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent pointer-events-none" />}
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* Accent colors */}
-                <GlassCard className="p-6">
-                  <h3 className={`font-bold flex items-center gap-2 mb-4 ${isLight ? 'text-black' : 'text-white'}`}>
-                    <Droplets size={16} className="text-[var(--accent)]" /> Accent Color
-                  </h3>
-                  <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                    {accentColors.map(a => (
-                      <button
-                        key={a.id}
-                        onClick={() => settings.updateAccent(a.id)}
-                        className={`group p-4 rounded-xl border transition-all hover:scale-105 hover:shadow-lg text-center relative overflow-hidden ${settings.accent === a.id ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/20 shadow-lg scale-105' : 'border-[var(--border)] hover:border-[var(--accent)]/30'}`}
-                      >
-                        <div className="w-8 h-8 rounded-full mx-auto mb-2 shadow-md group-hover:scale-110 transition-transform" style={{ background: a.color, boxShadow: `0 0 20px ${a.color}40` }} />
-                        <div className={`text-[11px] font-bold ${isLight ? 'text-black' : 'text-white'}`}>{a.name}</div>
-                        {settings.accent === a.id && <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />}
-                      </button>
-                    ))}
-                  </div>
-                </GlassCard>
-              </>
-            )}
-
+          <div className="lg:col-span-9 space-y-4">
             {activeTab === 'appearance' && (
               <>
-                <GlassCard className="p-6">
-                  <h3 className={`font-bold flex items-center gap-2 mb-6 ${isLight ? 'text-black' : 'text-white'}`}><Eye size={16} className="text-[var(--accent)]" /> Visual Preferences</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
+                <GlassCard className="p-5">
+                  <h3 className="font-medium text-[13px] tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 mb-4">
+                    <Palette size={14} /> Minimal Themes
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500">Monochrome only</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {minimalThemes.map(t => {
+                      const active = settings.theme === t.id
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => settings.updateTheme(t.id)}
+                          className={`group p-4 rounded-xl border cursor-pointer transition-all duration-200 gpu-accelerated hover:scale-[1.01] hover:translate-y-[-1px] ${
+                            active 
+                              ? 'bg-zinc-900 text-white dark:bg-white dark:text-black border-zinc-900 dark:border-white shadow-sm' 
+                              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                          }`}
+                        >
+                          <div className={`w-full h-16 rounded-lg border mb-3 flex items-center justify-center text-[20px] ${active ? 'bg-white/10 dark:bg-black/5 border-white/20 dark:border-black/10' : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'}`}>
+                            {t.icon}
+                          </div>
+                          <div className="font-medium text-[13px]">{t.name}</div>
+                          <div className={`text-[11px] mt-1 ${active ? 'text-white/60 dark:text-black/60' : 'text-zinc-500'}`}>{t.desc}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-4 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800">
+                    <div className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      <strong>Minimal design:</strong> No colors, only black/white/gray. Reduced visual noise for focus. 120fps animations using transform/opacity only, GPU accelerated.
+                    </div>
+                  </div>
+                </GlassCard>
+
+                <GlassCard className="p-5">
+                  <h3 className="font-medium text-[13px] tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 mb-4">
+                    <Type size={14} /> Typography & Motion
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
                       <div>
-                        <label className={`text-[11px] font-bold uppercase tracking-wide ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>Font Family</label>
+                        <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-wide">Font</label>
                         <div className="grid grid-cols-2 gap-2 mt-2">
                           {[
-                            { id: 'poppins', name: 'Poppins', desc: 'Modern' },
-                            { id: 'inter', name: 'Inter', desc: 'Clean' },
-                            { id: 'space', name: 'Space Grotesk', desc: 'Tech' },
-                            { id: 'outfit', name: 'Outfit', desc: 'Soft' },
+                            { id: 'poppins', name: 'Geist' },
+                            { id: 'inter', name: 'Inter' },
                           ].map(f => (
-                            <button key={f.id} onClick={() => settings.updateFont(f.id)} className={`p-3 rounded-xl border text-left transition-all hover:scale-[1.02] ${settings.font === f.id ? 'bg-[var(--accent)] text-[var(--bg)] border-[var(--accent)] shadow-md' : 'bg-[var(--card)] border-[var(--border)] hover:border-[var(--accent)]/30'}`}>
-                              <div className="font-bold text-[13px]">{f.name}</div>
-                              <div className={`text-[10px] ${settings.font === f.id ? 'text-white/70' : 'text-zinc-500'}`}>{f.desc}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className={`text-[11px] font-bold uppercase tracking-wide ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>Density</label>
-                        <div className="grid grid-cols-3 gap-2 mt-2">
-                          {[
-                            { id: 'compact', name: 'Compact', icon: '◫' },
-                            { id: 'comfortable', name: 'Comfortable', icon: '◧' },
-                            { id: 'spacious', name: 'Spacious', icon: '◩' },
-                          ].map(d => (
-                            <button key={d.id} onClick={() => settings.updateDensity(d.id)} className={`p-3 rounded-xl border text-center transition-all hover:scale-105 ${settings.density === d.id ? 'bg-[var(--accent)] text-[var(--bg)] border-[var(--accent)]' : 'bg-[var(--card)] border-[var(--border)] hover:border-[var(--accent)]/30'}`}>
-                              <div className="text-[16px]">{d.icon}</div>
-                              <div className="text-[11px] font-bold mt-1">{d.name}</div>
+                            <button key={f.id} onClick={() => settings.updateFont(f.id)} className={`p-2.5 rounded-lg border text-left transition-all duration-200 hover:scale-[1.02] gpu-accelerated ${settings.font === f.id ? 'bg-zinc-900 text-white dark:bg-white dark:text-black border-zinc-900 dark:border-white' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'}`}>
+                              <div className="font-medium text-[12px]">{f.name}</div>
+                              <div className="text-[10px] text-zinc-500">Minimal</div>
                             </button>
                           ))}
                         </div>
                       </div>
                     </div>
-
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       {[
-                        { key: 'animations', label: 'Animations', desc: 'Smooth transitions & micro-interactions', icon: Zap },
-                        { key: 'blur', label: 'Blur Effects', desc: 'Glass morphism & backdrop blur', icon: Droplets },
-                        { key: 'showMarketTicker', label: 'Market Ticker', desc: 'Top scrolling price ticker', icon: Monitor },
-                        { key: 'sidebarCollapsed', label: 'Compact Sidebar', desc: 'Collapsed navigation', icon: Layout },
+                        { key: 'animations', label: '120fps Animations', desc: 'GPU accelerated', icon: Zap },
+                        { key: 'blur', label: 'Subtle Blur', desc: 'Minimal glass', icon: Eye },
+                        { key: 'showMarketTicker', label: 'Ticker', desc: 'Market scroll', icon: Layout },
                       ].map(item => (
-                        <div key={item.key} className={`p-4 rounded-xl border flex items-center justify-between group hover:border-[var(--accent)]/30 transition-all hover:shadow-md ${isLight ? 'bg-white border-black/5' : 'bg-zinc-900 border-white/5'}`}>
-                          <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isLight ? 'bg-black text-white' : 'bg-white text-black'} group-hover:scale-110 transition-transform`}>
-                              <item.icon size={16} />
+                        <div key={item.key} className="p-3 rounded-lg border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center">
+                              <item.icon size={12} />
                             </div>
                             <div>
-                              <div className={`text-[13px] font-semibold ${isLight ? 'text-black' : 'text-white'}`}>{item.label}</div>
-                              <div className={`text-[11px] ${isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>{item.desc}</div>
+                              <div className="text-[12px] font-medium text-zinc-900 dark:text-white">{item.label}</div>
+                              <div className="text-[11px] text-zinc-500">{item.desc}</div>
                             </div>
                           </div>
-                          <button onClick={() => useSettingsStore.setState({ [item.key]: !settings[item.key] })} className={`w-11 h-6 rounded-full p-1 transition-all duration-300 ${settings[item.key] ? 'bg-[var(--accent)] shadow-lg' : 'bg-zinc-300 dark:bg-zinc-700'} hover:scale-105`}>
-                            <div className={`w-4 h-4 rounded-full bg-white shadow-md transition-transform duration-300 ${settings[item.key] ? 'translate-x-5' : ''}`} />
+                          <button onClick={() => useSettingsStore.setState({ [item.key]: !settings[item.key] })} className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 gpu-accelerated ${settings[item.key] ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
+                            <div className={`w-4 h-4 rounded-full bg-white dark:bg-black shadow-sm transition-transform duration-200 gpu-accelerated ${settings[item.key] ? 'translate-x-4' : ''}`} style={{ willChange: 'transform' }} />
                           </button>
                         </div>
                       ))}
                     </div>
                   </div>
                 </GlassCard>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <MetricCard label="Themes" value={`${Object.keys(THEMES).length}`} change="+4 new" icon={Palette} />
-                  <MetricCard label="Current" value={currentTheme.name} change={currentTheme.category} icon={Sparkles} />
-                  <MetricCard label="Accent" value={settings.accent} change="Custom" icon={Droplets} />
-                </div>
               </>
             )}
 
             {activeTab === 'trading' && (
-              <GlassCard className="p-6">
-                <h3 className={`font-bold flex items-center gap-2 mb-6 ${isLight ? 'text-black' : 'text-white'}`}><DollarSign size={16} className="text-emerald-500" /> Trading Preferences • Real Money</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
+              <GlassCard className="p-5">
+                <h3 className="font-medium text-[13px] tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 mb-4">
+                  <DollarSign size={14} /> Trading
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
                     <div>
-                      <label className={`text-[11px] font-bold uppercase tracking-wide ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>Account Balance (USDT)</label>
-                      <input type="number" value={settings.accountBalance} onChange={e => settings.updateAccountBalance(parseFloat(e.target.value)||0)} className="ui-input mt-2 font-bold mono text-lg" />
-                      <div className={`text-[10px] mt-1 ${isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>Used for position sizing • Real trading</div>
+                      <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-wide">Balance</label>
+                      <input type="number" value={settings.accountBalance} onChange={e => settings.updateAccountBalance(parseFloat(e.target.value)||0)} className="ui-input mt-1.5 mono font-medium" />
                     </div>
                     <div>
-                      <label className={`text-[11px] font-bold uppercase tracking-wide ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>Risk Per Trade</label>
-                      <div className="grid grid-cols-4 gap-2 mt-2">
+                      <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-wide">Risk</label>
+                      <div className="grid grid-cols-4 gap-2 mt-1.5">
                         {[0.01,0.02,0.03,0.05].map(r => (
-                          <button key={r} onClick={() => settings.updateRiskPerTrade(r)} className={`py-3 rounded-xl text-[12px] font-bold border transition-all hover:scale-105 ${settings.riskPerTrade===r ? 'bg-[var(--accent)] text-[var(--bg)] border-[var(--accent)] shadow-lg scale-105' : 'bg-[var(--card)] border-[var(--border)] hover:border-[var(--accent)]/30'}`}>
+                          <button key={r} onClick={() => settings.updateRiskPerTrade(r)} className={`py-2.5 rounded-lg text-[12px] font-medium border transition-all duration-200 hover:scale-105 gpu-accelerated ${settings.riskPerTrade===r ? 'bg-zinc-900 text-white dark:bg-white dark:text-black border-zinc-900 dark:border-white' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'}`}>
                             {r*100}%
-                            <div className={`text-[9px] mt-0.5 ${settings.riskPerTrade===r ? 'text-white/70' : 'text-zinc-500'}`}>${(settings.accountBalance*r).toFixed(0)}</div>
                           </button>
                         ))}
                       </div>
                     </div>
                   </div>
-                  <div className={`p-4 rounded-xl border ${isLight ? 'bg-amber-50 border-amber-200' : 'bg-amber-500/5 border-amber-500/20'}`}>
-                    <div className={`font-bold text-[13px] flex items-center gap-2 ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>
-                      <MousePointer size={14} /> How Position Sizing Works
-                    </div>
-                    <div className={`text-[11px] mt-2 space-y-1 ${isLight ? 'text-amber-700' : 'text-amber-300/70'}`}>
-                      <div>• Risk = Balance × Risk% = ${settings.accountBalance} × {settings.riskPerTrade*100}% = ${(settings.accountBalance*settings.riskPerTrade).toFixed(0)}</div>
-                      <div>• Quantity = Risk / |Entry - SL|</div>
-                      <div>• Never risk more than 2% per trade</div>
-                      <div>• Max 6% daily loss recommended</div>
+                  <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800">
+                    <div className="font-medium text-[12px] text-zinc-900 dark:text-white">Position Sizing</div>
+                    <div className="text-[11px] mt-2 space-y-1 text-zinc-500 leading-relaxed">
+                      <div>Risk = ${settings.accountBalance} × {settings.riskPerTrade*100}% = ${(settings.accountBalance*settings.riskPerTrade).toFixed(0)}</div>
+                      <div>Qty = Risk ÷ |Entry - SL|</div>
+                      <div>Minimal UI • No colors • 120fps</div>
                     </div>
                   </div>
                 </div>
@@ -323,39 +213,22 @@ export default function SettingsPage() {
             )}
 
             {activeTab === 'interface' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FeatureCard icon={Layout} title="Layout" desc="Density & spacing" badge="NEW">
-                  <div className="grid grid-cols-3 gap-2">
-                    {['compact','comfortable','spacious'].map(d => (
-                      <button key={d} onClick={() => settings.updateDensity(d)} className={`p-2 rounded-lg border text-[11px] font-bold capitalize ${settings.density===d ? 'bg-[var(--accent)] text-[var(--bg)] border-[var(--accent)]' : 'border-[var(--border)]'}`}>{d}</button>
-                    ))}
-                  </div>
-                </FeatureCard>
-                <FeatureCard icon={Wand2} title="Effects" desc="Visual enhancements">
-                  <div className="space-y-2">
-                    <label className="flex items-center justify-between p-2 rounded-lg bg-[var(--accent-soft)] border border-[var(--border)]">
-                      <span className="text-[12px] font-medium">Animations</span>
-                      <input type="checkbox" checked={settings.animations} onChange={() => settings.toggleAnimations()} />
-                    </label>
-                    <label className="flex items-center justify-between p-2 rounded-lg bg-[var(--accent-soft)] border border-[var(--border)]">
-                      <span className="text-[12px] font-medium">Blur</span>
-                      <input type="checkbox" checked={settings.blur} onChange={() => settings.toggleBlur()} />
-                    </label>
-                  </div>
-                </FeatureCard>
-              </div>
-            )}
-
-            {activeTab !== 'themes' && activeTab !== 'appearance' && activeTab !== 'trading' && activeTab !== 'interface' && (
-              <GlassCard className="p-8 text-center">
-                <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4 ${isLight ? 'bg-black text-white' : 'bg-white text-black'}`}>
-                  <Sliders size={24} />
+              <GlassCard className="p-5">
+                <h3 className="font-medium text-[13px] text-zinc-900 dark:text-white mb-3">Interface</h3>
+                <div className="text-[12px] text-zinc-500 leading-relaxed">
+                  Minimal monochrome design. Only black, white, and zinc grays. No bright colors. All animations use transform and opacity only for 120fps GPU acceleration. Reduced motion support.
                 </div>
-                <h3 className={`font-bold text-lg ${isLight ? 'text-black' : 'text-white'}`}>{activeTab} settings</h3>
-                <p className={`text-[13px] mt-2 max-w-md mx-auto ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Advanced configuration for {activeTab} will appear here. More customization options coming soon with additional themes and layouts.</p>
-                <div className="mt-6 flex justify-center gap-2">
-                  <span className="ui-pill">Coming Soon</span>
-                  <span className="ui-pill-accent">V8 Roadmap</span>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {[
+                    { name: '120fps', desc: 'GPU accelerated' },
+                    { name: 'Minimal', desc: 'No colors' },
+                    { name: 'Focus', desc: 'Content first' },
+                  ].map(item => (
+                    <div key={item.name} className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-center">
+                      <div className="font-medium text-[12px] text-zinc-900 dark:text-white">{item.name}</div>
+                      <div className="text-[10px] text-zinc-500 mt-1">{item.desc}</div>
+                    </div>
+                  ))}
                 </div>
               </GlassCard>
             )}
