@@ -1,0 +1,28 @@
+{
+  "brokers": {
+    "paper": {
+      "name": "Paper",
+      "type": "paper",
+      "connected": true,
+      "paper_mode": true,
+      "initial_balance": 10000,
+      "created_at": "2026-09-13T19:03:02.373576"
+    },
+    "coindcx": {
+      "id": "coindcx",
+      "name": "CoinDCX REAL MONEY",
+      "type": "coindcx",
+      "connected": false,
+      "paper_mode": false,
+      "real_trading": true,
+      "has_keys": false,
+      "created_at": "2026-09-13T19:11:44.809043",
+      "warning": "REAL MONEY - Actual INR from CoinDCX account - No paper simulation",
+      "markets": "BTCINR, ETHINR, BNBINR, SOLINR, XRPINR, ADAINR, DOGEINR, AVAXINR, etc.",
+      "secure": "API keys encoded, trading permission only"
+    }
+  },
+  "timestamp": "2026-09-13T20:08:56.762633",
+  "warning": "API keys are base64 encoded, not encrypted - store securely, never share",
+  "real_trading": "CoinDCX REAL MONEY - actual INR"
+}
