@@ -114,6 +114,14 @@ export const THEMES = {
 
 export const THEME_CATEGORIES = ['All', 'Minimal', 'Dark', 'Colorful', 'Light']
 
+export const VISUAL_STYLES = {
+  liquid: { id: 'liquid', name: 'Liquid Glass', desc: 'Premium frosted glass', icon: '💎', vibe: 'Premium, sleek, high-tech', bestFor: 'Trading dashboards' },
+  clay: { id: 'clay', name: 'Claymorphism', desc: 'Soft 3D clay', icon: '🧸', vibe: 'Friendly, 3D, gamified', bestFor: 'Crypto/Web3 wallets' },
+  flat: { id: 'flat', name: 'Flat 2.0', desc: 'Clean & functional', icon: '◧', vibe: 'Professional, legible', bestFor: 'Enterprise data' },
+  neo: { id: 'neo', name: 'Neomorphism', desc: 'Soft extruded', icon: '◫', vibe: 'Minimalist, tactile', bestFor: 'Minimal dashboards' },
+  brutal: { id: 'brutal', name: 'Neo-Brutalism', desc: 'Raw & edgy', icon: '◩', vibe: 'Edgy, creative', bestFor: 'Creative trading' },
+}
+
 export const useSettingsStore = create(
   persist(
     (set, get) => ({
@@ -137,6 +145,7 @@ export const useSettingsStore = create(
       
       // Display settings
       theme: 'dark',
+      visualStyle: 'liquid',
       accent: 'emerald',
       font: 'poppins',
       density: 'comfortable',
@@ -175,16 +184,21 @@ export const useSettingsStore = create(
         set({ theme })
         if (typeof document !== 'undefined') {
           const html = document.documentElement
-          // Remove all theme classes
           Object.keys(THEMES).forEach(t => html.classList.remove(t))
           html.classList.remove('light', 'dark')
           html.classList.add(theme)
-          // For compatibility, also add light/dark category
-          const themeData = THEMES[theme]
           const isLight = ['light', 'sakura', 'mono'].includes(theme)
           html.classList.add(isLight ? 'light' : 'dark')
           html.setAttribute('data-theme', theme)
           html.setAttribute('data-accent', get().accent || 'emerald')
+          html.setAttribute('data-visual', get().visualStyle || 'liquid')
+        }
+      },
+      updateVisualStyle: (visualStyle) => {
+        if (!VISUAL_STYLES[visualStyle]) visualStyle = 'liquid'
+        set({ visualStyle })
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-visual', visualStyle)
         }
       },
       toggleTheme: () => {
@@ -246,6 +260,7 @@ export const useSettingsStore = create(
           useStacking: true,
           useDynamicWeights: true,
           theme: defaultTheme,
+          visualStyle: 'liquid',
           accent: 'emerald',
           font: 'poppins',
           density: 'comfortable',

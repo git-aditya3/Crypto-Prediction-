@@ -30,6 +30,8 @@ body {
   --radius-sm: 8px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 32px;
   --radius-full: 9999px;
   --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -40,7 +42,7 @@ body {
   --duration-slow: 300ms;
 }
 
-/* Light - soft paper with slate accent */
+/* Light - clean with slate accent - Flat 2.0 baseline */
 html.light, html[data-theme="light"] {
   --bg: #f8fafc;
   --bg-secondary: #f1f5f9;
@@ -70,9 +72,14 @@ html.light, html[data-theme="light"] {
   --shadow-md: 0 4px 12px -2px rgba(15,23,42,0.08);
   --shadow-lg: 0 12px 24px -4px rgba(15,23,42,0.1);
   --glow: 0 0 20px rgba(15,23,42,0.08);
+  --clay-outer: 0 20px 40px rgba(15,23,42,0.07), 0 8px 16px rgba(15,23,42,0.04);
+  --clay-inner-light: inset 8px 8px 16px rgba(255,255,255,0.9), inset -8px -8px 16px rgba(15,23,42,0.06);
+  --glass-bg: rgba(255,255,255,0.7);
+  --glass-border: rgba(15,23,42,0.08);
+  --glass-blur: blur(20px) saturate(1.5);
 }
 
-/* Dark - ink black */
+/* Dark - ink black - Liquid Glass premium */
 html.dark, html[data-theme="dark"] {
   --bg: #09090b;
   --bg-secondary: #18181b;
@@ -102,9 +109,14 @@ html.dark, html[data-theme="dark"] {
   --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
   --shadow-lg: 0 12px 24px rgba(0,0,0,0.5);
   --glow: 0 0 24px rgba(250,250,250,0.06);
+  --clay-outer: 0 20px 40px rgba(0,0,0,0.4), 0 8px 16px rgba(0,0,0,0.3);
+  --clay-inner-light: inset 6px 6px 12px rgba(255,255,255,0.06), inset -6px -6px 12px rgba(0,0,0,0.4);
+  --glass-bg: rgba(18,18,20,0.7);
+  --glass-border: rgba(255,255,255,0.08);
+  --glass-blur: blur(24px) saturate(1.8);
 }
 
-/* Midnight - deep purple */
+/* Midnight - deep purple - Liquid Glass */
 html.midnight, html[data-theme="midnight"] {
   --bg: #0a0a12;
   --bg-secondary: #13131f;
@@ -132,10 +144,15 @@ html.midnight, html[data-theme="midnight"] {
   --shadow: 0 4px 20px rgba(0,0,0,0.5);
   --shadow-md: 0 8px 30px rgba(139,92,246,0.15);
   --shadow-lg: 0 16px 40px rgba(0,0,0,0.6);
-  --glow: 0 0 30px rgba(139,92,246,0.15);
+  --glow: 0 0 30px rgba(139,92,246,0.25);
+  --clay-outer: 0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(139,92,246,0.1);
+  --clay-inner-light: inset 8px 8px 16px rgba(139,92,246,0.08), inset -8px -8px 16px rgba(0,0,0,0.3);
+  --glass-bg: rgba(19,19,31,0.75);
+  --glass-border: rgba(139,92,246,0.15);
+  --glass-blur: blur(24px) saturate(1.8);
 }
 
-/* Ocean - deep sea cyan */
+/* Ocean - cyan - Liquid Glass */
 html.ocean, html[data-theme="ocean"] {
   --bg: #060e1a;
   --bg-secondary: #0e1e2e;
@@ -161,12 +178,17 @@ html.ocean, html[data-theme="ocean"] {
   --border: #14304d;
   --border-strong: #1a3d61;
   --shadow: 0 4px 20px rgba(0,0,0,0.5);
-  --shadow-md: 0 8px 30px rgba(6,182,214,0.12);
+  --shadow-md: 0 8px 30px rgba(6,182,214,0.15);
   --shadow-lg: 0 16px 40px rgba(0,0,0,0.6);
-  --glow: 0 0 30px rgba(6,182,214,0.15);
+  --glow: 0 0 30px rgba(6,182,214,0.25);
+  --clay-outer: 0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(6,182,214,0.1);
+  --clay-inner-light: inset 8px 8px 16px rgba(6,182,214,0.08), inset -8px -8px 16px rgba(0,0,0,0.3);
+  --glass-bg: rgba(14,30,46,0.75);
+  --glass-border: rgba(6,182,214,0.15);
+  --glass-blur: blur(24px) saturate(1.8);
 }
 
-/* Forest - emerald dark */
+/* Forest - emerald - Claymorphism friendly */
 html.forest, html[data-theme="forest"] {
   --bg: #06120a;
   --bg-secondary: #0f2214;
@@ -192,12 +214,17 @@ html.forest, html[data-theme="forest"] {
   --border: #143d1e;
   --border-strong: #1a4d26;
   --shadow: 0 4px 20px rgba(0,0,0,0.5);
-  --shadow-md: 0 8px 30px rgba(16,185,129,0.12);
+  --shadow-md: 0 8px 30px rgba(16,185,129,0.15);
   --shadow-lg: 0 16px 40px rgba(0,0,0,0.6);
-  --glow: 0 0 30px rgba(16,185,129,0.15);
+  --glow: 0 0 30px rgba(16,185,129,0.25);
+  --clay-outer: 0 20px 40px rgba(0,0,0,0.5), 0 8px 20px rgba(16,185,129,0.1);
+  --clay-inner-light: inset 8px 8px 16px rgba(16,185,129,0.1), inset -8px -8px 16px rgba(0,0,0,0.3);
+  --glass-bg: rgba(15,34,20,0.75);
+  --glass-border: rgba(16,185,129,0.15);
+  --glass-blur: blur(24px) saturate(1.8);
 }
 
-/* Sunset - warm orange */
+/* Sunset - orange - Claymorphism warm */
 html.sunset, html[data-theme="sunset"] {
   --bg: #1a0a0a;
   --bg-secondary: #2a1515;
@@ -223,12 +250,17 @@ html.sunset, html[data-theme="sunset"] {
   --border: #3d1f1f;
   --border-strong: #4d2a2a;
   --shadow: 0 4px 20px rgba(0,0,0,0.5);
-  --shadow-md: 0 8px 30px rgba(249,115,22,0.15);
+  --shadow-md: 0 8px 30px rgba(249,115,22,0.2);
   --shadow-lg: 0 16px 40px rgba(0,0,0,0.6);
-  --glow: 0 0 30px rgba(249,115,22,0.15);
+  --glow: 0 0 30px rgba(249,115,22,0.25);
+  --clay-outer: 0 20px 40px rgba(0,0,0,0.5), 0 8px 20px rgba(249,115,22,0.12);
+  --clay-inner-light: inset 8px 8px 16px rgba(249,115,22,0.08), inset -8px -8px 16px rgba(0,0,0,0.3);
+  --glass-bg: rgba(42,21,21,0.75);
+  --glass-border: rgba(249,115,22,0.15);
+  --glass-blur: blur(24px) saturate(1.8);
 }
 
-/* Neon - cyber pink */
+/* Neon - pink - Liquid Glass cyber */
 html.neon, html[data-theme="neon"] {
   --bg: #0a0014;
   --bg-secondary: #1a0a2e;
@@ -254,12 +286,17 @@ html.neon, html[data-theme="neon"] {
   --border: #2d1b4e;
   --border-strong: #3d2a5e;
   --shadow: 0 4px 20px rgba(0,0,0,0.5);
-  --shadow-md: 0 8px 30px rgba(236,72,153,0.15);
+  --shadow-md: 0 8px 30px rgba(236,72,153,0.2);
   --shadow-lg: 0 16px 40px rgba(0,0,0,0.6);
-  --glow: 0 0 30px rgba(236,72,153,0.2);
+  --glow: 0 0 30px rgba(236,72,153,0.3);
+  --clay-outer: 0 20px 40px rgba(0,0,0,0.5), 0 0 20px rgba(236,72,153,0.15);
+  --clay-inner-light: inset 8px 8px 16px rgba(236,72,153,0.1), inset -8px -8px 16px rgba(0,0,0,0.3);
+  --glass-bg: rgba(26,10,46,0.75);
+  --glass-border: rgba(236,72,153,0.2);
+  --glass-blur: blur(24px) saturate(1.8);
 }
 
-/* Nord - arctic frost */
+/* Nord - arctic - Flat 2.0 */
 html.nord, html[data-theme="nord"] {
   --bg: #2e3440;
   --bg-secondary: #3b4252;
@@ -287,10 +324,15 @@ html.nord, html[data-theme="nord"] {
   --shadow: 0 4px 12px rgba(0,0,0,0.3);
   --shadow-md: 0 8px 24px rgba(0,0,0,0.3);
   --shadow-lg: 0 16px 40px rgba(0,0,0,0.4);
-  --glow: 0 0 20px rgba(136,192,208,0.1);
+  --glow: 0 0 20px rgba(136,192,208,0.15);
+  --clay-outer: 0 8px 24px rgba(0,0,0,0.2);
+  --clay-inner-light: inset 4px 4px 8px rgba(255,255,255,0.05), inset -4px -4px 8px rgba(0,0,0,0.2);
+  --glass-bg: rgba(59,66,82,0.7);
+  --glass-border: rgba(136,192,208,0.15);
+  --glass-blur: blur(20px) saturate(1.3);
 }
 
-/* Dracula - vampire */
+/* Dracula - vampire - Flat 2.0 */
 html.dracula, html[data-theme="dracula"] {
   --bg: #282a36;
   --bg-secondary: #343746;
@@ -318,10 +360,15 @@ html.dracula, html[data-theme="dracula"] {
   --shadow: 0 4px 12px rgba(0,0,0,0.3);
   --shadow-md: 0 8px 24px rgba(189,147,249,0.15);
   --shadow-lg: 0 16px 40px rgba(0,0,0,0.4);
-  --glow: 0 0 30px rgba(189,147,249,0.15);
+  --glow: 0 0 30px rgba(189,147,249,0.2);
+  --clay-outer: 0 12px 32px rgba(0,0,0,0.3);
+  --clay-inner-light: inset 6px 6px 12px rgba(189,147,249,0.06), inset -6px -6px 12px rgba(0,0,0,0.2);
+  --glass-bg: rgba(52,55,70,0.7);
+  --glass-border: rgba(189,147,249,0.15);
+  --glass-blur: blur(20px) saturate(1.3);
 }
 
-/* Cyberpunk - neon green */
+/* Cyberpunk - neon green - Neo-Brutalism edgy */
 html.cyberpunk, html[data-theme="cyberpunk"] {
   --bg: #0f0f1e;
   --bg-secondary: #1a1a2e;
@@ -329,7 +376,7 @@ html.cyberpunk, html[data-theme="cyberpunk"] {
   --card: #1a1a2e;
   --card-hover: #23233d;
   --card-border: #2a2a4a;
-  --card-border-hover: #3a3a5a;
+  --card-border-hover: #00ff9f;
   --text: #e0ffe0;
   --text-sec: #8ab58a;
   --text-muted: #5a7a5a;
@@ -347,12 +394,17 @@ html.cyberpunk, html[data-theme="cyberpunk"] {
   --border: #2a2a4a;
   --border-strong: #3a3a5a;
   --shadow: 0 4px 20px rgba(0,0,0,0.5);
-  --shadow-md: 0 8px 30px rgba(0,255,159,0.15);
+  --shadow-md: 0 8px 30px rgba(0,255,159,0.2);
   --shadow-lg: 0 16px 40px rgba(0,0,0,0.6);
-  --glow: 0 0 30px rgba(0,255,159,0.2);
+  --glow: 0 0 30px rgba(0,255,159,0.3);
+  --clay-outer: 4px 4px 0px #00ff9f, 0 12px 32px rgba(0,0,0,0.5);
+  --clay-inner-light: inset 2px 2px 0px rgba(0,255,159,0.2);
+  --glass-bg: rgba(26,26,46,0.8);
+  --glass-border: rgba(0,255,159,0.2);
+  --glass-blur: blur(24px) saturate(1.8);
 }
 
-/* Sakura - cherry blossom light */
+/* Sakura - cherry - Claymorphism playful */
 html.sakura, html[data-theme="sakura"] {
   --bg: #fdf2f8;
   --bg-secondary: #fce7f3;
@@ -381,10 +433,15 @@ html.sakura, html[data-theme="sakura"] {
   --shadow: 0 1px 3px rgba(236,72,153,0.08);
   --shadow-md: 0 4px 12px rgba(236,72,153,0.12);
   --shadow-lg: 0 12px 24px rgba(236,72,153,0.15);
-  --glow: 0 0 20px rgba(236,72,153,0.12);
+  --glow: 0 0 20px rgba(236,72,153,0.2);
+  --clay-outer: 0 12px 32px rgba(236,72,153,0.15), 0 4px 12px rgba(236,72,153,0.1);
+  --clay-inner-light: inset 8px 8px 16px rgba(255,255,255,0.9), inset -8px -8px 16px rgba(236,72,153,0.08);
+  --glass-bg: rgba(255,255,255,0.75);
+  --glass-border: rgba(236,72,153,0.15);
+  --glass-blur: blur(20px) saturate(1.5);
 }
 
-/* Mono - high contrast */
+/* Mono - high contrast - Brutalism */
 html.mono, html[data-theme="mono"] {
   --bg: #ffffff;
   --bg-secondary: #f4f4f5;
@@ -414,9 +471,14 @@ html.mono, html[data-theme="mono"] {
   --shadow-md: 4px 4px 0px #09090b;
   --shadow-lg: 6px 6px 0px #09090b;
   --glow: 0 0 0 rgba(0,0,0,0);
+  --clay-outer: 4px 4px 0px #09090b;
+  --clay-inner-light: inset 0 0 0 transparent;
+  --glass-bg: rgba(255,255,255,0.9);
+  --glass-border: #09090b;
+  --glass-blur: blur(0px);
 }
 
-/* ========== 120FPS ANIMATIONS ========== */
+/* ========== 120FPS UTILS ========== */
 .gpu-accelerated {
   transform: translateZ(0);
   will-change: transform, opacity;
@@ -425,6 +487,378 @@ html.mono, html[data-theme="mono"] {
   perspective: 1000px;
 }
 
+/* ========== CLAYMORPHISM - Friendly 3D ========== */
+.clay-card {
+  background: var(--card);
+  border-radius: var(--radius-3xl);
+  border: 1px solid var(--card-border);
+  padding: 20px;
+  position: relative;
+  transform: translateZ(0);
+  will-change: transform, box-shadow;
+  backface-visibility: hidden;
+  box-shadow: 
+    var(--clay-outer),
+    var(--clay-inner-light);
+  transition: 
+    transform var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
+}
+
+.clay-card:hover {
+  transform: translate3d(0, -4px, 0) scale(1.01);
+  box-shadow: 
+    0 24px 48px rgba(0,0,0,0.12),
+    0 12px 24px rgba(0,0,0,0.08),
+    var(--clay-inner-light);
+}
+
+.clay-card:active {
+  transform: translate3d(0, 0, 0) scale(0.98);
+  box-shadow: 
+    0 8px 16px rgba(0,0,0,0.08),
+    var(--clay-inner-light);
+}
+
+.clay-btn {
+  background: var(--card);
+  border-radius: var(--radius-full);
+  padding: 12px 20px;
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid var(--card-border);
+  box-shadow: 
+    0 8px 16px rgba(0,0,0,0.08),
+    var(--clay-inner-light);
+  transform: translateZ(0);
+  will-change: transform, box-shadow;
+  transition: all var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+.clay-btn:hover {
+  transform: translate3d(0, -2px, 0);
+  box-shadow: 
+    0 12px 24px rgba(0,0,0,0.12),
+    var(--clay-inner-light);
+}
+
+.clay-btn:active {
+  transform: translate3d(0, 0, 0) scale(0.96);
+  box-shadow: 
+    inset 4px 4px 8px rgba(0,0,0,0.1),
+    inset -4px -4px 8px rgba(255,255,255,0.8);
+}
+
+.clay-pill {
+  background: var(--card);
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 11px;
+  border: 1px solid var(--card-border);
+  box-shadow: 
+    0 4px 12px rgba(0,0,0,0.06),
+    var(--clay-inner-light);
+}
+
+/* ========== LIQUID GLASS - Premium Frosted ========== */
+.liquid-glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: 
+    0 8px 32px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.1);
+  transform: translateZ(0);
+  will-change: backdrop-filter, transform;
+}
+
+.liquid-glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: 
+    0 8px 32px rgba(0,0,0,0.12),
+    0 2px 8px rgba(0,0,0,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.15);
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+  will-change: transform, box-shadow, backdrop-filter;
+  transition: 
+    transform var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
+}
+
+.liquid-glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  pointer-events: none;
+}
+
+.liquid-glass-card:hover {
+  transform: translate3d(0, -2px, 0);
+  box-shadow: 
+    0 16px 48px rgba(0,0,0,0.15),
+    0 4px 16px rgba(0,0,0,0.1),
+    inset 0 1px 0 rgba(255,255,255,0.2),
+    var(--glow);
+}
+
+.liquid-glass-card:active {
+  transform: translate3d(0, 0, 0) scale(0.98);
+}
+
+/* Vibrant backdrop blobs for liquid glass */
+.glass-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.6;
+  pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform;
+  animation: blobFloat 20s ease-in-out infinite;
+}
+
+@keyframes blobFloat {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(30px, -30px, 0) scale(1.1); }
+  66% { transform: translate3d(-20px, 20px, 0) scale(0.9); }
+}
+
+.mesh-gradient {
+  background: radial-gradient(at 40% 20%, var(--accent-soft) 0px, transparent 50%),
+              radial-gradient(at 80% 0%, var(--buy-soft) 0px, transparent 50%),
+              radial-gradient(at 0% 50%, var(--accent-soft) 0px, transparent 50%),
+              radial-gradient(at 80% 80%, var(--buy-soft) 0px, transparent 50%);
+}
+
+/* ========== NEOMORPHISM - Soft Extruded ========== */
+.neo-card {
+  background: var(--bg);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  border: none;
+  box-shadow: 
+    8px 8px 16px rgba(0,0,0,0.15),
+    -8px -8px 16px rgba(255,255,255,0.05);
+  transform: translateZ(0);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+html.light .neo-card {
+  background: var(--bg);
+  box-shadow: 
+    8px 8px 16px rgba(174,174,192,0.4),
+    -8px -8px 16px rgba(255,255,255,0.9);
+}
+
+.neo-card:hover {
+  transform: translate3d(0, -1px, 0);
+}
+
+.neo-card:active, .neo-inset {
+  box-shadow: 
+    inset 6px 6px 12px rgba(0,0,0,0.15),
+    inset -6px -6px 12px rgba(255,255,255,0.05);
+}
+
+.neo-btn {
+  background: var(--bg);
+  border-radius: var(--radius-lg);
+  padding: 12px 20px;
+  border: none;
+  font-weight: 600;
+  box-shadow: 
+    6px 6px 12px rgba(0,0,0,0.15),
+    -6px -6px 12px rgba(255,255,255,0.05);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.neo-btn:active {
+  box-shadow: 
+    inset 4px 4px 8px rgba(0,0,0,0.15),
+    inset -4px -4px 8px rgba(255,255,255,0.05);
+}
+
+/* ========== NEO-BRUTALISM - Raw & Edgy ========== */
+.brutal-card {
+  background: var(--card);
+  border: 3px solid var(--text);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  box-shadow: 6px 6px 0px var(--text);
+  transform: translateZ(0);
+  transition: all var(--duration-fast) var(--ease-out);
+  position: relative;
+}
+
+.brutal-card:hover {
+  transform: translate3d(-2px, -2px, 0);
+  box-shadow: 8px 8px 0px var(--text);
+}
+
+.brutal-card:active {
+  transform: translate3d(2px, 2px, 0);
+  box-shadow: 2px 2px 0px var(--text);
+}
+
+.brutal-btn {
+  background: var(--accent);
+  color: var(--bg);
+  border: 3px solid var(--text);
+  border-radius: var(--radius-sm);
+  padding: 12px 20px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 4px 4px 0px var(--text);
+  transform: translateZ(0);
+  transition: all var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+.brutal-btn:hover {
+  transform: translate3d(-2px, -2px, 0);
+  box-shadow: 6px 6px 0px var(--text);
+}
+
+.brutal-btn:active {
+  transform: translate3d(2px, 2px, 0);
+  box-shadow: 1px 1px 0px var(--text);
+}
+
+.brutal-pill {
+  background: var(--accent);
+  color: white;
+  border: 2px solid var(--text);
+  border-radius: var(--radius-sm);
+  padding: 4px 12px;
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  box-shadow: 3px 3px 0px var(--text);
+}
+
+/* ========== FLAT 2.0 - Clean & Functional ========== */
+.flat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transform: translateZ(0);
+  transition: all var(--duration-normal) var(--ease-out);
+  position: relative;
+}
+
+.flat-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent);
+  border-radius: var(--radius) var(--radius) 0 0;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.flat-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translate3d(0, -1px, 0);
+}
+
+.flat-card:hover::after {
+  opacity: 1;
+}
+
+.flat-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  font-weight: 500;
+  font-size: 13px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.flat-btn:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+  transform: translate3d(0, -1px, 0);
+}
+
+.flat-btn-primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* ========== VISUAL STYLE SWITCHING ========== */
+html[data-visual="clay"] .ui-card {
+  border-radius: var(--radius-3xl);
+  box-shadow: var(--clay-outer), var(--clay-inner-light);
+  border: 1px solid var(--card-border);
+}
+
+html[data-visual="clay"] .ui-card:hover {
+  transform: translate3d(0, -4px, 0) scale(1.01);
+  box-shadow: 0 24px 48px rgba(0,0,0,0.12), var(--clay-inner-light);
+}
+
+html[data-visual="liquid"] .ui-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+html[data-visual="liquid"] .ui-card:hover {
+  box-shadow: 0 16px 48px rgba(0,0,0,0.15), var(--glow);
+}
+
+html[data-visual="neo"] .ui-card {
+  background: var(--bg);
+  border: none;
+  box-shadow: 8px 8px 16px rgba(0,0,0,0.15), -8px -8px 16px rgba(255,255,255,0.05);
+  border-radius: var(--radius-xl);
+}
+
+html[data-visual="brutal"] .ui-card {
+  border: 3px solid var(--text);
+  border-radius: var(--radius-sm);
+  box-shadow: 6px 6px 0px var(--text);
+}
+
+html[data-visual="brutal"] .ui-card:hover {
+  transform: translate3d(-2px, -2px, 0);
+  box-shadow: 8px 8px 0px var(--text);
+}
+
+html[data-visual="flat"] .ui-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ========== BASE UI CARDS ========== */
 .ui-card {
   background: var(--card);
   border: 1px solid var(--card-border);
@@ -451,17 +885,6 @@ html.mono, html[data-theme="mono"] {
 .ui-card:active {
   transform: translate3d(0, 0, 0) scale(0.98);
   transition-duration: var(--duration-fast);
-}
-
-html.mono .ui-card {
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
-}
-
-html.mono .ui-card:hover {
-  transform: translate3d(-2px, -2px, 0);
-  box-shadow: 5px 5px 0px var(--border);
 }
 
 /* ========== BUTTONS - THEMED ========== */
@@ -502,49 +925,17 @@ html.mono .ui-card:hover {
 
 .ui-btn-primary {
   background: var(--accent);
-  color: var(--bg);
+  color: white;
   border-color: var(--accent);
   font-weight: 600;
-}
-
-html.light .ui-btn-primary {
-  color: white;
-}
-html.dark .ui-btn-primary {
-  color: black;
-}
-html.sakura .ui-btn-primary {
-  color: white;
-}
-html.mono .ui-btn-primary {
-  color: white;
-}
-html.midnight .ui-btn-primary,
-html.ocean .ui-btn-primary,
-html.forest .ui-btn-primary,
-html.sunset .ui-btn-primary,
-html.neon .ui-btn-primary,
-html.nord .ui-btn-primary,
-html.dracula .ui-btn-primary,
-html.cyberpunk .ui-btn-primary {
-  color: var(--bg);
+  box-shadow: var(--glow);
 }
 
 .ui-btn-primary:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
   transform: translate3d(0, -1px, 0);
-  box-shadow: var(--shadow-md);
-}
-
-.ui-btn-ghost {
-  background: transparent;
-  border-color: transparent;
-}
-
-.ui-btn-ghost:hover {
-  background: var(--accent-soft);
-  border-color: var(--border);
+  box-shadow: var(--shadow-md), var(--glow);
 }
 
 .ui-btn-buy {
@@ -552,11 +943,7 @@ html.cyberpunk .ui-btn-primary {
   color: white;
   border-color: var(--buy);
   font-weight: 600;
-}
-
-html.mono .ui-btn-buy {
-  background: var(--text);
-  color: var(--bg);
+  box-shadow: 0 0 20px var(--buy-soft);
 }
 
 .ui-btn-sell {
@@ -564,6 +951,19 @@ html.mono .ui-btn-buy {
   color: var(--sell);
   border-color: var(--sell-border);
   font-weight: 500;
+}
+
+/* Clay buttons when visual=clay */
+html[data-visual="clay"] .ui-btn {
+  border-radius: var(--radius-full);
+  box-shadow: var(--clay-outer), var(--clay-inner-light);
+  border: 1px solid var(--card-border);
+}
+
+html[data-visual="liquid"] .ui-btn {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
 }
 
 /* ========== INPUTS ========== */
@@ -591,8 +991,16 @@ html.mono .ui-btn-buy {
   background: var(--card);
 }
 
-.ui-input::placeholder {
-  color: var(--text-muted);
+html[data-visual="clay"] .ui-input {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--clay-inner-light);
+  border: 1px solid var(--card-border);
+}
+
+html[data-visual="liquid"] .ui-input {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
 }
 
 /* ========== PILLS - THEMED ========== */
@@ -622,21 +1030,17 @@ html.mono .ui-btn-buy {
 
 .ui-pill-live {
   background: var(--accent) !important;
-  color: var(--bg) !important;
+  color: white !important;
   border-color: var(--accent) !important;
   font-weight: 600 !important;
-}
-
-html.light .ui-pill-live,
-html.dark .ui-pill-live {
-  background: var(--text) !important;
-  color: var(--bg) !important;
+  box-shadow: var(--glow);
 }
 
 .ui-pill-buy {
   background: var(--buy) !important;
   color: white !important;
   border-color: var(--buy) !important;
+  box-shadow: 0 0 12px var(--buy-soft);
 }
 
 .ui-pill-sell {
@@ -647,25 +1051,46 @@ html.dark .ui-pill-live {
 
 .ui-pill-accent {
   background: var(--accent) !important;
-  color: var(--bg) !important;
+  color: white !important;
   border-color: var(--accent) !important;
   font-weight: 600;
-}
-
-html.light .ui-pill-accent {
-  color: white !important;
-}
-html.dark .ui-pill-accent {
-  color: black !important;
+  box-shadow: var(--glow);
 }
 
 /* ========== BACKGROUNDS ========== */
 .theme-bg {
   background: var(--bg);
   position: relative;
+  overflow: hidden;
 }
 
-/* ========== SCROLLBAR - THEMED ========== */
+.theme-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.4;
+  background: radial-gradient(at 20% 20%, var(--accent-soft) 0%, transparent 50%),
+              radial-gradient(at 80% 20%, var(--buy-soft) 0%, transparent 50%),
+              radial-gradient(at 20% 80%, var(--accent-soft) 0%, transparent 50%);
+}
+
+html[data-visual="liquid"] .theme-bg::before {
+  opacity: 0.8;
+}
+
+html[data-visual="clay"] .theme-bg {
+  background: var(--bg);
+}
+
+html[data-visual="clay"] .theme-bg::before {
+  opacity: 0.15;
+  background: radial-gradient(at 20% 30%, var(--accent-soft), transparent 60%),
+              radial-gradient(at 80% 70%, var(--buy-soft), transparent 60%);
+}
+
+/* ========== SCROLLBAR ========== */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -739,10 +1164,7 @@ html.dark .ui-pill-accent {
   transform: translateZ(0);
   will-change: transform, opacity;
   animation: livePulse 2s var(--ease-in-out) infinite;
-}
-
-html.light .live-dot {
-  background: var(--buy);
+  box-shadow: 0 0 8px var(--accent);
 }
 
 @keyframes livePulse {
@@ -867,6 +1289,16 @@ table {
   box-shadow: var(--shadow-md);
 }
 
+html[data-visual="clay"] .hover-lift:hover {
+  transform: translate3d(0, -4px, 0) scale(1.01);
+  box-shadow: var(--clay-outer);
+}
+
+html[data-visual="brutal"] .hover-lift:hover {
+  transform: translate3d(-2px, -2px, 0);
+  box-shadow: 8px 8px 0px var(--text);
+}
+
 .skeleton {
   background: var(--bg-secondary);
   border-radius: var(--radius-sm);
@@ -889,19 +1321,6 @@ table {
   font-family: 'Geist Mono', 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-}
-
-.scroll-indicator {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--accent);
-  transform-origin: left;
-  transform: scaleX(0) translateZ(0);
-  will-change: transform;
-  z-index: 9999;
 }
 
 footer {
@@ -946,33 +1365,11 @@ select, input[type="number"], input[type="text"], input[type="password"] {
   }
 }
 
-/* ========== THEMED GRADIENTS - SUBTLE ========== */
-.theme-gradient {
-  background: linear-gradient(135deg, var(--accent-soft), transparent);
-}
-
-/* ========== BUY/SELL COLORS ========== */
-.text-buy {
-  color: var(--buy);
-}
-.text-sell {
-  color: var(--sell);
-}
-.bg-buy {
-  background: var(--buy);
-}
-.bg-sell {
-  background: var(--sell);
-}
-.bg-buy-soft {
-  background: var(--buy-soft);
-}
-.bg-sell-soft {
-  background: var(--sell-soft);
-}
-.border-buy {
-  border-color: var(--buy-border);
-}
-.border-sell {
-  border-color: var(--sell-border);
-}
+.text-buy { color: var(--buy); }
+.text-sell { color: var(--sell); }
+.bg-buy { background: var(--buy); }
+.bg-sell { background: var(--sell); }
+.bg-buy-soft { background: var(--buy-soft); }
+.bg-sell-soft { background: var(--sell-soft); }
+.border-buy { border-color: var(--buy-border); }
+.border-sell { border-color: var(--sell-border); }
