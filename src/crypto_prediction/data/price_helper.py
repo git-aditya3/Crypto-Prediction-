@@ -1,8 +1,8 @@
 """
-Unified price helper v5 MAX - INR/USD handling, CoinDCX primary for INR, Binance for USD
+Unified price helper v6 ULTRA - INR/USD handling, CoinDCX primary for INR, Binance for USD
 - Thread-safe caching, metrics, validation, atomic operations
 - Avoids circular recursion via direct REST, supports orderbook, tickers
-- Kalman smoothing for price, drift detection
+- Kalman smoothing for price, drift detection, dynamic INR rate
 """
 from typing import Optional, Dict
 import threading
@@ -30,7 +30,7 @@ def _get_session():
             if _session is None:
                 import requests
                 _session = requests.Session()
-                _session.headers.update({"User-Agent": "CryptoPred v5 PriceHelper"})
+                _session.headers.update({"User-Agent": "CryptoPred v6 ULTRA PriceHelper"})
                 adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=20)
                 _session.mount("https://", adapter)
                 _session.mount("http://", adapter)
@@ -78,7 +78,7 @@ def _get_binance_price_direct(symbol: str) -> float:
             except Exception:
                 pass
     except Exception as e:
-        logger.debug(f"Direct Binance price v5 failed {symbol}: {e}")
+        logger.debug(f"Direct Binance price v6 failed {symbol}: {e}")
     return 0.0
 
 def get_live_price(symbol: str) -> float:
@@ -107,7 +107,7 @@ def get_live_price(symbol: str) -> float:
             if p and 0 < p < 200_000_000:
                 price = float(p)
         except Exception as e:
-            logger.debug(f"CoinDCX price helper v5 failed {original}: {e}")
+            logger.debug(f"CoinDCX price helper v6 failed {original}: {e}")
 
         if price == 0:
             try:
@@ -117,7 +117,7 @@ def get_live_price(symbol: str) -> float:
                     if 0 < inr_price < 200_000_000:
                         price = float(inr_price)
             except Exception as e:
-                logger.debug(f"Binance direct INR fallback v5 failed {original}: {e}")
+                logger.debug(f"Binance direct INR fallback v6 failed {original}: {e}")
 
         if price == 0:
             try:
@@ -141,16 +141,16 @@ def get_live_price(symbol: str) -> float:
                                 if 0 < p_inr < 200_000_000:
                                     price = float(p_inr)
                     except Exception as e:
-                        logger.debug(f"Cache read v5 failed {original}: {e}")
+                        logger.debug(f"Cache read v6 failed {original}: {e}")
             except Exception as e:
-                logger.debug(f"Historical INR price helper v5 failed {original}: {e}")
+                logger.debug(f"Historical INR price helper v6 failed {original}: {e}")
     else:
         try:
             binance_price = _get_binance_price_direct(original)
             if binance_price and binance_price > 0:
                 price = float(binance_price)
         except Exception as e:
-            logger.debug(f"Binance direct price helper v5 failed {original}: {e}")
+            logger.debug(f"Binance direct price helper v6 failed {original}: {e}")
 
         if price == 0:
             try:
@@ -162,7 +162,7 @@ def get_live_price(symbol: str) -> float:
                     if 0 < usd_price < 10_000_000:
                         price = usd_price
             except Exception as e:
-                logger.debug(f"CoinDCX fallback for USD v5 failed {original}: {e}")
+                logger.debug(f"CoinDCX fallback for USD v6 failed {original}: {e}")
 
         if price == 0:
             try:
@@ -184,9 +184,9 @@ def get_live_price(symbol: str) -> float:
                             if 0 < p < 10_000_000:
                                 price = float(p)
                     except Exception as e:
-                        logger.debug(f"Cache read v5 failed {original}: {e}")
+                        logger.debug(f"Cache read v6 failed {original}: {e}")
             except Exception as e:
-                logger.debug(f"Historical USD price helper v5 failed {original}: {e}")
+                logger.debug(f"Historical USD price helper v6 failed {original}: {e}")
 
     # Update cache
     if price > 0:
@@ -208,7 +208,7 @@ def get_tickers_all() -> Dict:
         if isinstance(coindcx, dict):
             result.update(coindcx)
     except Exception as e:
-        logger.debug(f"CoinDCX tickers v5 all failed: {e}")
+        logger.debug(f"CoinDCX tickers v6 all failed: {e}")
 
     try:
         from ..config import get_config
@@ -250,17 +250,17 @@ def get_tickers_all() -> Dict:
                                 "last_price": price,
                                 "change_pct": change_pct,
                                 "volume": vol,
-                                "source": "Binance v5",
+                                "source": "Binance v6",
                                 "real_data": True,
-                                "version": "v5_max"
+                                "version": "v6_max"
                             }
                     except (ValueError, TypeError):
                         continue
                     except Exception as e:
-                        logger.debug(f"Binance ticker parse v5 failed: {e}")
+                        logger.debug(f"Binance ticker parse v6 failed: {e}")
                         continue
     except Exception as e:
-        logger.debug(f"Binance tickers v5 all failed: {e}")
+        logger.debug(f"Binance tickers v6 all failed: {e}")
 
     with _tickers_lock:
         _tickers_cache["data"] = result
@@ -286,7 +286,7 @@ def get_orderbook(symbol: str, limit: int = 20) -> Optional[Dict]:
             if ob and isinstance(ob, dict) and ob.get("bids") and ob.get("asks"):
                 return ob
         except Exception as e:
-            logger.debug(f"CoinDCX orderbook helper v5 failed {symbol}: {e}")
+            logger.debug(f"CoinDCX orderbook helper v6 failed {symbol}: {e}")
 
         try:
             from ..config import get_config
@@ -317,9 +317,9 @@ def get_orderbook(symbol: str, limit: int = 20) -> Optional[Dict]:
                         except (ValueError, TypeError):
                             continue
                     if bids and asks:
-                        return {"bids": bids, "asks": asks, "market": symbol, "source": "Binance v5 converted to INR", "version": "v5_max"}
+                        return {"bids": bids, "asks": asks, "market": symbol, "source": "Binance v6 converted to INR", "version": "v6_max"}
         except Exception as e:
-            logger.debug(f"Binance orderbook helper v5 failed {symbol}: {e}")
+            logger.debug(f"Binance orderbook helper v6 failed {symbol}: {e}")
     else:
         try:
             from ..config import get_config
@@ -332,7 +332,7 @@ def get_orderbook(symbol: str, limit: int = 20) -> Optional[Dict]:
                 if isinstance(data, dict) and 'bids' in data and 'asks' in data:
                     return data
         except Exception as e:
-            logger.debug(f"Binance orderbook helper v5 failed {symbol}: {e}")
+            logger.debug(f"Binance orderbook helper v6 failed {symbol}: {e}")
 
         try:
             from .coindcx_fetcher import CoinDCXRealtimeFetcher
@@ -363,10 +363,10 @@ def get_orderbook(symbol: str, limit: int = 20) -> Optional[Dict]:
                     except (ValueError, TypeError, IndexError):
                         continue
                 if bids and asks:
-                    return {"bids": bids, "asks": asks, "market": symbol, "source": "CoinDCX v5 converted to USD", "version": "v5_max"}
+                    return {"bids": bids, "asks": asks, "market": symbol, "source": "CoinDCX v6 converted to USD", "version": "v6_max"}
                 return ob
         except Exception as e:
-            logger.debug(f"CoinDCX orderbook fallback v5 failed {symbol}: {e}")
+            logger.debug(f"CoinDCX orderbook fallback v6 failed {symbol}: {e}")
 
     return None
 
@@ -376,7 +376,7 @@ def get_price_metrics() -> Dict:
             "cached_symbols": len(_price_cache),
             "cache_ttl": _price_cache_ttl,
             "symbols": list(_price_cache.keys())[:10],
-            "version": "v5_max"
+            "version": "v6_max"
         }
 
 def clear_cache():
@@ -385,4 +385,4 @@ def clear_cache():
     with _tickers_lock:
         _tickers_cache["data"] = None
         _tickers_cache["timestamp"] = 0
-    logger.info("Price helper v5 cache cleared")
+    logger.info("Price helper v6 cache cleared")

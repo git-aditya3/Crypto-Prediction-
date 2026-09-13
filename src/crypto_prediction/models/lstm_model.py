@@ -1,5 +1,5 @@
 """
-LSTM model v4 Max Performance
+LSTM model v6 ULTRA Max Performance
 - Deeper bidirectional (4 layers, 320 hidden)
 - Multi-head attention (8 heads)
 - Residual connections, Pre-LN, LayerNorm
@@ -233,7 +233,7 @@ class LSTMModel(BaseModel):
         patience_counter = 0
         best_state = None
 
-        logger.info(f"Training LSTM v4 MAX on {self.device} | in={self.input_size} h={self.hidden_size} L={self.num_layers} bidir={self.bidirectional} attn={self.use_attention} heads={self.attention_heads} residual={self.use_residual} | epochs={epochs} batch={batch_size}")
+        logger.info(f"Training LSTM v6 ULTRA MAX on {self.device} | in={self.input_size} h={self.hidden_size} L={self.num_layers} bidir={self.bidirectional} attn={self.use_attention} heads={self.attention_heads} residual={self.use_residual} | epochs={epochs} batch={batch_size}")
 
         for epoch in range(epochs):
             self.network.train()
@@ -274,24 +274,24 @@ class LSTMModel(BaseModel):
                     patience_counter += 1
 
                 if verbose and (epoch + 1) % 10 == 0:
-                    logger.info(f"LSTM v4 Epoch {epoch+1}/{epochs} | train={train_loss:.6f} val={val_loss:.6f} lr={self.optimizer.param_groups[0]['lr']:.7f} best={best_val_loss:.6f}")
+                    logger.info(f"LSTM v6 ULTRA Epoch {epoch+1}/{epochs} | train={train_loss:.6f} val={val_loss:.6f} lr={self.optimizer.param_groups[0]['lr']:.7f} best={best_val_loss:.6f}")
 
                 if patience_counter >= patience:
-                    logger.info(f"LSTM v4 Early stopping at epoch {epoch+1} | best_val={best_val_loss:.6f}")
+                    logger.info(f"LSTM v6 ULTRA Early stopping at epoch {epoch+1} | best_val={best_val_loss:.6f}")
                     break
             else:
                 if verbose and (epoch + 1) % 10 == 0:
-                    logger.info(f"LSTM v4 Epoch {epoch+1}/{epochs} | train={train_loss:.6f}")
+                    logger.info(f"LSTM v6 ULTRA Epoch {epoch+1}/{epochs} | train={train_loss:.6f}")
 
         if best_state is not None:
             self.network.load_state_dict(best_state)
 
         self.is_fitted = True
-        return {"train_losses": self.train_losses, "val_losses": self.val_losses, "best_val_loss": best_val_loss, "version": "v4_max"}
+        return {"train_losses": self.train_losses, "val_losses": self.val_losses, "best_val_loss": best_val_loss, "version": "v6_ultra"}
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         if not self.is_fitted:
-            logger.warning("LSTM v4 not fitted, predicting anyway")
+            logger.warning("LSTM v6 ULTRA not fitted, predicting anyway")
         self.network.eval()
         with torch.no_grad():
             X_tensor = torch.FloatTensor(X).to(self.device)
@@ -314,9 +314,9 @@ class LSTMModel(BaseModel):
             },
             'train_losses': self.train_losses,
             'val_losses': self.val_losses,
-            'version': 'v4_max'
+            'version': 'v6_ultra'
         }, path)
-        logger.info(f"Saved LSTM v4 MAX torch model to {path}")
+        logger.info(f"Saved LSTM v6 ULTRA MAX torch model to {path}")
 
     @classmethod
     def load_torch(cls, path: str, device: str = None):
@@ -337,8 +337,19 @@ class LSTMModel(BaseModel):
         model.train_losses = checkpoint.get('train_losses', [])
         model.val_losses = checkpoint.get('val_losses', [])
         model.is_fitted = True
-        logger.info(f"Loaded LSTM v4 MAX torch model from {path}")
+        logger.info(f"Loaded LSTM v6 ULTRA MAX torch model from {path}")
         return model
+
+    def predict_with_uncertainty(self, X: np.ndarray, n_samples: int = 20) -> tuple:
+        self.network.train()
+        preds=[]
+        with torch.no_grad():
+            X_tensor=torch.FloatTensor(X).to(self.device)
+            for _ in range(n_samples):
+                pred=self.network(X_tensor)
+                preds.append(pred.cpu().numpy())
+        preds=np.array(preds)
+        return preds.mean(axis=0), preds.std(axis=0)
 
     def forecast_future(self, last_sequence: np.ndarray, steps: int = 7, preprocessor=None) -> np.ndarray:
         self.network.eval()

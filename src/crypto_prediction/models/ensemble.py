@@ -1,6 +1,6 @@
 """
-Ensemble model v4 Max Performance
-- Dynamic weighting: inverse MAPE + Sharpe + directional accuracy
+Ensemble model v6 ULTRA Bayesian + Calibration
+- Dynamic weighting v6 ULTRA: 35% invMAPE 35% Sharpe 20% DirAcc 10% static Bayesian + confidence calibration
 - Stacking meta-learner: Ridge + optional LGBM
 - Confidence calibration via isotonic regression
 - Model versioning, drift detection, auto rollback
@@ -49,7 +49,7 @@ class EnsembleModel(BaseModel):
         self.model_scores = {}
         self.version = config.model.ensemble_version
         
-        logger.info(f"Ensemble v4 MAX {self.version} weights: {self.weights} | stacking={self.use_stacking} ({self.meta_learner_type}) | dynamic={self.use_dynamic_weights} sharpe={self.use_sharpe_weighting} calibrate={self.calibrate_confidence}")
+        logger.info(f"Ensemble v6 ULTRA {self.version} weights: {self.weights} | stacking={self.use_stacking} ({self.meta_learner_type}) | dynamic={self.use_dynamic_weights} sharpe={self.use_sharpe_weighting} calibrate={self.calibrate_confidence}")
 
     def _compute_sharpe_like(self, y_true, y_pred) -> float:
         """Sharpe-like score: directional accuracy / MAPE"""
@@ -128,19 +128,19 @@ class EnsembleModel(BaseModel):
                 total_dir = sum(dir_accs.values()) + 1e-8
                 dir_weights = {k: v/total_dir for k, v in dir_accs.items()}
 
-                # Combined weighting
+                # Combined weighting v6 ULTRA Bayesian
                 if self.use_sharpe_weighting:
-                    # 40% inverse MAPE, 40% Sharpe, 20% DirAcc
+                    # 35% inverse MAPE, 35% Sharpe, 20% DirAcc, 10% static
                     combined = {}
                     for k in mapes.keys():
-                        combined[k] = 0.4 * inv_mape_weights.get(k,0) + 0.4 * sharpe_weights.get(k,0) + 0.2 * dir_weights.get(k,0)
+                        combined[k] = 0.35 * inv_mape_weights.get(k,0) + 0.35 * sharpe_weights.get(k,0) + 0.2 * dir_weights.get(k,0) + 0.1 * self.weights.get(k,0)
                     total_comb = sum(combined.values())
                     self.dynamic_weights = {k: v/total_comb for k, v in combined.items()}
                     self.sharpe_weights = sharpe_weights
-                    logger.info(f"Dynamic weights v4 (40% invMAPE + 40% Sharpe + 20% DirAcc): {self.dynamic_weights}")
+                    logger.info(f"Dynamic weights v6 ULTRA (35% invMAPE + 35% Sharpe + 20% Dir + 10% static Bayesian): {self.dynamic_weights}")
                 else:
                     self.dynamic_weights = inv_mape_weights
-                    logger.info(f"Dynamic weights v4 (inverse MAPE): {self.dynamic_weights}")
+                    logger.info(f"Dynamic weights v6 ULTRA (inverse MAPE): {self.dynamic_weights}")
 
                 logger.info(f"  invMAPE: {inv_mape_weights}")
                 logger.info(f"  Sharpe: {sharpe_weights}")

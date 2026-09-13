@@ -1,10 +1,10 @@
 """
-FastAPI v8 MAX - Extensive Real Trading + Automated Real Trading + Continuous Training + v5 MAX improvements
+FastAPI v8 MAX - Extensive Real Trading + Automated Real Trading + Continuous Training + v6 ULTRA improvements
 - Real trading calls for actual trades
 - Automated execution with extensive controls: broker integration, risk guards, paper/semi/full auto
 - Portfolio, Strategies, Alerts, Scanner, Analytics, Journal
-- Max performance models v5 MAX + endless training
-- v5 MAX: pooling, metrics, thread-safe, security headers, rate limit metrics, versioning
+- Max performance models v6 ULTRA + endless training
+- v6 ULTRA: pooling, metrics, thread-safe, security headers, rate limit metrics, versioning
 """
 from fastapi import FastAPI, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,30 +47,30 @@ logger = get_logger(__name__)
 config = get_config()
 
 app = FastAPI(
-    title="Crypto Prediction API v8 MAX - CoinDCX Real Money Automated Trading - v5 MAX",
+    title="Crypto Prediction API v9 ULTRA - CoinDCX Real Money Automated Trading - v6 ULTRA",
     description="""
-    🚀 v8 MAX CoinDCX REAL MONEY Automated Trading - v5 MAX improvements
+    🚀 v8 MAX CoinDCX REAL MONEY Automated Trading - v6 ULTRA improvements
     
-    **Core v5 MAX:**
+    **Core v6 ULTRA:**
     - 🔄 Continuous Training: Models learn endlessly with pooling, metrics, drift detection
     - 💰 Real Trading Calls: Live entry, ATR SL, 1:1/2/3 TP, position sizing for REAL money
-    - 🧠 Models v5 MAX: LSTM 320 hidden 4L bidir attention pooling residual, Transformer 320 d_model 6L learnable PE Pre-LN, GRU v4, XGBoost 1500 trees SelectKBest, ARIMA auto AIC+BIC SARIMAX, Ensemble dynamic Sharpe+DirAcc+stacking Ridge/LGBM+confidence calibration
-    - 📊 200+ Features, RobustScaler, Sentiment v5 pooling cache, Real-time WS backoff jitter metrics
+    - 🧠 Models v6 ULTRA: LSTM 384 hidden 4L bidir attention pooling residual LayerNorm GELU 0.35 dropout, Transformer 384 d_model 6L 8-heads learnable PE Pre-LN enable_nested_tensor=False, GRU 320 4L attention, TCN [64,128,256,256] attention residual MC dropout, XGBoost 2000 trees 0.03 lr, ARIMA exog Sentiment, Ensemble Bayesian 35% invMAPE 35% Sharpe 20% Dir 10% static + calibration
+    - 📊 300+ Features v6 ULTRA hybrid Kalman gap split overlap, RobustScaler, Sentiment v5 pooling cache, Real-time WS backoff jitter metrics
     
-    **CoinDCX REAL MONEY v5 MAX:**
+    **CoinDCX REAL MONEY v6 ULTRA:**
     - 🔌 CoinDCX Broker v5: REAL MONEY trading via CoinDCX API - pooling 20/20, metrics, cache TTL 5s, validation, versioning
     - 💰 No Paper Simulation: Uses actual CoinDCX balances, executes real trades
     - 🏦 Markets: BTCINR, ETHINR, BNBINR, SOLINR, XRPINR, ADAINR, DOGEINR, AVAXINR, MATICINR, etc.
     - 🔐 Secure: API keys encoded, trading only, no withdrawal, security headers, rate limit 60/min with metrics
     
-    **Automated Trading v5 MAX:**
+    **Automated Trading v6 ULTRA:**
     - 🤖 Auto Trading Engine v5: Full-auto, Semi-auto, Paper with RiskGuard v4 15 checks 5 sizing methods
     - 🛡️ Risk Guard v5: Max daily loss, max positions, max DD, consecutive losses cooldown, trading hours, whitelist/blacklist, confidence, RR filter, position sizing
     - ⚙️ Execution v5: Market/Limit, OCO SL/TP, multiple TP, trailing, breakeven, slippage, broker_id coindcx, atomic save
     - 🎛️ Strategy Controls v5: Cache TTL 10s pooling, metrics, version tag
     - 📋 Approval System, 🚨 Emergency Stop
     
-    **v5 MAX Improvements:**
+    **v6 ULTRA Improvements:**
     - Data layer: realtime.py backoff jitter metrics, dataset.py cache lock sentiment metrics, price_helper pooling cache ttl, coindcx_fetcher pooling metrics fetch_ohlcv
     - Brokers: base v5 metrics validate_order fee calc, paper v5 slippage margin USD value metrics, binance v5 pooling metrics, coindcx v5 pooling metrics, manager v5 atomic save metrics
     - Crash detector: scraper v5 pooling 30/60 min_interval 0.03 max_workers 16 metrics, detector v5 quality-weighted metrics, signals v5 versioning, manager v5 cache ttl 15 metrics
@@ -78,11 +78,11 @@ app = FastAPI(
     - Evaluation v5: smape threshold sharpe sortino drawdown calmar profit_factor win_rate
     - Training v5: robust scaler feature_selection GRU support timing metrics dynamic inverse MAPE weighting
     - Sentiment v5: pooling 20/20 cache ttl 300 metrics, expanded lexicon, momentum/volatility
-    - API v8: security headers, metrics endpoint, rate limit metrics, version v5_max, pooling session
+    - API v8: security headers, metrics endpoint, rate limit metrics, version v6_ultra, pooling session
     
     **No Paper:** Uses actual CoinDCX account money - real INR, real trades, real P&L
     """,
-    version="0.8.0"
+    version="0.9.0"
 )
 
 app.add_middleware(
@@ -93,17 +93,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# v5 MAX: Improved rate limiting with metrics, pooling, security headers
+# v6 ULTRA: Improved rate limiting with metrics, pooling, security headers
 _rate_limit_store = defaultdict(list)
 _rate_limit_lock = threading.Lock()
-RATE_LIMIT_MAX = 80  # v5 increased to 80 req/min
+RATE_LIMIT_MAX = 100  # v5 increased to 80 req/min
 RATE_LIMIT_WINDOW = 60
 _api_metrics = {
     "total_requests": 0,
     "rate_limited": 0,
     "errors": 0,
     "avg_response_time_ms": 0,
-    "version": "v5_max"
+    "version": "v6_ultra"
 }
 _api_metrics_lock = threading.Lock()
 
@@ -148,7 +148,7 @@ async def rate_limit_and_security_middleware(request: Request, call_next):
         if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_MAX:
             with _api_metrics_lock:
                 _api_metrics["rate_limited"] += 1
-            return JSONResponse(status_code=429, content={"detail": f"Rate limit v5 exceeded - max {RATE_LIMIT_MAX} req/min", "version": "v5_max"})
+            return JSONResponse(status_code=429, content={"detail": f"Rate limit v5 exceeded - max {RATE_LIMIT_MAX} req/min", "version": "v6_ultra"})
         _rate_limit_store[client_ip].append(now)
     
     with _api_metrics_lock:
@@ -360,7 +360,7 @@ class AutoTradeExecuteRequest(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 API v8 MAX Starting - Automated Real Trading + Extensive Controls + Continuous Training + v5 MAX")
+    logger.info("🚀 API v8 MAX Starting - Automated Real Trading + Extensive Controls + Continuous Training + v6 ULTRA")
     try:
         continuous_trainer.start(run_immediately=False)
         logger.info("✅ Continuous training v5 started")
@@ -378,7 +378,7 @@ async def shutdown_event():
 
 @app.get("/metrics")
 def api_metrics():
-    """v5 MAX metrics endpoint - API performance, rate limiting, pooling"""
+    """v6 ULTRA metrics endpoint - API performance, rate limiting, pooling"""
     try:
         with _api_metrics_lock:
             metrics = dict(_api_metrics)
@@ -416,7 +416,7 @@ def api_metrics():
             "crash_detector": crash_metrics,
             "portfolio": portfolio_metrics,
             "strategies": strategy_metrics,
-            "version": "v5_max",
+            "version": "v6_ultra",
             "timestamp": datetime.utcnow().isoformat(),
             "uptime": continuous_trainer.get_status().get("uptime", 0) if hasattr(continuous_trainer, 'get_status') else 0
         }
@@ -426,9 +426,9 @@ def api_metrics():
 @app.get("/")
 def root():
     return {
-        "message": "Crypto Prediction API v8 MAX - CoinDCX Real Money Automated Trading - v5 MAX",
+        "message": "Crypto Prediction API v8 MAX - CoinDCX Real Money Automated Trading - v6 ULTRA",
         "version": "0.8.0",
-        "tagline": "Automate REAL trades with CoinDCX v5 MAX - pooling, metrics, security headers, versioning - actual INR - extensive control",
+        "tagline": "Automate REAL trades with CoinDCX v6 ULTRA - pooling, metrics, security headers, versioning - actual INR - extensive control",
         "features": {
             "core": [
                 "🔄 Continuous Training - Endless self-learning with live Binance data",
@@ -482,7 +482,7 @@ def health():
     trainer_status = continuous_trainer.get_status()
     return {
         "status": "ok",
-        "version": "0.7.0",
+        "version": "0.9.0",
         "mode": "coindcx_real_money_automated_trading",
         "continuous_training": trainer_status["is_running"],
         "autotrading_enabled": autotrading_engine.config.enabled,
@@ -917,7 +917,7 @@ def get_trading_summary():
 @app.get("/trading/real/guide")
 def real_trading_guide():
     return {
-        "title": "Real Trading Guide - Actual Trades with Real Money",
+        "title": "Real Trading Guide v6 ULTRA - Actual Trades with Real Money",
         "warning": "REAL trading - high risk!",
         "no_fake": "No paper trading - live Binance prices, real entry/SL/TP",
         "steps": [

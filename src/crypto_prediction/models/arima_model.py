@@ -1,5 +1,5 @@
 """
-ARIMA model v4 Max Performance
+ARIMA model v6 ULTRA Max Performance - exog Sentiment_Compound support
 - Auto order selection via AIC grid search
 - SARIMAX with weekly seasonality + exogenous features support
 - Robust fallback + confidence intervals
@@ -83,7 +83,7 @@ class ARIMAModel(BaseModel):
                 except Exception:
                     continue
         
-        logger.info(f"Auto-selected ARIMA v4 order {best_order} seasonal {best_seasonal} score {best_score:.2f}")
+        logger.info(f"Auto-selected ARIMA v6 ULTRA order {best_order} seasonal {best_seasonal} score {best_score:.2f}")
         return best_order, best_seasonal
 
     def fit(self, X_train=None, y_train: np.ndarray = None, X_val=None, y_val=None, exog=None, **kwargs):
@@ -96,7 +96,7 @@ class ARIMAModel(BaseModel):
             y = np.asarray(y_train).ravel()
 
         self.history = y.copy()
-        logger.info(f"Training ARIMA v4 MAX order={self.order} seasonal={self.seasonal_order} on {len(y)} points | auto={self.use_auto} sarimax={self.use_sarimax}")
+        logger.info(f"Training ARIMA v6 ULTRA MAX order={self.order} seasonal={self.seasonal_order} on {len(y)} points | auto={self.use_auto} sarimax={self.use_sarimax}")
 
         if self.use_auto:
             try:
@@ -125,9 +125,9 @@ class ARIMAModel(BaseModel):
                 except Exception:
                     pass
                 
-                logger.info(f"ARIMA v4 AIC: {self.model_fit.aic:.2f} BIC: {self.model_fit.bic:.2f} | params {len(self.model_fit.params)} | resid std {np.std(self.residuals):.4f}")
+                logger.info(f"ARIMA v6 ULTRA AIC: {self.model_fit.aic:.2f} BIC: {self.model_fit.bic:.2f} | params {len(self.model_fit.params)} | resid std {np.std(self.residuals):.4f}")
             except Exception as e:
-                logger.error(f"ARIMA v4 fit failed: {e}, trying simpler (2,1,2)")
+                logger.error(f"ARIMA v6 ULTRA fit failed: {e}, trying simpler (2,1,2)")
                 try:
                     model = ARIMA(y, order=(2,1,2))
                     self.model_fit = model.fit()
@@ -150,7 +150,7 @@ class ARIMAModel(BaseModel):
             "order": self.order,
             "seasonal_order": self.seasonal_order,
             "resid_std": float(np.std(self.residuals)) if self.residuals is not None else 0,
-            "version": "v4_max"
+            "version": "v6_ultra"
         }
 
     def predict(self, X=None, steps: int = None, return_conf_int: bool = False) -> np.ndarray:

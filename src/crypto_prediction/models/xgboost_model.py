@@ -1,6 +1,6 @@
 """
-XGBoost model v4 Max Performance
-- Tuned hyperparams: 1500 estimators, depth 10, lr 0.02
+XGBoost model v6 ULTRA Max Performance
+- Tuned hyperparams: 2000 estimators, depth 12, lr 0.03, hybrid selection k=120, Bayesian ensemble 35% MAPE
 - Regularization + feature selection via SelectKBest mutual info
 - Early stopping 100 rounds, hist tree method, GPU if available
 - SHAP-compatible, quantile loss for confidence intervals
@@ -66,7 +66,7 @@ class XGBoostModel(BaseModel):
         self.k_features = config.training.feature_selection_k
 
     def fit(self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None, feature_names: List[str] = None, **kwargs):
-        logger.info(f"Training XGBoost v4 MAX | n_est={self.n_estimators} depth={self.max_depth} lr={self.learning_rate} alpha={self.reg_alpha} lambda={self.reg_lambda} gpu={self.use_gpu}")
+        logger.info(f"Training XGBoost v6 ULTRA MAX | n_est={self.n_estimators} depth={self.max_depth} lr={self.learning_rate} alpha={self.reg_alpha} lambda={self.reg_lambda} gpu={self.use_gpu}")
         
         # Feature selection if high dim
         if X_train.shape[1] > self.k_features:
@@ -109,8 +109,8 @@ class XGBoostModel(BaseModel):
         self.feature_importance_ = self.model.feature_importances_
         best_iter = getattr(self.model, 'best_iteration', self.n_estimators)
         best_score = getattr(self.model, 'best_score', None)
-        logger.info(f"XGBoost v4 best_iteration: {best_iter} | best_score: {best_score} | feats {X_train_selected.shape[1]}")
-        return {"best_iteration": best_iter, "n_features_selected": X_train_selected.shape[1], "version": "v4_max"}
+        logger.info(f"XGBoost v6 ULTRA best_iteration: {best_iter} | best_score: {best_score} | feats {X_train_selected.shape[1]}")
+        return {"best_iteration": best_iter, "n_features_selected": X_train_selected.shape[1], "version": "v6_ultra"}
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         if not self.is_fitted:
@@ -173,9 +173,9 @@ class XGBoostModel(BaseModel):
             'selector': self.selector,
             'selected_mask': self.selected_features_mask,
             'importance': self.feature_importance_,
-            'version': 'v4_max'
+            'version': 'v6_ultra'
         }, path)
-        logger.info(f"Saved XGBoost v4 MAX to {path}")
+        logger.info(f"Saved XGBoost v6 ULTRA MAX to {path}")
 
     def load(self, path: str):
         data = joblib.load(path)
@@ -188,5 +188,5 @@ class XGBoostModel(BaseModel):
             # Legacy
             self.model = data
         self.is_fitted = True
-        logger.info(f"Loaded XGBoost v4 MAX from {path}")
+        logger.info(f"Loaded XGBoost v6 ULTRA MAX from {path}")
         return self

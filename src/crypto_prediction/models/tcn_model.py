@@ -1,10 +1,11 @@
 """
-TCN model v5 - Temporal Convolutional Network for crypto
+TCN model v6 ULTRA - Temporal Convolutional Network for crypto
 - Dilated causal convolutions capture long-range dependencies
-- Residual blocks with weight norm, dropout, ReLU
-- Attention pooling + multi-horizon
-- Huber loss, AdamW, schedulers
-- Superior to LSTM for long sequences, parallel training
+- Residual blocks with weight norm, GELU, dropout, layer norm
+- Attention pooling + multi-horizon + mean + last fusion
+- Huber loss, AdamW, ReduceLROnPlateau + CosineAnnealingWarmRestarts
+- Superior to LSTM for long sequences, parallel training, uncertainty via MC dropout
+- v6: deeper channels [64,128,256,256], attention, residual, version v6_ultra
 """
 import numpy as np
 import torch
@@ -173,7 +174,11 @@ class TCNModel(BaseModel):
         self.train_losses = []
         self.val_losses = []
 
-    def fit(self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None, epochs: int = 150, batch_size: int = 32, patience: int = 20, verbose: bool = True, **kwargs) -> Dict:
+    def fit(self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None, epochs: int = None, batch_size: int = None, patience: int = None, verbose: bool = True, **kwargs) -> Dict:
+        epochs = epochs or config.model.tcn_epochs
+        batch_size = batch_size or config.model.tcn_batch_size
+        patience = patience or config.model.tcn_patience
+
         train_ds = CryptoDatasetTorch(X_train, y_train)
         train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=0)
         
@@ -186,7 +191,7 @@ class TCNModel(BaseModel):
         patience_counter = 0
         best_state = None
 
-        logger.info(f"Training TCN v5 on {self.device} | in={self.input_size} channels={self.num_channels} k={self.kernel_size} | epochs={epochs}")
+        logger.info(f"Training TCN v6 ULTRA on {self.device} | in={self.input_size} channels={self.num_channels} k={self.kernel_size} | epochs={epochs} batch={batch_size} patience={patience}")
 
         for epoch in range(epochs):
             self.network.train()
@@ -226,20 +231,20 @@ class TCNModel(BaseModel):
                     patience_counter += 1
 
                 if verbose and (epoch+1) % 10 == 0:
-                    logger.info(f"TCN v5 Epoch {epoch+1}/{epochs} | train={train_loss:.6f} val={val_loss:.6f} lr={self.optimizer.param_groups[0]['lr']:.7f}")
+                    logger.info(f"TCN v6 Epoch {epoch+1}/{epochs} | train={train_loss:.6f} val={val_loss:.6f} lr={self.optimizer.param_groups[0]['lr']:.7f} best={best_val_loss:.6f}")
 
                 if patience_counter >= patience:
-                    logger.info(f"TCN v5 Early stopping at {epoch+1}")
+                    logger.info(f"TCN v6 Early stopping at {epoch+1} | best_val={best_val_loss:.6f}")
                     break
             else:
                 if verbose and (epoch+1) % 10 == 0:
-                    logger.info(f"TCN v5 Epoch {epoch+1}/{epochs} | train={train_loss:.6f}")
+                    logger.info(f"TCN v6 Epoch {epoch+1}/{epochs} | train={train_loss:.6f}")
 
         if best_state is not None:
             self.network.load_state_dict(best_state)
 
         self.is_fitted = True
-        return {"train_losses": self.train_losses, "val_losses": self.val_losses, "best_val_loss": best_val_loss, "version": "v5_tcn"}
+        return {"train_losses": self.train_losses, "val_losses": self.val_losses, "best_val_loss": best_val_loss, "version": "v6_ultra"}
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         self.network.eval()
@@ -260,9 +265,24 @@ class TCNModel(BaseModel):
             },
             'train_losses': self.train_losses,
             'val_losses': self.val_losses,
-            'version': 'v5_tcn'
+            'version': 'v6_ultra'
         }, path)
-        logger.info(f"Saved TCN v5 torch model to {path}")
+        logger.info(f"Saved TCN v6 ULTRA torch model to {path}")
+
+    def predict_with_uncertainty(self, X: np.ndarray, n_samples: int = 20) -> tuple:
+        """v6: MC dropout uncertainty"""
+        self.network.train()  # Enable dropout for MC
+        preds = []
+        with torch.no_grad():
+            X_tensor = torch.FloatTensor(X).to(self.device)
+            for _ in range(n_samples):
+                pred = self.network(X_tensor)
+                preds.append(pred.cpu().numpy())
+        preds = np.array(preds)
+        mean = preds.mean(axis=0)
+        std = preds.std(axis=0)
+        self.network.eval()
+        return mean, std
 
     @classmethod
     def load_torch(cls, path: str, device: str = None):
@@ -279,7 +299,8 @@ class TCNModel(BaseModel):
         model.train_losses = checkpoint.get('train_losses', [])
         model.val_losses = checkpoint.get('val_losses', [])
         model.is_fitted = True
-        logger.info(f"Loaded TCN v5 torch model from {path}")
+        ver = checkpoint.get('version', 'v5')
+        logger.info(f"Loaded TCN {ver} torch model from {path} - v6 compatible")
         return model
 
     def forecast_future(self, last_sequence: np.ndarray, steps: int = 7) -> np.ndarray:

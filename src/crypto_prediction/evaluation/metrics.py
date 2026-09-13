@@ -176,7 +176,7 @@ def compute_regression_metrics(y_true, y_pred, y_true_prices: Optional[np.ndarra
         metrics["profit_factor"] = 0.0
         metrics["win_rate"] = 50.0
 
-    metrics["version"] = "v5_max"
+    metrics["version"] = "v6_ultra"
     return metrics
 
 def compute_classification_metrics(y_true_dir, y_pred_dir) -> Dict[str, float]:
@@ -193,7 +193,7 @@ def compute_classification_metrics(y_true_dir, y_pred_dir) -> Dict[str, float]:
     
     return {
         "accuracy": float(acc),
-        "version": "v5_max"
+        "version": "v6_ultra"
     }
 
 def compute_quantile_loss(y_true, y_pred, quantile: float = 0.5) -> float:
@@ -209,8 +209,8 @@ def compute_quantile_loss(y_true, y_pred, quantile: float = 0.5) -> float:
 
 def generate_report(y_true, y_pred, symbol: str = "BTC-USD") -> str:
     metrics = compute_regression_metrics(y_true, y_pred)
-    report = f"\n=== {symbol} Evaluation Report v5 MAX ===\n"
-    report += f"Version: v5_max | Models: LSTM v4, Transformer v4, GRU v4, XGB v4, ARIMA v4, Ensemble v4\n"
+    report = f"\n=== {symbol} Evaluation Report v6 ULTRA ===\n"
+    report += f"Version: v6_ultra | Models: LSTM v6 384h 4L, Transformer v6 384 d_model 6L, GRU v6 320h 4L, TCN v6 [64,128,256,256], XGB v6 2000 trees, ARIMA v6, Ensemble v6 Bayesian\n"
     report += "-" * 60 + "\n"
     for k, v in metrics.items():
         if k == "version":
@@ -265,5 +265,5 @@ def compare_models(results: Dict[str, Dict]) -> Dict:
         "ranking": [name for name, _ in ranked],
         "best_model": ranked[0][0] if ranked else None,
         "best_mape": ranked[0][1]["mape"] if ranked else None,
-        "version": "v5_max"
+        "version": "v6_ultra"
     }

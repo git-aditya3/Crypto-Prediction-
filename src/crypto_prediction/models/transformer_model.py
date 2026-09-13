@@ -121,7 +121,8 @@ class TransformerNetworkV4(nn.Module):
             batch_first=True,
             norm_first=use_pre_ln
         )
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        # v6: fix UserWarning enable_nested_tensor is True but use_nested_tensor is False because norm_first True
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers, enable_nested_tensor=False)
         
         self.layer_norm = nn.LayerNorm(d_model)
         

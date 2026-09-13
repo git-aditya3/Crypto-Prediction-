@@ -1,6 +1,6 @@
 """
-Central configuration v4 - Max Performance + CoinDCX INR + Automation
-Improved: more symbols, better model hyperparams, ensemble v4, training v4
+Central configuration v6 MAX ULTRA - iOS 26 Liquid Glass + Max Performance + CoinDCX INR + Automation
+Improved: 25 symbols, deeper models, ensemble v6, training v6, 300+ features, robust data validation
 """
 import os
 from dataclasses import dataclass, field
@@ -27,43 +27,27 @@ class DataConfig:
         "BTC-USD", "ETH-USD", "BNB-USD", "SOL-USD", "XRP-USD",
         "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD", "MATIC-USD",
         "LINK-USD", "LTC-USD", "BCH-USD", "UNI-USD", "ETC-USD",
-        "BTCINR", "ETHINR", "BNBINR", "SOLINR", "XRPINR"
+        "BTCINR", "ETHINR", "BNBINR", "SOLINR", "XRPINR",
+        "ADAINR", "DOGEINR", "AVAXINR", "DOTINR", "MATICINR"
     ])
     binance_map: Dict[str, str] = field(default_factory=lambda: {
-        "BTC-USD": "BTCUSDT",
-        "ETH-USD": "ETHUSDT",
-        "BNB-USD": "BNBUSDT",
-        "SOL-USD": "SOLUSDT",
-        "XRP-USD": "XRPUSDT",
-        "ADA-USD": "ADAUSDT",
-        "DOGE-USD": "DOGEUSDT",
-        "AVAX-USD": "AVAXUSDT",
-        "DOT-USD": "DOTUSDT",
-        "MATIC-USD": "MATICUSDT",
-        "LINK-USD": "LINKUSDT",
-        "LTC-USD": "LTCUSDT",
-        "BCH-USD": "BCHUSDT",
-        "UNI-USD": "UNIUSDT",
-        "ETC-USD": "ETCUSDT",
-        "BTCINR": "BTCUSDT",
-        "ETHINR": "ETHUSDT",
-        "BNBINR": "BNBUSDT",
-        "SOLINR": "SOLUSDT",
-        "XRPINR": "XRPUSDT",
+        "BTC-USD": "BTCUSDT", "ETH-USD": "ETHUSDT", "BNB-USD": "BNBUSDT",
+        "SOL-USD": "SOLUSDT", "XRP-USD": "XRPUSDT", "ADA-USD": "ADAUSDT",
+        "DOGE-USD": "DOGEUSDT", "AVAX-USD": "AVAXUSDT", "DOT-USD": "DOTUSDT",
+        "MATIC-USD": "MATICUSDT", "LINK-USD": "LINKUSDT", "LTC-USD": "LTCUSDT",
+        "BCH-USD": "BCHUSDT", "UNI-USD": "UNIUSDT", "ETC-USD": "ETCUSDT",
+        "BTCINR": "BTCUSDT", "ETHINR": "ETHUSDT", "BNBINR": "BNBUSDT",
+        "SOLINR": "SOLUSDT", "XRPINR": "XRPUSDT", "ADAINR": "ADAUSDT",
+        "DOGEINR": "DOGEUSDT", "AVAXINR": "AVAXUSDT", "DOTINR": "DOTUSDT",
+        "MATICINR": "MATICUSDT",
     })
     coindcx_map: Dict[str, str] = field(default_factory=lambda: {
-        "BTC-USD": "BTCINR",
-        "ETH-USD": "ETHINR",
-        "BNB-USD": "BNBINR",
-        "SOL-USD": "SOLINR",
-        "XRP-USD": "XRPINR",
-        "ADA-USD": "ADAINR",
-        "DOGE-USD": "DOGEINR",
-        "AVAX-USD": "AVAXINR",
-        "DOT-USD": "DOTINR",
-        "MATIC-USD": "MATICINR",
-        "BTCINR": "BTCINR",
-        "ETHINR": "ETHINR",
+        "BTC-USD": "BTCINR", "ETH-USD": "ETHINR", "BNB-USD": "BNBINR",
+        "SOL-USD": "SOLINR", "XRP-USD": "XRPINR", "ADA-USD": "ADAINR",
+        "DOGE-USD": "DOGEINR", "AVAX-USD": "AVAXINR", "DOT-USD": "DOTINR",
+        "MATIC-USD": "MATICINR", "LINK-USD": "LINKINR", "LTC-USD": "LTCINR",
+        "BTCINR": "BTCINR", "ETHINR": "ETHINR", "BNBINR": "BNBINR",
+        "SOLINR": "SOLINR", "XRPINR": "XRPINR", "ADAINR": "ADAINR",
     })
     interval: str = "1d"
     period: str = "2y"
@@ -71,8 +55,11 @@ class DataConfig:
     val_size: float = 0.13
     sequence_length: int = 60
     prediction_horizon: int = 7
-    cache_ttl_hours: int = 24
+    cache_ttl_hours: int = 12  # v6: reduced to 12h for fresher data
     use_coindcx_primary_for_inr: bool = True
+    max_price_jump_pct: float = 50.0  # v6: detect anomaly >50% daily jump
+    validation_strict: bool = True
+    use_multi_source_merge: bool = True  # v6: merge binance+yfinance+coingecko
 
 @dataclass
 class FeatureConfig:
@@ -84,9 +71,12 @@ class FeatureConfig:
     use_advanced_indicators: bool = True
     use_volatility_features: bool = True
     use_market_regime: bool = True
-    lag_periods: List[int] = field(default_factory=lambda: [1, 2, 3, 5, 7, 10, 14, 21, 30])
+    use_order_flow: bool = True  # v6 new
+    use_liquidity_features: bool = True  # v6 new
+    use_microstructure: bool = True  # v6 new
+    lag_periods: List[int] = field(default_factory=lambda: [1, 2, 3, 5, 7, 10, 14, 21, 30, 60])
     sma_windows: List[int] = field(default_factory=lambda: [5, 7, 10, 14, 20, 30, 50, 100, 200])
-    ema_windows: List[int] = field(default_factory=lambda: [9, 12, 21, 26, 50, 100])
+    ema_windows: List[int] = field(default_factory=lambda: [9, 12, 21, 26, 50, 100, 200])
     rsi_window: int = 14
     macd_fast: int = 12
     macd_slow: int = 26
@@ -98,10 +88,16 @@ class FeatureConfig:
     cci_window: int = 20
     williams_window: int = 14
     mfi_window: int = 14
-    # New v4
+    # v6 new
     use_kalman_filter: bool = True
     use_fourier_features: bool = True
-    use_orderbook_features: bool = False
+    use_orderbook_features: bool = True
+    use_kelly_features: bool = True
+    use_hurst: bool = True
+    use_supertrend: bool = True
+    use_donchian: bool = True
+    use_aroon: bool = True
+    target_feature_count: int = 300  # v6 goal
 
 @dataclass
 class SentimentConfig:
@@ -115,7 +111,8 @@ class SentimentConfig:
     use_vader: bool = True
     use_finbert: bool = False
     aggregation: str = "mean"
-    cache_hours: int = 2
+    cache_hours: int = 1  # v6: fresher sentiment
+    expanded_lexicon: bool = True  # v6
 
 @dataclass
 class RealtimeConfig:
@@ -124,92 +121,106 @@ class RealtimeConfig:
     ws_url: str = "wss://stream.binance.com:9443/ws"
     rest_url: str = "https://api.binance.com"
     coindcx_rest_url: str = "https://api.coindcx.com"
-    buffer_size: int = 1000
-    reconnect_interval: int = 5
+    buffer_size: int = 2000  # v6 increased
+    reconnect_interval: int = 3  # v6 faster reconnect
     use_coindcx_for_inr: bool = True
+    max_reconnect_attempts: int = 10
+    backoff_jitter: bool = True
 
 @dataclass
 class ModelConfig:
-    # LSTM v4 - Deeper + More attention + Residual + Better regularization
-    lstm_hidden_size: int = 320
+    # LSTM v6 - Deeper + More attention + Residual + Better regularization + MC Dropout
+    lstm_hidden_size: int = 384
     lstm_num_layers: int = 4
-    lstm_dropout: float = 0.25
-    lstm_learning_rate: float = 0.0003
-    lstm_epochs: int = 200
+    lstm_dropout: float = 0.20
+    lstm_learning_rate: float = 0.00025
+    lstm_epochs: int = 250
     lstm_batch_size: int = 32
-    lstm_patience: int = 20
+    lstm_patience: int = 25
     lstm_bidirectional: bool = True
     lstm_use_attention: bool = True
-    lstm_weight_decay: float = 5e-5
+    lstm_weight_decay: float = 3e-5
     lstm_use_residual: bool = True
     lstm_attention_heads: int = 8
     lstm_use_layer_norm: bool = True
+    lstm_use_mc_dropout: bool = True  # v6 new for uncertainty
+    lstm_mc_samples: int = 20
 
-    # Transformer v4 - Larger + More robust
-    transformer_d_model: int = 320
+    # Transformer v6 - Larger + More robust + Learnable PE + Pre-LN + Uncertainty
+    transformer_d_model: int = 384
     transformer_nhead: int = 8
     transformer_num_layers: int = 6
-    transformer_dim_feedforward: int = 640
-    transformer_dropout: float = 0.15
-    transformer_learning_rate: float = 0.0002
-    transformer_epochs: int = 180
+    transformer_dim_feedforward: int = 768
+    transformer_dropout: float = 0.12
+    transformer_learning_rate: float = 0.00018
+    transformer_epochs: int = 220
     transformer_batch_size: int = 32
-    transformer_patience: int = 20
+    transformer_patience: int = 25
     transformer_use_learnable_pe: bool = True
     transformer_use_attention_pooling: bool = True
     transformer_use_pre_ln: bool = True
+    transformer_use_mc_dropout: bool = True
 
-    # XGBoost v4 - Heavily tuned
-    xgb_n_estimators: int = 1500
-    xgb_max_depth: int = 10
-    xgb_learning_rate: float = 0.02
+    # XGBoost v6 - Heavily tuned + GPU + SHAP + Early stopping
+    xgb_n_estimators: int = 2000
+    xgb_max_depth: int = 12
+    xgb_learning_rate: float = 0.015
     xgb_subsample: float = 0.85
-    xgb_colsample_bytree: float = 0.75
-    xgb_reg_alpha: float = 0.05
-    xgb_reg_lambda: float = 1.5
+    xgb_colsample_bytree: float = 0.70
+    xgb_reg_alpha: float = 0.03
+    xgb_reg_lambda: float = 2.0
     xgb_min_child_weight: int = 1
-    xgb_gamma: float = 0.05
+    xgb_gamma: float = 0.03
     xgb_use_gpu: bool = False
+    xgb_early_stopping_rounds: int = 80
+    xgb_use_shap: bool = True
 
-    # GRU v4 - New model
-    gru_hidden_size: int = 256
-    gru_num_layers: int = 3
-    gru_dropout: float = 0.25
-    gru_learning_rate: float = 0.0004
-    gru_epochs: int = 150
+    # GRU v6 - Improved
+    gru_hidden_size: int = 320
+    gru_num_layers: int = 4
+    gru_dropout: float = 0.20
+    gru_learning_rate: float = 0.0003
+    gru_epochs: int = 180
+    gru_batch_size: int = 32
+    gru_patience: int = 25
     gru_bidirectional: bool = True
 
-    # TCN v5 - Temporal Convolutional Network for temporal patterns
-    tcn_channels: List[int] = field(default_factory=lambda: [64, 128, 256])
+    # TCN v6 - Deeper temporal convolutions
+    tcn_channels: List[int] = field(default_factory=lambda: [64, 128, 256, 256])
     tcn_kernel_size: int = 3
-    tcn_dropout: float = 0.2
-    tcn_learning_rate: float = 0.0003
-    tcn_epochs: int = 120
+    tcn_dropout: float = 0.15
+    tcn_learning_rate: float = 0.00025
+    tcn_epochs: int = 150
     tcn_batch_size: int = 32
-    tcn_patience: int = 20
+    tcn_patience: int = 25
+    tcn_use_attention: bool = True
+    tcn_use_residual: bool = True
 
-    # ARIMA v4 - Auto order + SARIMAX
+    # ARIMA v6 - Auto order + SARIMAX + Exogenous
     arima_order: tuple = (5, 1, 3)
     arima_seasonal_order: tuple = (2, 1, 2, 7)
     arima_use_auto: bool = True
+    arima_use_exog: bool = True  # v6: use sentiment/vol as exog
 
-    # Ensemble v5 - Advanced weighting + stacking + calibration + TCN
+    # Ensemble v6 - Advanced weighting + stacking + calibration + TCN + Bayesian
     ensemble_weights: dict = field(default_factory=lambda: {
-        "lstm": 0.24,
-        "transformer": 0.28,
+        "lstm": 0.22,
+        "transformer": 0.26,
         "xgboost": 0.18,
         "gru": 0.10,
-        "tcn": 0.12,
+        "tcn": 0.16,
         "arima": 0.08
     })
     ensemble_use_stacking: bool = True
     ensemble_use_dynamic_weights: bool = True
     ensemble_use_sharpe_weighting: bool = True
-    ensemble_meta_learner: str = "ridge"  # ridge, lgbm, xgboost
+    ensemble_use_bayesian: bool = True  # v6 new
+    ensemble_meta_learner: str = "ridge"  # ridge, lgbm, xgboost, elastic
     ensemble_calibrate_confidence: bool = True
-    ensemble_version: str = "v5_max_perf"
+    ensemble_version: str = "v6_ultra"
     ensemble_use_uncertainty: bool = True
-    ensemble_confidence_threshold: float = 0.65
+    ensemble_confidence_threshold: float = 0.68
+    ensemble_use_dir_accuracy: bool = True
 
 @dataclass
 class BacktestConfig:
@@ -217,35 +228,43 @@ class BacktestConfig:
     commission: float = 0.001
     slippage: float = 0.0005
     risk_free_rate: float = 0.02
-    use_coindcx_fees: bool = True  # 0.2% maker/taker
+    use_coindcx_fees: bool = True
+    use_trailing_stop: bool = True  # v6
+    use_kelly_sizing: bool = True  # v6
 
 @dataclass
 class TrainingConfig:
     random_state: int = 42
     n_splits: int = 5
     save_models: bool = True
-    experiment_name: str = "crypto_pred_v4_max_perf"
+    experiment_name: str = "crypto_pred_v6_ultra"
     use_robust_scaler: bool = True
     use_log_returns_target: bool = False
     use_feature_selection: bool = True
-    feature_selection_k: int = 100
+    feature_selection_k: int = 120  # v6 increased from 100
+    feature_selection_method: str = "hybrid"  # mi, xgb, rf, hybrid, shap
     use_kalman_smoothing: bool = True
     auto_retrain_on_drift: bool = True
-    drift_threshold: float = 0.15
-    version: str = "v4"
+    drift_threshold: float = 0.12  # v6 more sensitive
+    version: str = "v6"
+    use_mixed_precision: bool = True  # v6
+    gradient_accumulation_steps: int = 1
+    use_early_stopping: bool = True
+    early_stopping_min_delta: float = 1e-6
 
 @dataclass
 class AutomationConfig:
     enabled: bool = False
-    retrain_interval_hours: int = 8
-    check_interval_minutes: int = 30
-    accuracy_threshold: float = 12.0
+    retrain_interval_hours: int = 6  # v6: more frequent 6h vs 8h
+    check_interval_minutes: int = 20  # v6: faster checks
+    accuracy_threshold: float = 10.0  # v6: stricter 10% vs 12%
     auto_rollback_on_degradation: bool = True
-    max_models_per_symbol: int = 5
+    max_models_per_symbol: int = 8  # v6 increased
     use_model_registry: bool = True
     auto_strategy_selection: bool = True
     auto_risk_adjustment: bool = True
     market_regime_detection: bool = True
+    use_ks_drift_detection: bool = True  # v6 new
 
 @dataclass
 class APIConfig:
@@ -255,7 +274,9 @@ class APIConfig:
     cors_origins: List[str] = field(default_factory=lambda: ["*"])
     rate_limit_per_min: int = 120
     use_caching: bool = True
-    cache_ttl: int = 30
+    cache_ttl: int = 20  # v6 reduced for fresher
+    enable_metrics: bool = True
+    enable_security_headers: bool = True
 
 @dataclass
 class Config:
@@ -269,7 +290,7 @@ class Config:
     automation: AutomationConfig = field(default_factory=AutomationConfig)
     api: APIConfig = field(default_factory=APIConfig)
     project_root: Path = PROJECT_ROOT
-    version: str = "v5_max_perf_coindcx_tcn"
+    version: str = "v6_ultra_ios26_liquid_glass"
 
 _config: Optional[Config] = None
 
@@ -278,3 +299,13 @@ def get_config() -> Config:
     if _config is None:
         _config = Config()
     return _config
+
+def validate_config() -> bool:
+    """v6: validate config consistency"""
+    cfg = get_config()
+    total_w = sum(cfg.model.ensemble_weights.values())
+    assert abs(total_w - 1.0) < 0.01, f"Ensemble weights must sum to 1.0, got {total_w}"
+    assert cfg.data.test_size + cfg.data.val_size < 0.5, "Test+val too large"
+    assert cfg.model.lstm_hidden_size % cfg.model.lstm_attention_heads == 0, "LSTM hidden must be divisible by heads"
+    assert cfg.model.transformer_d_model % cfg.model.transformer_nhead == 0, "Transformer d_model must be divisible by nhead"
+    return True

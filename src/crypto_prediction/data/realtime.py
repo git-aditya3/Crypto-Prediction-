@@ -313,7 +313,8 @@ class BinanceRealtimeFetcher:
                 "symbol": self.symbol,
                 "binance_symbol": self.binance_symbol,
                 "running": self.running,
-                "version": "v5_max"
+                "version": "v6_ultra",
+                "uptime_sec": time.time() - self._metrics.get("last_message_time", time.time()) if self._metrics.get("last_message_time") else 0
             }
 
     def to_dataframe(self) -> pd.DataFrame:
