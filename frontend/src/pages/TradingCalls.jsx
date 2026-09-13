@@ -5,13 +5,15 @@ import GlassCard from '../components/GlassCard'
 import PriceChart from '../components/PriceChart'
 import { useMarketStore } from '../store/useMarketStore'
 import { useSettingsStore } from '../store/useSettingsStore'
+import { THEMES } from '../store/useSettingsStore'
 import { Target, Filter, RefreshCw, TrendingUp, AlertTriangle, Zap, DollarSign, Shield, CheckCircle } from 'lucide-react'
 
 const DEFAULT_SYMBOLS = ['BTC-USD','ETH-USD','BNB-USD','SOL-USD','XRP-USD','ADA-USD']
 
 export default function TradingCalls() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
   const { tickers, setSelectedSymbol } = useMarketStore()
   const { accountBalance, riskPerTrade, timeframe, updateAccountBalance, updateRiskPerTrade, updateTimeframe } = useSettingsStore()
   const [calls, setCalls] = useState([])

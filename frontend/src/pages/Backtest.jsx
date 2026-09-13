@@ -9,7 +9,8 @@ const safeFixed = (v,d=2)=>{ const n=typeof v==="number"?v:parseFloat(v); return
 
 export default function Backtest() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
 
   const { selectedSymbol, setSelectedSymbol } = useMarketStore()
   const [strategy, setStrategy] = useState('ma')

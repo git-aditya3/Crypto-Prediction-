@@ -1,11 +1,13 @@
 import { useSettingsStore } from '../store/useSettingsStore'
+import { THEMES } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { Bot, Grid3X3, TrendingUp, Zap, Plus, DollarSign, Activity, BarChart3, Layers, Repeat, Coins, Shield } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function Strategies() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
   const [bots, setBots] = useState(null)
   const [breakouts, setBreakouts] = useState([])
   const [institutional, setInstitutional] = useState(null)

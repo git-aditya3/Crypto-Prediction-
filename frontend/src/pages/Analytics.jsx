@@ -1,11 +1,13 @@
 import { useSettingsStore } from '../store/useSettingsStore'
+import { THEMES } from '../store/useSettingsStore'
 import { useEffect, useState, useMemo } from 'react'
 import { BarChart3, TrendingUp, Award, Target, Activity, PieChart } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function Analytics() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
 
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)

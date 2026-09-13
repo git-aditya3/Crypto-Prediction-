@@ -3,7 +3,8 @@ import { Brain, Zap, BarChart3, TrendingUp, Layers, Cpu, Database, GitBranch, Sp
 
 export default function Models() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
 
   const models = [
     {

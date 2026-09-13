@@ -1,11 +1,13 @@
 import { useSettingsStore } from '../store/useSettingsStore'
+import { THEMES } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { Bell, Plus, Trash2, CheckCircle, AlertTriangle } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function Alerts() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
 
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)

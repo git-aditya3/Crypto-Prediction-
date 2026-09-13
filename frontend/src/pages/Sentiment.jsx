@@ -1,4 +1,5 @@
 import { useSettingsStore } from '../store/useSettingsStore'
+import { THEMES } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { useMarketStore } from '../store/useMarketStore'
@@ -11,7 +12,8 @@ const safeFixed = (v,d=2)=>{ const n=typeof v==="number"?v:parseFloat(v); return
 
 export default function Sentiment() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
 
   const { selectedSymbol, setSelectedSymbol } = useMarketStore()
   const [data, setData] = useState(null)

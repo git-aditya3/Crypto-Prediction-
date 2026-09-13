@@ -1,4 +1,5 @@
 import { useSettingsStore } from '../store/useSettingsStore'
+import { THEMES } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import GlassCard from '../components/GlassCard'
@@ -6,7 +7,8 @@ import { Brain, Activity, Clock, RefreshCw, Play, Square, Zap, TrendingUp, Datab
 
 export default function Training() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
 
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)

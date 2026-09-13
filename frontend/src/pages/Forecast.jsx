@@ -1,4 +1,5 @@
 import { useSettingsStore } from '../store/useSettingsStore'
+import { THEMES } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { fetchKlines } from '../api/binance'
@@ -10,7 +11,8 @@ import { TrendingUp, Brain, Zap, Target, Clock, BarChart3 } from 'lucide-react'
 
 export default function Forecast() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
 
   const { selectedSymbol, setSelectedSymbol, prices } = useMarketStore()
   const [steps, setSteps] = useState(7)

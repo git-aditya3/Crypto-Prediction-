@@ -1,11 +1,13 @@
 import { useSettingsStore } from '../store/useSettingsStore'
+import { THEMES } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { Bot, Play, Square, AlertTriangle, Settings, Wallet, Shield, Zap, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function AutoTrading() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
 
   const [config, setConfig] = useState(null)
   const [status, setStatus] = useState(null)

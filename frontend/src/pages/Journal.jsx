@@ -1,11 +1,13 @@
 import { useSettingsStore } from '../store/useSettingsStore'
+import { THEMES } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { BookOpen, Plus, TrendingUp, Award } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function Journal() {
   const theme = useSettingsStore(s => s.theme)
-  const isDark = theme === 'dark'
+  const isLight = ['light', 'sakura', 'mono'].includes(theme)
+  const isDark = !isLight
 
   const [entries, setEntries] = useState([])
   const [stats, setStats] = useState(null)
