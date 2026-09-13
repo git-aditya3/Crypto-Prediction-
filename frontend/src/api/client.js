@@ -67,11 +67,24 @@ export const api = {
   openPosition: (payload) => client.post('/portfolio/open', payload).then(r => r.data),
   closePosition: (symbol, currentPrice) => client.post(`/portfolio/close/${symbol}${currentPrice ? `?current_price=${currentPrice}` : ''}`).then(r => r.data),
   getPortfolioPerformance: () => client.get('/portfolio/performance').then(r => r.data),
-  // Strategies - DCA, Grid, Breakout
+  // Strategies - DCA, Grid, Breakout + Institutional
   createDCABot: (payload) => client.post('/strategies/dca', payload).then(r => r.data),
   createGridBot: (payload) => client.post('/strategies/grid', payload).then(r => r.data),
   scanBreakouts: (symbols) => client.get(`/strategies/breakout/scan${symbols ? `?symbols=${symbols}` : ''}`).then(r => r.data),
   getAllStrategies: () => client.get('/strategies/all').then(r => r.data),
+  // Institutional
+  createMMBot: (payload) => client.post('/strategies/market_making', payload).then(r => r.data),
+  getMMQuote: (symbol) => client.get(`/strategies/market_making/${symbol}`).then(r => r.data),
+  createExecution: (payload) => client.post('/strategies/execution', payload).then(r => r.data),
+  createStatArb: (payload) => client.post('/strategies/stat_arb', payload).then(r => r.data),
+  getStatArb: (a,b) => client.get(`/strategies/stat_arb/${a}/${b}`).then(r => r.data),
+  createOFI: (payload) => client.post('/strategies/orderbook_imbalance', payload).then(r => r.data),
+  getOFI: (symbol) => client.get(`/strategies/orderbook_imbalance/${symbol}`).then(r => r.data),
+  createFundingArb: (payload) => client.post('/strategies/funding_arb', payload).then(r => r.data),
+  getFundingArb: (symbol) => client.get(`/strategies/funding_arb/${symbol}`).then(r => r.data),
+  getPositionSize: (payload) => client.post('/strategies/risk/position_size', payload).then(r => r.data),
+  getPortfolioRisk: (symbols) => client.get(`/strategies/risk/portfolio${symbols ? `?symbols=${symbols}` : ''}`).then(r => r.data),
+  scanInstitutional: (symbols) => client.get(`/strategies/institutional/scan${symbols ? `?symbols=${symbols}` : ''}`).then(r => r.data),
   // Alerts
   getAlerts: () => client.get('/alerts').then(r => r.data),
   createAlert: (payload) => client.post('/alerts/create', payload).then(r => r.data),

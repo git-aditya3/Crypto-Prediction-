@@ -189,6 +189,37 @@ class GridBotRequest(BaseModel):
     num_grids: int = 10
     total_investment: float = 1000
 
+class MarketMakingRequest(BaseModel):
+    symbol: str
+    total_investment: float = 10000
+    spread_bps: float = 20
+    max_inventory: float = 1.0
+
+class ExecutionRequest(BaseModel):
+    symbol: str
+    side: str
+    total_quantity: float
+    strategy: str = "TWAP"
+    duration_minutes: int = 60
+    num_slices: int = 12
+
+class StatArbRequest(BaseModel):
+    symbol_a: str
+    symbol_b: str
+    entry_z: float = 2.0
+
+class OFIRequest(BaseModel):
+    symbol: str
+
+class FundingArbRequest(BaseModel):
+    symbol: str
+
+class RiskRequest(BaseModel):
+    symbol: str
+    account_balance: float = 10000
+    win_rate: float = 0.55
+    win_loss_ratio: float = 1.5
+
 class BrokerConnectRequest(BaseModel):
     broker_id: str
     broker_type: str = "binance"  # binance, paper
@@ -838,6 +869,110 @@ def scan_breakouts(symbols: Optional[str] = Query(None)):
 def get_all_strategies():
     try:
         return strategy_manager.get_all_bots()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === INSTITUTIONAL STRATEGIES - NEW ===
+
+@app.post("/strategies/market_making")
+def create_mm_bot(req: MarketMakingRequest):
+    try:
+        result = strategy_manager.create_mm_bot(symbol=req.symbol, total_investment=req.total_investment, spread_bps=req.spread_bps, max_inventory=req.max_inventory)
+        return {"message": f"Created Institutional Market Making bot for {req.symbol} - Avellaneda-Stoikov", "bot": result, "real_trading": True, "institutional": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/strategies/market_making/{symbol}")
+def get_mm_quote(symbol: str):
+    try:
+        result = strategy_manager.get_mm_quote(symbol)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/strategies/execution")
+def create_execution_bot(req: ExecutionRequest):
+    try:
+        result = strategy_manager.create_execution_bot(symbol=req.symbol, side=req.side, total_quantity=req.total_quantity, strategy=req.strategy, duration_minutes=req.duration_minutes, num_slices=req.num_slices)
+        return {"message": f"Created Institutional {req.strategy} execution for {req.symbol} {req.side} {req.total_quantity}", "bot": result, "real_trading": True, "institutional": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/strategies/stat_arb")
+def create_stat_arb(req: StatArbRequest):
+    try:
+        result = strategy_manager.create_stat_arb_bot(symbol_a=req.symbol_a, symbol_b=req.symbol_b, entry_z=req.entry_z)
+        return {"message": f"Created Institutional Stat Arb {req.symbol_a}/{req.symbol_b}", "bot": result, "real_trading": True, "institutional": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/strategies/stat_arb/{symbol_a}/{symbol_b}")
+def get_stat_arb_signal(symbol_a: str, symbol_b: str):
+    try:
+        result = strategy_manager.get_stat_arb_signal(symbol_a, symbol_b)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/strategies/orderbook_imbalance")
+def create_ofi_bot(req: OFIRequest):
+    try:
+        result = strategy_manager.create_ofi_bot(symbol=req.symbol)
+        return {"message": f"Created Institutional OrderBook Imbalance bot for {req.symbol}", "bot": result, "real_trading": True, "institutional": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/strategies/orderbook_imbalance/{symbol}")
+def get_ofi_signal(symbol: str):
+    try:
+        result = strategy_manager.get_ofi_signal(symbol)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/strategies/funding_arb")
+def create_funding_bot(req: FundingArbRequest):
+    try:
+        result = strategy_manager.create_funding_bot(symbol=req.symbol)
+        return {"message": f"Created Institutional Funding Arb bot for {req.symbol}", "bot": result, "real_trading": True, "institutional": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/strategies/funding_arb/{symbol}")
+def get_funding_signal(symbol: str):
+    try:
+        result = strategy_manager.get_funding_signal(symbol)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/strategies/risk/position_size")
+def get_position_size(req: RiskRequest):
+    try:
+        result = strategy_manager.get_position_size(symbol=req.symbol, account_balance=req.account_balance, win_rate=req.win_rate, win_loss_ratio=req.win_loss_ratio)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/strategies/risk/portfolio")
+def get_portfolio_risk(symbols: Optional[str] = Query(None)):
+    try:
+        parsed = None
+        if symbols:
+            parsed = [s.strip() for s in symbols.split(",")] if "," in symbols else [symbols]
+        result = strategy_manager.get_portfolio_risk(parsed)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/strategies/institutional/scan")
+def scan_institutional(symbols: Optional[str] = Query(None)):
+    try:
+        parsed = None
+        if symbols:
+            parsed = [s.strip() for s in symbols.split(",")] if "," in symbols else [symbols]
+        result = strategy_manager.scan_institutional(parsed)
+        return {"timestamp": datetime.utcnow().isoformat(), "results": result, "institutional": True, "real_data": True, "message": "Institutional scan - MM, OFI, Funding, StatArb"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
