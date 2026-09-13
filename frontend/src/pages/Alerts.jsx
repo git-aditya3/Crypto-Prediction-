@@ -1,3 +1,4 @@
+import { useSettingsStore } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { Bell, Plus, Trash2, CheckCircle, AlertTriangle } from 'lucide-react'
 import { api } from '../api/client'
@@ -54,7 +55,7 @@ export default function Alerts() {
   if (loading) return <div className="p-6 text-center">Loading real alerts...</div>
 
   return (
-    <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
+    <div className="max-w-[1600px] mx-auto px-6 py-6 font-poppins space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-black flex items-center gap-3"><Bell className="text-amber-400" /> Alerts - Real Market Monitoring</h1>

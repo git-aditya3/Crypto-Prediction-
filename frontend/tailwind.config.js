@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -8,24 +9,55 @@ export default {
     extend: {
       colors: {
         crypto: {
-          bg: "#060a0f",
+          bg: "#000000",
           bg2: "#0a0e13",
-          card: "#10161f",
-          cardHover: "#151d2a",
-          border: "#1e2a3a",
-          borderLight: "#2a3a4f",
+          card: "rgba(28,28,30,0.7)",
+          cardHover: "rgba(38,38,40,0.8)",
+          border: "rgba(255,255,255,0.08)",
+          borderLight: "rgba(255,255,255,0.12)",
           accent: "#00d395",
           accent2: "#6366f1",
           accent3: "#06b6d4",
           bear: "#ff4b4b",
           bull: "#00d395",
           warning: "#f59e0b",
-          muted: "#64748b"
+          muted: "#9CA3AF"
+        },
+        clay: {
+          light: {
+            canvas1: "#FFCFDF",
+            canvas2: "#BBE1FA",
+            card: "#ffffff",
+            text: "#1e293b",
+            muted: "#64748b",
+            border: "rgba(255,255,255,0.4)"
+          },
+          dark: {
+            canvas: "#000000",
+            card: "rgba(28,28,30,0.7)",
+            cardSolid: "#1c1c1e",
+            text: "#F3F4F6",
+            muted: "#9CA3AF",
+            border: "rgba(255,255,255,0.08)"
+          }
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Poppins', 'Inter', 'Quicksand', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
+        poppins: ['Poppins', 'sans-serif'],
+        quicksand: ['Quicksand', 'sans-serif'],
+      },
+      borderRadius: {
+        'clay': '32px',
+        'clay-sm': '24px',
+        'clay-lg': '40px',
+      },
+      boxShadow: {
+        'clay-light': '0px 20px 40px rgba(31, 38, 135, 0.08), inset 6px 6px 12px rgba(255, 255, 255, 0.9), inset -6px -6px 12px rgba(0, 0, 0, 0.1)',
+        'clay-dark': '0px 20px 40px rgba(0, 0, 0, 0.6), inset 4px 4px 8px rgba(255, 255, 255, 0.12), inset -4px -4px 8px rgba(0, 0, 0, 0.5)',
+        'clay-light-hover': '0px 24px 48px rgba(31, 38, 135, 0.12), inset 6px 6px 12px rgba(255, 255, 255, 0.95), inset -6px -6px 12px rgba(0, 0, 0, 0.08)',
+        'clay-dark-hover': '0px 24px 48px rgba(0, 0, 0, 0.7), inset 4px 4px 8px rgba(255, 255, 255, 0.2), inset -4px -4px 8px rgba(0, 0, 0, 0.6)',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -33,6 +65,7 @@ export default {
         'glow': 'glow 2s ease-in-out infinite alternate',
         'float': 'float 3s ease-in-out infinite',
         'shimmer': 'shimmer 2s linear infinite',
+        'clay-float': 'clayFloat 4s ease-in-out infinite',
       },
       keyframes: {
         ticker: {
@@ -50,11 +83,16 @@ export default {
         shimmer: {
           '0%': { backgroundPosition: '-1000px 0' },
           '100%': { backgroundPosition: '1000px 0' }
+        },
+        clayFloat: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-4px)' }
         }
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-mesh': 'radial-gradient(at 40% 20%, hsla(160,100%,50%,0.15) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(239,100%,70%,0.15) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(189,100%,50%,0.1) 0px, transparent 50%)',
+        'clay-light-canvas': 'linear-gradient(135deg, #FFCFDF 0%, #BBE1FA 100%)',
+        'clay-dark-canvas': 'linear-gradient(135deg, #000000 0%, #000000 100%)',
       }
     },
   },

@@ -1,3 +1,4 @@
+import { useSettingsStore } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { BookOpen, Plus, TrendingUp, Award } from 'lucide-react'
 import { api } from '../api/client'
@@ -44,7 +45,7 @@ export default function Journal() {
   if (loading) return <div className="p-6 text-center">Loading real trading journal...</div>
 
   return (
-    <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
+    <div className="max-w-[1600px] mx-auto px-6 py-6 font-poppins space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-black flex items-center gap-3"><BookOpen className="text-blue-400" /> Trading Journal - Real Trades</h1>

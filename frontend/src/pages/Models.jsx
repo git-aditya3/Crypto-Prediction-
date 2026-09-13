@@ -51,7 +51,7 @@ export default function Models() {
   ]
 
   return (
-    <div className="min-h-screen bg-crypto-bg relative">
+    <div className="min-h-screen relative font-poppins">
       <div className="absolute inset-0 bg-gradient-mesh opacity-20 pointer-events-none"></div>
       
       <div className="relative max-w-[1600px] mx-auto p-6 space-y-8">

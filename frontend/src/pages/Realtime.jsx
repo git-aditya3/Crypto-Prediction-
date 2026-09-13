@@ -1,3 +1,4 @@
+import { useSettingsStore } from '../store/useSettingsStore'
 import { useEffect, useState, useRef } from 'react'
 import { useMarketStore } from '../store/useMarketStore'
 import { fetchOrderBook, fetchRecentTrades, BinanceTradeWS } from '../api/binance'
@@ -69,7 +70,7 @@ export default function Realtime() {
   const symbols = ['BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD', 'ADA-USD', 'DOGE-USD', 'AVAX-USD']
 
   return (
-    <div className="min-h-screen bg-crypto-bg relative">
+    <div className="min-h-screen relative font-poppins">
       <div className="absolute inset-0 bg-gradient-mesh opacity-30 pointer-events-none"></div>
       
       <div className="relative max-w-[1600px] mx-auto p-6 space-y-6">

@@ -1,8 +1,12 @@
+import { useSettingsStore } from '../store/useSettingsStore'
 import { useEffect, useState, useMemo } from 'react'
 import { BarChart3, TrendingUp, Award, Target, Activity, PieChart } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function Analytics() {
+  const theme = useSettingsStore(s => s.theme)
+  const isDark = theme === 'dark'
+
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -40,7 +44,7 @@ export default function Analytics() {
   if (loading) return <div className="p-6 text-center">Loading real analytics - live P&L...</div>
 
   return (
-    <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
+    <div className="max-w-[1600px] mx-auto px-6 py-6 font-poppins space-y-6">
       <div>
         <h1 className="text-3xl font-black flex items-center gap-3"><BarChart3 className="text-violet-400" /> Performance Analytics - Real Trading</h1>
         <p className="text-crypto-muted mt-1">Real P&L tracking - win rate, profit factor, Sharpe, equity curve - no fake simulation</p>

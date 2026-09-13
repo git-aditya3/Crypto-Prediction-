@@ -1,8 +1,12 @@
+import { useSettingsStore } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { Bot, Play, Square, AlertTriangle, Settings, Wallet, Shield, Zap, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function AutoTrading() {
+  const theme = useSettingsStore(s => s.theme)
+  const isDark = theme === 'dark'
+
   const [config, setConfig] = useState(null)
   const [status, setStatus] = useState(null)
   const [brokers, setBrokers] = useState({})
@@ -156,7 +160,7 @@ export default function AutoTrading() {
   if (!config) return <div className="p-6 text-center">Loading config... If this persists, check backend /autotrade/config</div>
 
   return (
-    <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
+    <div className="max-w-[1600px] mx-auto px-6 py-6 font-poppins space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

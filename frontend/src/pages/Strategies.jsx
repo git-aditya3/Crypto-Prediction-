@@ -1,3 +1,4 @@
+import { useSettingsStore } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { Bot, Grid3X3, TrendingUp, Zap, Plus, DollarSign } from 'lucide-react'
 import { api } from '../api/client'
@@ -47,7 +48,7 @@ export default function Strategies() {
   if (loading) return <div className="p-6 text-center">Loading real strategy bots...</div>
 
   return (
-    <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
+    <div className="max-w-[1600px] mx-auto px-6 py-6 font-poppins space-y-6">
       <div>
         <h1 className="text-3xl font-black flex items-center gap-3"><Bot className="text-violet-400" /> Trading Bots - Real Strategies</h1>
         <p className="text-crypto-muted mt-1">DCA, Grid, Breakout - real trading bots for actual trades, no fake simulation</p>

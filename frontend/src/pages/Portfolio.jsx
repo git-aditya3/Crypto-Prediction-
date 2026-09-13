@@ -1,8 +1,12 @@
+import { useSettingsStore } from '../store/useSettingsStore'
 import { useEffect, useState } from 'react'
 import { Wallet, TrendingUp, TrendingDown, PieChart, BarChart3, X, Plus } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function Portfolio() {
+  const theme = useSettingsStore(s => s.theme)
+  const isDark = theme === 'dark'
+
   const [portfolio, setPortfolio] = useState(null)
   const [perf, setPerf] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -102,7 +106,7 @@ export default function Portfolio() {
   const closedPositions = portfolio?.closed_positions || perf?.closed_positions || []
 
   return (
-    <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
+    <div className="max-w-[1600px] mx-auto px-6 py-6 font-poppins space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-black flex items-center gap-3">
