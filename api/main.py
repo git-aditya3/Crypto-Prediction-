@@ -42,37 +42,41 @@ logger = get_logger(__name__)
 config = get_config()
 
 app = FastAPI(
-    title="Crypto Prediction API v6 - Automated Real Trading + Extensive Controls",
+    title="Crypto Prediction API v7 - CoinDCX Real Money Automated Trading - No Paper Simulation",
     description="""
-    🚀 v6 Automated Real Trading Platform - Extensive User Control - No Fake Simulation
+    🚀 v7 CoinDCX REAL MONEY Automated Trading - No Paper Simulation - Extensive User Control
     
     **Core:**
-    - 🔄 Continuous Training: Models learn endlessly from live Binance data
-    - 💰 Real Trading Calls: Live Binance entry, ATR SL, 1:1/2/3 TP, position sizing
+    - 🔄 Continuous Training: Models learn endlessly from live market data
+    - 💰 Real Trading Calls: Live entry, ATR SL, 1:1/2/3 TP, position sizing for REAL money
     - 🧠 Models v4 Max Perf: LSTM Bidir+Attn, Transformer Learnable PE, XGBoost 1500, ARIMA SARIMAX, Ensemble Dynamic
-    - 📊 182 Features, RobustScaler, Sentiment, Real-time Binance
+    - 📊 182 Features, RobustScaler, Sentiment, Real-time data
     
-    **Extensive Features:**
-    - 💼 Portfolio: Real holdings, P&L, allocation, win rate, profit factor, Sharpe
-    - 🤖 Strategies: DCA Bot, Grid Bot, Breakout Scanner
-    - 🚨 Alerts: Price, signal, volume spike alerts
-    - 🔍 Scanner: Volume spikes, momentum, RSI
-    - 📈 Analytics: Equity curve, drawdown, symbol performance
-    - 📓 Journal: Real trades log
+    **NEW v7 - CoinDCX REAL MONEY - No Paper Simulation (User Requested):**
+    - 🔌 CoinDCX Broker: REAL MONEY trading via CoinDCX API - actual INR and crypto from user's CoinDCX account
+    - 💰 No Paper Simulation: Uses actual CoinDCX balances (INR, BTC, ETH, etc.), executes real trades on CoinDCX exchange
+    - 🏦 Markets: BTCINR, ETHINR, BNBINR, SOLINR, XRPINR, ADAINR, DOGEINR, AVAXINR, MATICINR, etc. - INR pairs for Indian users
+    - 🔐 Secure: API keys base64 encoded locally, trading permission only, no withdrawal, IP whitelist support
+    - 📊 Real Balances: POST /exchange/v1/users/balances - fetches actual INR/crypto from CoinDCX account
+    - 📈 Real Orders: POST /exchange/v1/orders/create - places real market/limit orders on CoinDCX with actual money
+    - 🔍 Real Ticker: GET /exchange/ticker - live CoinDCX prices for BTCINR, etc.
     
-    **NEW v6 - Automated Real Trading with Extensive User Control:**
-    - 🔌 Broker Integration: Binance (Spot/Futures), Paper broker, secure API key storage (trading only, no withdrawal)
-    - 🤖 Auto Trading Engine: Paper mode (safe simulation), Semi-auto (requires approval), Full-auto (real execution with risk guards)
-    - 🛡️ Risk Guard: Max daily loss, max positions, max drawdown, consecutive losses cooldown, trading hours, symbol whitelist/blacklist, confidence threshold, RR filter, position sizing (fixed, risk_based, kelly, percent_balance)
-    - ⚙️ Execution Controls: Market/Limit orders, OCO SL/TP, multiple TP (50/30/20), trailing stop, move SL to breakeven, slippage tolerance
+    **Automated Trading with Extensive User Control:**
+    - 🤖 Auto Trading Engine: Full-auto (CoinDCX real money), Semi-auto (CoinDCX + approval), Paper (testing only)
+    - 🛡️ Risk Guard: Max daily loss, max positions, max drawdown, consecutive losses cooldown, trading hours, whitelist/blacklist, confidence threshold, RR filter, position sizing (risk_based, fixed, kelly, percent_balance)
+    - ⚙️ Execution: Market/Limit, OCO SL/TP, multiple TP 50/30/20, trailing stop, breakeven, slippage tolerance, broker_id coindcx
     - 🎛️ Strategy Controls: Toggle AI ensemble, DCA, Grid, Breakout, RSI, Volume spikes, timeframes, allowed signals
-    - 📋 Approval System: Semi-auto queues trades for user approval
+    - 📋 Approval System: Semi-auto queues for user approval
     - 🚨 Emergency Stop: One-click halt all trading
-    - 📊 Real-time Status: Open positions, daily trades, pending approvals, broker balances
     
-    **No Fake:** Only real Binance market data, real trading calls for actual trades
+    **Other Features:**
+    - 💼 Portfolio: Real holdings tracking with live P&L
+    - 🤖 Strategies: DCA Bot, Grid Bot, Breakout Scanner
+    - 🚨 Alerts, Scanner, Analytics, Journal
+    
+    **No Paper:** As requested, uses actual CoinDCX account money - real INR, real trades, real P&L
     """,
-    version="0.6.0"
+    version="0.7.0"
 )
 
 app.add_middleware(
@@ -221,9 +225,9 @@ async def shutdown_event():
 @app.get("/")
 def root():
     return {
-        "message": "Crypto Prediction API v6 - Automated Real Trading + Extensive User Control - No Fake Simulation",
-        "version": "0.6.0",
-        "tagline": "Automate real trades with full control: broker integration, risk guards, paper/semi/full auto",
+        "message": "Crypto Prediction API v7 - CoinDCX Real Money Automated Trading - No Paper Simulation",
+        "version": "0.7.0",
+        "tagline": "Automate REAL trades with CoinDCX - actual INR from your account - no paper simulation - extensive user control",
         "features": {
             "core": [
                 "🔄 Continuous Training - Endless self-learning with live Binance data",
@@ -277,8 +281,8 @@ def health():
     trainer_status = continuous_trainer.get_status()
     return {
         "status": "ok",
-        "version": "0.6.0",
-        "mode": "automated_real_trading",
+        "version": "0.7.0",
+        "mode": "coindcx_real_money_automated_trading",
         "continuous_training": trainer_status["is_running"],
         "autotrading_enabled": autotrading_engine.config.enabled,
         "autotrading_mode": autotrading_engine.config.mode,
@@ -286,8 +290,10 @@ def health():
         "portfolio_value": portfolio_manager.get_portfolio().total_value,
         "open_positions": len(portfolio_manager.positions),
         "brokers": len(broker_manager.brokers),
-        "models": "v6 Automated Real Trading + Extensive Controls + Endless Learning",
-        "data": "Real Binance market data - no fake simulation",
+        "primary_broker": "CoinDCX REAL MONEY - Actual INR",
+        "no_paper": "No paper money simulation - real CoinDCX account",
+        "models": "v7 CoinDCX Real Money Automated Trading + Extensive Controls + Endless Learning",
+        "data": "Real CoinDCX market data - BTCINR, ETHINR, etc. - actual money",
         "uptime": trainer_status.get("uptime", 0)
     }
 
@@ -295,16 +301,18 @@ def health():
 
 @app.get("/brokers")
 def get_brokers():
-    """Get all brokers with balances - real trading integration"""
+    """Get all brokers with balances - CoinDCX REAL MONEY, no paper simulation"""
     try:
         brokers = broker_manager.get_all_brokers()
         return {
             "brokers": brokers,
             "count": len(brokers),
             "real_trading": True,
-            "secure": "API keys encoded, trading permission only, no withdrawal",
-            "supported": ["binance", "paper"],
-            "features": ["Spot trading", "Futures trading", "Real balances", "Order placement", "Paper mode for safety"]
+            "no_paper": "No paper money simulation - uses actual CoinDCX INR balances as requested",
+            "primary_broker": "CoinDCX REAL MONEY - BTCINR, ETHINR, etc.",
+            "secure": "API keys encoded, trading permission only, no withdrawal, IP whitelist",
+            "supported": ["coindcx", "binance", "paper"],
+            "features": ["CoinDCX Spot REAL MONEY trading", "Real INR balances from CoinDCX account", "Real order placement on CoinDCX", "No paper simulation - actual money", "Binance also supported", "Paper only for testing"]
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

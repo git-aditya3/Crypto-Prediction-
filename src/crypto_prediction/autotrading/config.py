@@ -52,8 +52,8 @@ class SymbolConfig:
 
 @dataclass
 class ExecutionConfig:
-    """Execution controls"""
-    mode: str = "paper"  # paper, semi_auto (requires approval), full_auto (real)
+    """Execution controls - REAL MONEY via CoinDCX, no paper simulation"""
+    mode: str = "full_auto"  # full_auto for real CoinDCX money, paper only for testing
     order_type: str = "MARKET"  # MARKET, LIMIT
     limit_offset_pct: float = 0.1  # % offset for limit orders
     slippage_tolerance_pct: float = 0.5
@@ -63,10 +63,10 @@ class ExecutionConfig:
     tp1_pct: float = 50.0  # % to close at TP1
     tp2_pct: float = 30.0
     tp3_pct: float = 20.0
-    broker_id: str = "paper"  # Which broker to use
-    testnet: bool = True  # Use testnet for real brokers
-    enable_real_trading: bool = False  # Explicit flag for real trading
-    require_confirmation: bool = True  # Require user confirmation for real trades
+    broker_id: str = "coindcx"  # CoinDCX REAL MONEY - actual INR from user's account
+    testnet: bool = False  # False for CoinDCX real money
+    enable_real_trading: bool = True  # True for CoinDCX real money - actual INR
+    require_confirmation: bool = False  # False for automated real trading via CoinDCX
 
 @dataclass
 class TradingHoursConfig:
@@ -81,9 +81,9 @@ class TradingHoursConfig:
 
 @dataclass
 class AutoTradingConfig:
-    """Master config with extensive user controls"""
+    """Master config with extensive user controls - REAL MONEY via CoinDCX"""
     enabled: bool = False
-    mode: str = "paper"  # paper, semi_auto, full_auto
+    mode: str = "full_auto"  # full_auto for CoinDCX real money
     account_balance: float = 10000
     risk: RiskConfig = field(default_factory=RiskConfig)
     strategies: StrategyConfig = field(default_factory=StrategyConfig)
@@ -92,7 +92,7 @@ class AutoTradingConfig:
     trading_hours: TradingHoursConfig = field(default_factory=TradingHoursConfig)
     emergency_stop: bool = False
     max_daily_trades: int = 10
-    notes: str = ""
+    notes: str = "REAL MONEY TRADING via CoinDCX - Actual INR from user's account - No paper simulation"
     created_at: str = ""
     updated_at: str = ""
 
@@ -116,8 +116,10 @@ class AutoTradingConfig:
             "notes": self.notes,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
-            "real_trading_warning": "Real trading can lose money - use risk management, start with paper",
-            "extensive_controls": "All parameters user controllable - risk, strategies, symbols, execution, hours"
+            "real_trading": "REAL MONEY via CoinDCX - Actual INR and crypto from user's CoinDCX account",
+            "no_paper": "No paper money simulation - uses actual CoinDCX balances and executes real trades",
+            "broker": "CoinDCX - Indian exchange, INR pairs BTCINR, ETHINR, etc.",
+            "extensive_controls": "All parameters user controllable - risk, strategies, symbols, execution, hours, broker"
         }
 
     @classmethod

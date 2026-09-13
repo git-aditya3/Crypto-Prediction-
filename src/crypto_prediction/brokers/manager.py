@@ -12,6 +12,7 @@ from ..config import get_config
 from .base import BaseBroker
 from .binance_broker import BinanceBroker
 from .paper_broker import PaperBroker
+from .coindcx_broker import CoinDCXBroker
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -32,18 +33,37 @@ class BrokerManager:
         self.broker_configs: Dict[str, Dict] = {}
         self.load()
 
-        # Always ensure paper broker exists
+        # Always ensure paper broker exists for fallback, but CoinDCX is primary for real money
         if "paper" not in self.brokers:
             paper = PaperBroker(initial_balance=10000)
             paper.connect()
             self.brokers["paper"] = paper
             self.broker_configs["paper"] = {
-                "name": "Paper",
+                "name": "Paper (Testing Only)",
                 "type": "paper",
                 "connected": True,
                 "paper_mode": True,
                 "initial_balance": 10000,
-                "created_at": datetime.utcnow().isoformat()
+                "created_at": datetime.utcnow().isoformat(),
+                "note": "Paper for testing only - user requested real CoinDCX money"
+            }
+        
+        # Ensure CoinDCX broker placeholder exists for real money trading
+        if "coindcx" not in self.brokers:
+            coindcx = CoinDCXBroker()
+            self.brokers["coindcx"] = coindcx
+            self.broker_configs["coindcx"] = {
+                "id": "coindcx",
+                "name": "CoinDCX REAL MONEY",
+                "type": "coindcx",
+                "connected": False,
+                "paper_mode": False,
+                "real_trading": True,
+                "has_keys": False,
+                "created_at": datetime.utcnow().isoformat(),
+                "warning": "REAL MONEY - Actual INR from CoinDCX account - No paper simulation",
+                "markets": "BTCINR, ETHINR, BNBINR, SOLINR, XRPINR, ADAINR, DOGEINR, AVAXINR, etc.",
+                "secure": "API keys encoded, trading permission only"
             }
             self.save()
 
@@ -66,7 +86,6 @@ class BrokerManager:
                     # Recreate broker instances
                     if cfg["type"] == "binance":
                         broker = BinanceBroker(testnet=cfg.get("testnet", False))
-                        # Try to reconnect if keys present
                         if cfg.get("api_key_encoded") and cfg.get("api_secret_encoded"):
                             try:
                                 api_key = self._decode(cfg["api_key_encoded"])
@@ -79,6 +98,18 @@ class BrokerManager:
                         else:
                             broker.paper_mode = True
                             broker.connected = True
+                        self.brokers[broker_id] = broker
+                    elif cfg["type"] == "coindcx":
+                        broker = CoinDCXBroker()
+                        if cfg.get("api_key_encoded") and cfg.get("api_secret_encoded"):
+                            try:
+                                api_key = self._decode(cfg["api_key_encoded"])
+                                api_secret = self._decode(cfg["api_secret_encoded"])
+                                success = broker.connect(api_key, api_secret)
+                                if not success:
+                                    logger.warning(f"CoinDCX reconnect failed for {broker_id} - needs valid keys")
+                            except Exception as e:
+                                logger.warning(f"Failed to reconnect CoinDCX broker {broker_id}: {e}")
                         self.brokers[broker_id] = broker
                     elif cfg["type"] == "paper":
                         broker = PaperBroker(initial_balance=cfg.get("initial_balance", 10000))
@@ -133,23 +164,49 @@ class BrokerManager:
                 "warning": "Never grant withdrawal permission - trading only"
             }
 
+        elif broker_type == "coindcx":
+            broker = CoinDCXBroker()
+            if not api_key or not api_secret:
+                raise ValueError("CoinDCX requires API key and secret for real money trading - no paper simulation")
+            success = broker.connect(api_key, api_secret)
+            if not success:
+                raise ValueError("Failed to connect to CoinDCX - check API keys, ensure trading permission, IP whitelist")
+            
+            self.brokers[broker_id] = broker
+            self.broker_configs[broker_id] = {
+                "id": broker_id,
+                "name": "CoinDCX REAL MONEY",
+                "type": "coindcx",
+                "api_key_encoded": self._encode(api_key),
+                "api_secret_encoded": self._encode(api_secret),
+                "has_keys": True,
+                "paper_mode": False,
+                "connected": True,
+                "real_trading": True,
+                "created_at": datetime.utcnow().isoformat(),
+                "warning": "REAL MONEY - Actual INR from CoinDCX account - No paper simulation",
+                "markets": "BTCINR, ETHINR, BNBINR, SOLINR, XRPINR, ADAINR, etc. - INR pairs",
+                "secure": "Keys encoded, trading permission only, never withdrawal",
+                "actual_money": "This uses your actual CoinDCX INR balance - real trades, real P&L"
+            }
+
         elif broker_type == "paper":
             broker = PaperBroker(initial_balance=initial_balance)
             broker.connect()
             self.brokers[broker_id] = broker
             self.broker_configs[broker_id] = {
                 "id": broker_id,
-                "name": "Paper Trading",
+                "name": "Paper Trading (Testing Only)",
                 "type": "paper",
                 "initial_balance": initial_balance,
                 "paper_mode": True,
                 "connected": True,
                 "created_at": datetime.utcnow().isoformat(),
                 "real_trading": False,
-                "safe": "No real money - simulated with real prices"
+                "note": "Paper for testing only - user requested real CoinDCX money, this is not used for actual trading"
             }
         else:
-            raise ValueError(f"Unsupported broker type: {broker_type}")
+            raise ValueError(f"Unsupported broker type: {broker_type} - supported: binance, coindcx, paper")
 
         self.save()
         logger.info(f"Added broker {broker_id} type {broker_type} paper_mode={self.brokers[broker_id].paper_mode if hasattr(self.brokers[broker_id], 'paper_mode') else True}")

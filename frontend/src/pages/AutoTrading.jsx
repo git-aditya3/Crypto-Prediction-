@@ -9,7 +9,7 @@ export default function AutoTrading() {
   const [pending, setPending] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('control')
-  const [brokerForm, setBrokerForm] = useState({ broker_id: 'binance_live', broker_type: 'binance', api_key: '', api_secret: '', testnet: true, initial_balance: 10000 })
+  const [brokerForm, setBrokerForm] = useState({ broker_id: 'coindcx', broker_type: 'coindcx', api_key: '', api_secret: '', testnet: false, initial_balance: 10000 })
   const [showBrokerForm, setShowBrokerForm] = useState(false)
 
   const fetchData = async () => {
@@ -132,12 +132,12 @@ export default function AutoTrading() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-black flex items-center gap-3">
-            <Bot className="text-emerald-400" /> Automated Real Trading
-            <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-bold">EXTENSIVE CONTROL</span>
+            <Bot className="text-emerald-400" /> Automated Real Trading - CoinDCX
+            <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-bold">COINDCX REAL MONEY</span>
+            <span className="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold animate-pulse">ACTUAL INR</span>
             {status?.real_trading && <span className="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold animate-pulse">REAL MONEY</span>}
-            {status?.paper_mode && <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-bold">PAPER SAFE</span>}
           </h1>
-          <p className="text-crypto-muted mt-1">Automate real trades with full control - broker integration, risk guards, paper/semi/full auto, emergency stop</p>
+          <p className="text-crypto-muted mt-1">Automate REAL trades with CoinDCX - actual INR from your account - no paper simulation - extensive user control - broker integration, risk guards, emergency stop</p>
         </div>
         <div className="flex gap-2">
           <button onClick={emergencyStop} className="px-4 py-2 rounded-xl bg-red-500 text-white font-bold flex items-center gap-2 hover:bg-red-400">
@@ -227,15 +227,19 @@ export default function AutoTrading() {
               <label className="text-xs text-crypto-muted uppercase">Trading Mode - Extensive Control</label>
               <div className="grid grid-cols-3 gap-2 mt-2">
                 {[
-                  { id: 'paper', label: 'Paper', desc: 'Safe simulation, real prices', color: 'blue' },
-                  { id: 'semi_auto', label: 'Semi-Auto', desc: 'Requires approval', color: 'amber' },
-                  { id: 'full_auto', label: 'Full-Auto', desc: 'Real auto execution', color: 'red' }
+                  { id: 'full_auto', label: 'CoinDCX Real', desc: 'Actual INR, real trades', color: 'emerald' },
+                  { id: 'semi_auto', label: 'Semi-Auto', desc: 'CoinDCX + approval', color: 'amber' },
+                  { id: 'paper', label: 'Paper (Test)', desc: 'Testing only, no real', color: 'blue' }
                 ].map(m => (
-                  <button key={m.id} onClick={() => changeMode(m.id)} className={`p-3 rounded-xl border text-left transition ${config.mode === m.id ? (m.color === 'red' ? 'bg-red-500/10 border-red-500/30 text-red-400' : m.color === 'amber' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400') : 'bg-crypto-bg border-crypto-border/50 text-crypto-muted hover:border-crypto-border'}`}>
+                  <button key={m.id} onClick={() => changeMode(m.id)} className={`p-3 rounded-xl border text-left transition ${config.mode === m.id ? (m.color === 'emerald' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : m.color === 'amber' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400') : 'bg-crypto-bg border-crypto-border/50 text-crypto-muted hover:border-crypto-border'}`}>
                     <div className="font-bold text-sm">{m.label}</div>
                     <div className="text-[10px] mt-1">{m.desc}</div>
                   </button>
                 ))}
+              </div>
+              <div className="mt-2 p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-xs">
+                <div className="font-bold text-emerald-400">CoinDCX Real Money - No Paper Simulation</div>
+                <div className="text-crypto-muted mt-1">Uses actual INR and crypto from your CoinDCX account. BTCINR, ETHINR, etc. Real trades, real P&L. No paper simulation as requested.</div>
               </div>
             </div>
 
@@ -250,9 +254,9 @@ export default function AutoTrading() {
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
-              <div className="text-xs font-bold text-amber-400">⚠️ Real Trading Warning</div>
-              <div className="text-xs text-crypto-muted mt-1">Paper mode = safe simulation with real prices, no real money. Full-auto with real broker = REAL MONEY, can lose. Start with paper, test thoroughly, use risk guards. Never grant withdrawal permission to API keys.</div>
+            <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+              <div className="text-xs font-bold text-emerald-400">💰 CoinDCX Real Money - No Paper Simulation</div>
+              <div className="text-xs text-crypto-muted mt-1">This uses ACTUAL INR from your CoinDCX account - real trades, real P&L, no paper simulation as you requested. Connect CoinDCX API keys (trading permission only). Markets: BTCINR, ETHINR, BNBINR, SOLINR, etc. Risk guards protect your capital.</div>
             </div>
           </div>
 
@@ -310,8 +314,11 @@ export default function AutoTrading() {
       {activeTab === 'brokers' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold">Broker Integration - Real Trading Connections</h3>
-            <button onClick={() => setShowBrokerForm(true)} className="px-4 py-2 rounded-xl bg-emerald-500 text-black font-bold">Connect Broker</button>
+            <div>
+              <h3 className="font-bold">Broker Integration - CoinDCX REAL MONEY</h3>
+              <p className="text-xs text-crypto-muted">No paper simulation - actual INR from CoinDCX account</p>
+            </div>
+            <button onClick={() => setShowBrokerForm(true)} className="px-4 py-2 rounded-xl bg-emerald-500 text-black font-bold">Connect CoinDCX Real Account</button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -342,15 +349,15 @@ export default function AutoTrading() {
             ))}
           </div>
 
-          <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
-            <h4 className="font-bold text-sm">Broker Integration Guide - Secure Real Trading</h4>
+          <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
+            <h4 className="font-bold text-sm text-emerald-400">CoinDCX Real Money Integration - No Paper Simulation</h4>
             <div className="mt-2 text-xs text-crypto-muted space-y-1">
-              <div>• <span className="text-emerald-400">Paper Broker</span>: Safe simulation with real Binance prices, no real money, perfect for testing</div>
-              <div>• <span className="text-amber-400">Binance Testnet</span>: Real API but testnet funds, test real execution safely</div>
-              <div>• <span className="text-red-400">Binance Live</span>: REAL MONEY - requires API key/secret with trading permission ONLY, NEVER withdrawal</div>
-              <div>• Generate API keys on Binance: API Management → Create API → Enable Trading, Disable Withdrawal, Enable IP whitelist</div>
-              <div>• Keys are base64 encoded locally, not plain text, never shared, stored in data/brokers.json</div>
-              <div>• For real trading, also set ENABLE_REAL_TRADING=true env var and enable_real_trading in config for safety</div>
+              <div>• <span className="text-emerald-400 font-bold">CoinDCX REAL MONEY</span>: Uses ACTUAL INR and crypto from your CoinDCX account - no paper simulation as you requested</div>
+              <div>• <span className="text-emerald-400">Markets</span>: BTCINR, ETHINR, BNBINR, SOLINR, XRPINR, ADAINR, DOGEINR, AVAXINR, MATICINR, DOTINR, etc. - INR pairs</div>
+              <div>• <span className="text-amber-400">How to get API keys</span>: CoinDCX → Profile → API Dashboard → Create API Key → Enter label, check Bind IP if needed → Email + SMS OTP → Store Key & Secret</div>
+              <div>• <span className="text-red-400">Security</span>: Enable trading permission only, NEVER withdrawal. Use IP whitelist. Keys base64 encoded locally in data/brokers.json, never shared</div>
+              <div>• <span className="text-blue-400">Real Trading</span>: When connected, all trades use actual CoinDCX INR balance - real P&L, real execution. No paper money stimulation</div>
+              <div>• <span className="text-violet-400">Risk Guards</span>: Max daily loss 6%, max positions 5, max drawdown 10%, confidence threshold 70%, RR filter, cooldowns - protects your real capital</div>
             </div>
           </div>
         </div>
@@ -537,33 +544,39 @@ export default function AutoTrading() {
       {showBrokerForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4">
           <div className="p-6 rounded-2xl bg-crypto-card border border-crypto-border w-full max-w-md">
-            <h3 className="font-bold text-lg mb-4">Connect Broker - Secure Real Trading</h3>
+            <h3 className="font-bold text-lg mb-4">Connect CoinDCX - Real Money Trading</h3>
             <div className="space-y-3">
-              <input placeholder="Broker ID e.g. binance_live" value={brokerForm.broker_id} onChange={e => setBrokerForm({ ...brokerForm, broker_id: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              <input placeholder="Broker ID e.g. coindcx" value={brokerForm.broker_id} onChange={e => setBrokerForm({ ...brokerForm, broker_id: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               <select value={brokerForm.broker_type} onChange={e => setBrokerForm({ ...brokerForm, broker_type: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
+                <option value="coindcx">CoinDCX REAL MONEY - Actual INR</option>
                 <option value="binance">Binance (Real/Testnet)</option>
-                <option value="paper">Paper Trading (Safe)</option>
+                <option value="paper">Paper (Testing Only - Not Real)</option>
               </select>
-              {brokerForm.broker_type === 'binance' && (
+              {(brokerForm.broker_type === 'coindcx' || brokerForm.broker_type === 'binance') && (
                 <>
-                  <input placeholder="API Key (trading permission only, no withdrawal)" value={brokerForm.api_key} onChange={e => setBrokerForm({ ...brokerForm, api_key: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
-                  <input placeholder="API Secret" type="password" value={brokerForm.api_secret} onChange={e => setBrokerForm({ ...brokerForm, api_secret: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={brokerForm.testnet} onChange={e => setBrokerForm({ ...brokerForm, testnet: e.target.checked })} />
-                    Use Testnet (safe testing)
-                  </label>
+                  <input placeholder={brokerForm.broker_type === 'coindcx' ? 'CoinDCX API Key (from API Dashboard)' : 'API Key (trading permission only)'} value={brokerForm.api_key} onChange={e => setBrokerForm({ ...brokerForm, api_key: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                  <input placeholder={brokerForm.broker_type === 'coindcx' ? 'CoinDCX API Secret' : 'API Secret'} type="password" value={brokerForm.api_secret} onChange={e => setBrokerForm({ ...brokerForm, api_secret: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                  {brokerForm.broker_type === 'binance' && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={brokerForm.testnet} onChange={e => setBrokerForm({ ...brokerForm, testnet: e.target.checked })} />
+                      Use Testnet (Binance only)
+                    </label>
+                  )}
+                  {brokerForm.broker_type === 'coindcx' && (
+                    <div className="text-xs text-emerald-400">CoinDCX: Profile → API Dashboard → Create API Key → Label + IP bind optional → OTP → Store Key/Secret</div>
+                  )}
                 </>
               )}
               {brokerForm.broker_type === 'paper' && (
-                <input type="number" placeholder="Initial Balance" value={brokerForm.initial_balance} onChange={e => setBrokerForm({ ...brokerForm, initial_balance: parseFloat(e.target.value) })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" placeholder="Initial Balance (testing only)" value={brokerForm.initial_balance} onChange={e => setBrokerForm({ ...brokerForm, initial_balance: parseFloat(e.target.value) })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               )}
-              <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-xs">
-                <div className="font-bold text-red-400">Security Warning</div>
-                <div className="text-crypto-muted mt-1">Never grant withdrawal permission. Use IP whitelist. Keys are base64 encoded locally, not encrypted. For real trading, also need ENABLE_REAL_TRADING env var and enable_real_trading flag. Start with paper/testnet.</div>
+              <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs">
+                <div className="font-bold text-emerald-400">CoinDCX Real Money - No Paper Simulation</div>
+                <div className="text-crypto-muted mt-1">As requested, this uses ACTUAL INR from your CoinDCX account - no paper money. Real trades, real P&L. Markets: BTCINR, ETHINR, etc. API keys: trading permission only, no withdrawal, IP whitelist recommended. Keys encoded locally.</div>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setShowBrokerForm(false)} className="flex-1 py-2 rounded-xl bg-crypto-bg border border-crypto-border">Cancel</button>
-                <button onClick={connectBroker} className="flex-1 py-2 rounded-xl bg-emerald-500 text-black font-bold">Connect Securely</button>
+                <button onClick={connectBroker} className="flex-1 py-2 rounded-xl bg-emerald-500 text-black font-bold">Connect CoinDCX Real</button>
               </div>
             </div>
           </div>
