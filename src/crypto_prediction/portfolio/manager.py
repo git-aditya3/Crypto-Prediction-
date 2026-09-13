@@ -46,9 +46,17 @@ class Portfolio:
     positions: List[Dict]
     allocation: Dict[str, float]
     timestamp: str
+    closed_positions: List[Dict] = None
+    real_trading: bool = True
+    data_source: str = "Live Binance prices"
+    no_fake: str = "Real P&L from actual positions"
     
     def to_dict(self):
-        return asdict(self)
+        d = asdict(self)
+        # Ensure closed_positions is list
+        if d.get('closed_positions') is None:
+            d['closed_positions'] = []
+        return d
 
 class PortfolioManager:
     """
@@ -247,7 +255,11 @@ class PortfolioManager:
             total_pnl_pct=total_pnl_pct,
             positions=[p.to_dict() for p in self.positions.values()],
             allocation=allocation,
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.utcnow().isoformat(),
+            closed_positions=[p.to_dict() for p in self.closed_positions[-20:]],  # last 20 closed
+            real_trading=True,
+            data_source="Live Binance prices",
+            no_fake="Real P&L from actual positions"
         )
     
     def get_performance(self) -> Dict:

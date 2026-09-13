@@ -50,8 +50,14 @@ export const useSettingsStore = create(
       updateModelWeights: (weights) => set({ modelWeights: weights }),
       updateTheme: (theme) => set({ theme }),
       updateTradingStyle: (style) => set({ tradingStyle: style }),
+      updateLeveragePreference: (lev) => set({ leveragePreference: lev }),
+      updateChartType: (ct) => set({ chartType: ct }),
+      updateDefaultSymbol: (sym) => set({ defaultSymbol: sym }),
       toggleAdvanced: () => set({ showAdvanced: !get().showAdvanced }),
       toggleNotifications: () => set({ enableNotifications: !get().enableNotifications }),
+      toggleShowVolume: () => set({ showVolume: !get().showVolume }),
+      toggleShowForecast: () => set({ showForecast: !get().showForecast }),
+      toggleAutoRefresh: () => set({ autoRefresh: !get().autoRefresh }),
       
       // Risk tolerance presets
       setRiskPreset: (preset) => {

@@ -5,6 +5,8 @@ import { api } from '../api/client'
 import GlassCard from '../components/GlassCard'
 import { Radio, Activity, TrendingUp, TrendingDown, Zap, BarChart3, Clock, Layers } from 'lucide-react'
 
+const safeFixed = (v,d=2)=>{ const n=typeof v==="number"?v:parseFloat(v); return isNaN(n)? (0).toFixed(d) : n.toFixed(d) }
+
 export default function Realtime() {
   const { selectedSymbol, setSelectedSymbol, tickers, prices, isLive, startLive, stopLive } = useMarketStore()
   const [orderBook, setOrderBook] = useState(null)
@@ -133,7 +135,7 @@ export default function Realtime() {
                     </div>
                     <div className="flex items-baseline gap-4">
                       <span className="text-5xl font-black mono tracking-tight text-white">
-                        ${livePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: livePrice > 1000 ? 2 : 4 })}
+                        ${(livePrice ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: livePrice > 1000 ? 2 : 4 })}
                       </span>
                       <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold ${
                         (currentTicker?.priceChangePercent || 0) >= 0 
@@ -145,8 +147,8 @@ export default function Realtime() {
                       </span>
                     </div>
                     <div className="text-sm text-crypto-muted mt-2">
-                      24h Change: <span className={currentTicker?.priceChangePercent >= 0 ? 'text-crypto-bull' : 'text-crypto-bear'}>${currentTicker?.priceChange?.toFixed(2) || '0.00'}</span> • 
-                      Volume: <span className="text-white font-medium">{(currentTicker?.volume || 0).toLocaleString()} {selectedSymbol.split('-')[0]}</span>
+                      24h Change: <span className={currentTicker?.priceChangePercent >= 0 ? 'text-crypto-bull' : 'text-crypto-bear'}>${safeFixed(currentTicker?.priceChange,2) || '0.00'}</span> • 
+                      Volume: <span className="text-white font-medium">{(currentTicker?.volume ?? 0).toLocaleString()} {selectedSymbol.split('-')[0]}</span>
                     </div>
                   </div>
 
@@ -161,7 +163,7 @@ export default function Realtime() {
                             : 'bg-crypto-card text-crypto-muted border-crypto-border'
                       }`}>
                         <Zap size={14} />
-                        {liveSignal.signal} • {liveSignal.confidence?.toFixed(0)}%
+                        {liveSignal.signal} • {safeFixed(liveSignal.confidence,0)}%
                       </div>
                     ) : (
                       <div className="px-4 py-2 rounded-xl bg-crypto-card border border-crypto-border text-crypto-muted text-sm">
@@ -207,7 +209,7 @@ export default function Realtime() {
                     { label: 'High', value: currentTicker?.high, icon: TrendingUp, color: 'text-crypto-bull' },
                     { label: 'Low', value: currentTicker?.low, icon: TrendingDown, color: 'text-crypto-bear' },
                     { label: 'Open', value: currentTicker?.open, icon: Clock, color: 'text-crypto-muted' },
-                    { label: 'Quote Vol', value: currentTicker?.quoteVolume ? `${(currentTicker.quoteVolume/1e6).toFixed(2)}M` : '—', icon: BarChart3, color: 'text-crypto-accent' },
+                    { label: 'Quote Vol', value: currentTicker?.quoteVolume ? `${safeFixed(currentTicker.quoteVolume/1e6,2)}M` : '—', icon: BarChart3, color: 'text-crypto-accent' },
                   ].map((stat, i) => (
                     <div key={i} className="p-3 rounded-xl bg-crypto-bg/40 border border-crypto-border/20">
                       <div className="flex items-center gap-1.5 mb-1">
@@ -248,9 +250,9 @@ export default function Realtime() {
                         const qty = parseFloat(ask[1])
                         return (
                           <div key={i} className="flex justify-between text-xs mono relative group hover:bg-crypto-bear/5 p-1 rounded transition">
-                            <span className="text-crypto-bear font-medium">{price.toFixed(2)}</span>
-                            <span className="text-white">{qty.toFixed(4)}</span>
-                            <span className="text-crypto-muted">{(price*qty).toFixed(2)}</span>
+                            <span className="text-crypto-bear font-medium">{(price ?? 0).toFixed(2)}</span>
+                            <span className="text-white">{(qty ?? 0).toFixed(4)}</span>
+                            <span className="text-crypto-muted">{((price ?? 0)*(qty ?? 0)).toFixed(2)}</span>
                             <div className="absolute inset-0 bg-crypto-bear/5 opacity-0 group-hover:opacity-100 rounded transition" style={{ width: `${Math.min(100, qty*10)}%`, right: 0, left: 'auto' }}></div>
                           </div>
                         )
@@ -261,7 +263,7 @@ export default function Realtime() {
                   <div className="py-2 flex items-center justify-center gap-2">
                     <div className="h-px flex-1 bg-crypto-border"></div>
                     <span className="text-xs font-black mono text-crypto-accent px-3 py-1 rounded-full bg-crypto-accent/10 border border-crypto-accent/20">
-                      ${livePrice.toFixed(2)}
+                      ${safeFixed(livePrice,2)}
                     </span>
                     <div className="h-px flex-1 bg-crypto-border"></div>
                   </div>
@@ -273,9 +275,9 @@ export default function Realtime() {
                       const qty = parseFloat(bid[1])
                       return (
                         <div key={i} className="flex justify-between text-xs mono relative group hover:bg-crypto-bull/5 p-1 rounded transition">
-                          <span className="text-crypto-bull font-medium">{price.toFixed(2)}</span>
-                          <span className="text-white">{qty.toFixed(4)}</span>
-                          <span className="text-crypto-muted">{(price*qty).toFixed(2)}</span>
+                          <span className="text-crypto-bull font-medium">{(price ?? 0).toFixed(2)}</span>
+                          <span className="text-white">{(qty ?? 0).toFixed(4)}</span>
+                          <span className="text-crypto-muted">{((price ?? 0)*(qty ?? 0)).toFixed(2)}</span>
                         </div>
                       )
                     })}
@@ -300,15 +302,15 @@ export default function Realtime() {
                   const isBuy = !trade.isBuyerMaker
                   return (
                     <div key={i} className="flex justify-between items-center text-xs mono p-2 rounded-lg hover:bg-crypto-card/50 transition">
-                      <span className={isBuy ? 'text-crypto-bull' : 'text-crypto-bear'}>{parseFloat(trade.price).toFixed(2)}</span>
-                      <span className="text-white">{parseFloat(trade.qty).toFixed(4)}</span>
+                      <span className={isBuy ? 'text-crypto-bull' : 'text-crypto-bear'}>{parseFloat(trade.price ?? 0).toFixed(2)}</span>
+                      <span className="text-white">{parseFloat(trade.qty ?? 0).toFixed(4)}</span>
                       <span className="text-crypto-muted text-[11px]">{new Date(trade.time).toLocaleTimeString()}</span>
                     </div>
                   )
                 }) : liveTrades.slice(0, 15).map((trade, i) => (
                   <div key={i} className="flex justify-between items-center text-xs mono p-2 rounded-lg hover:bg-crypto-card/50 transition">
-                    <span className={trade.isBuyerMaker ? 'text-crypto-bear' : 'text-crypto-bull'}>{trade.price.toFixed(2)}</span>
-                    <span className="text-white">{trade.qty.toFixed(4)}</span>
+                    <span className={trade.isBuyerMaker ? 'text-crypto-bear' : 'text-crypto-bull'}>{safeFixed(trade.price,2)}</span>
+                    <span className="text-white">{safeFixed(trade.qty,4)}</span>
                     <span className="text-crypto-muted text-[11px]">{new Date(trade.time).toLocaleTimeString()}</span>
                   </div>
                 ))}

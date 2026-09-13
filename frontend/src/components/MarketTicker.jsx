@@ -3,7 +3,7 @@ import { useMarketStore } from '../store/useMarketStore'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 
 export default function MarketTicker() {
-  const { tickers, fetchAllTickers, isLive, startLive, prices } = useMarketStore()
+  const { tickers, fetchAllTickers, isLive, startLive } = useMarketStore()
 
   useEffect(() => {
     fetchAllTickers()
@@ -13,12 +13,12 @@ export default function MarketTicker() {
 
   useEffect(() => {
     // Auto-start live after first fetch
-    if (Object.keys(tickers).length > 0 && !isLive) {
+    if (Object.keys(tickers || {}).length > 0 && !isLive) {
       startLive()
     }
   }, [tickers])
 
-  const items = Object.values(tickers)
+  const items = Object.values(tickers || {})
   // Duplicate for seamless loop
   const loopItems = [...items, ...items]
 
@@ -48,19 +48,20 @@ export default function MarketTicker() {
       <div className="ticker-wrap h-full flex items-center ml-[160px]">
         <div className="ticker flex items-center gap-8">
           {loopItems.map((t, i) => {
-            const isPositive = t.priceChangePercent >= 0
+            const isPositive = (t.priceChangePercent ?? 0) >= 0
+            const price = t.price ?? 0
             return (
               <div key={`${t.symbol}-${i}`} className="flex items-center gap-3 shrink-0 group cursor-pointer hover:opacity-80 transition">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-crypto-cardHover to-crypto-border flex items-center justify-center text-[10px] font-bold border border-crypto-border group-hover:border-crypto-accent/30 transition">
-                    {t.symbol.split('-')[0].slice(0, 3)}
+                    {(t.symbol || 'BTC').split('-')[0].slice(0, 3)}
                   </div>
-                  <span className="font-semibold text-sm text-white tracking-tight">{t.symbol}</span>
+                  <span className="font-semibold text-sm text-white tracking-tight">{t.symbol || 'Unknown'}</span>
                 </div>
-                <span className="mono text-sm font-medium text-white">${t.price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: t.price > 100 ? 2 : 4 })}</span>
+                <span className="mono text-sm font-medium text-white">${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: price > 100 ? 2 : 4 })}</span>
                 <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${isPositive ? 'bg-crypto-bull/10 text-crypto-bull' : 'bg-crypto-bear/10 text-crypto-bear'}`}>
                   {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                  {Math.abs(t.priceChangePercent).toFixed(2)}%
+                  {Math.abs(t.priceChangePercent ?? 0).toFixed(2)}%
                 </div>
                 <div className="h-3 w-px bg-crypto-border/50 hidden lg:block"></div>
               </div>

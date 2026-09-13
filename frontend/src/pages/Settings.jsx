@@ -197,7 +197,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="text-xs font-bold tracking-widest text-crypto-muted uppercase mb-2 block">Leverage Preference</label>
-                      <select value={settings.leveragePreference} onChange={e => settings.updateAccountBalance(settings.accountBalance)} className="w-full px-4 py-3 rounded-xl bg-crypto-bg border border-crypto-border text-white">
+                      <select value={settings.leveragePreference} onChange={e => settings.updateLeveragePreference(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-crypto-bg border border-crypto-border text-white">
                         <option value="low">Low (1x-3x) • Safe</option>
                         <option value="medium">Medium (3x-5x) • Balanced</option>
                         <option value="high">High (5x-10x) • Aggressive</option>

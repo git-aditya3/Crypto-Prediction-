@@ -1,5 +1,16 @@
 import { TrendingUp, TrendingDown, Minus, Target, Shield, Zap, Clock, DollarSign, BarChart3, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 
+const safeFixed = (v, d=2) => {
+  const n = typeof v === 'number' ? v : parseFloat(v)
+  if (isNaN(n)) return '0.00'
+  return n.toFixed(d)
+}
+const safeLocale = (v) => {
+  const n = typeof v === 'number' ? v : parseFloat(v)
+  if (isNaN(n)) return '0.00'
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+}
+
 export default function TradingCallCard({ call, onSelect, isSelected = false }) {
   if (!call) return null
 
@@ -40,16 +51,16 @@ export default function TradingCallCard({ call, onSelect, isSelected = false }) 
   const style = isBuy ? config.BUY : isSell ? config.SELL : config.HOLD
   const Icon = style.icon
 
-  const entry = call.entry_price || 0
-  const sl = call.stop_loss || 0
-  const tp1 = call.take_profits?.tp1 || 0
-  const tp2 = call.take_profits?.tp2 || 0
-  const tp3 = call.take_profits?.tp3 || 0
-  const rr1 = call.risk_reward?.tp1 || 1
-  const confidence = call.confidence || 0
+  const entry = call.entry_price ?? 0
+  const sl = call.stop_loss ?? 0
+  const tp1 = call.take_profits?.tp1 ?? 0
+  const tp2 = call.take_profits?.tp2 ?? 0
+  const tp3 = call.take_profits?.tp3 ?? 0
+  const rr1 = call.risk_reward?.tp1 ?? (typeof call.risk_reward === 'number' ? call.risk_reward : 1)
+  const confidence = call.confidence ?? 0
 
-  const riskPct = Math.abs(entry - sl) / entry * 100
-  const rewardPct1 = Math.abs(tp1 - entry) / entry * 100
+  const riskPct = entry ? Math.abs(entry - sl) / entry * 100 : 0
+  const rewardPct1 = entry ? Math.abs(tp1 - entry) / entry * 100 : 0
 
   return (
     <div 
@@ -71,14 +82,14 @@ export default function TradingCallCard({ call, onSelect, isSelected = false }) 
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className={`font-black text-lg tracking-tight ${isSelected ? 'text-black' : 'text-white'}`}>{call.symbol}</span>
+                <span className={`font-black text-lg tracking-tight ${isSelected ? 'text-black' : 'text-white'}`}>{call.symbol || 'Unknown'}</span>
                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest border ${isSelected ? 'bg-black text-white border-black' : `${style.bg} ${style.text} ${style.border}`}`}>
-                  {call.signal}
+                  {call.signal || 'HOLD'}
                 </span>
               </div>
               <div className={`text-xs font-medium mt-1 flex items-center gap-2 ${isSelected ? 'text-black/60' : 'text-crypto-muted'}`}>
                 <Zap size={10} />
-                {call.action} • {call.timeframe} • {confidence.toFixed(0)}% conf
+                {call.action || 'WAIT'} • {call.timeframe || '1d'} • {safeFixed(confidence,0)}% conf
               </div>
             </div>
           </div>
@@ -90,7 +101,7 @@ export default function TradingCallCard({ call, onSelect, isSelected = false }) 
               call.risk_level === 'MEDIUM' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
               'bg-red-500/10 text-red-400 border-red-500/20'
             }`}>
-              {call.risk_level}
+              {call.risk_level || 'MEDIUM'}
             </div>
           </div>
         </div>
@@ -100,33 +111,33 @@ export default function TradingCallCard({ call, onSelect, isSelected = false }) 
           <div className="grid grid-cols-3 gap-2">
             <div className={`p-3 rounded-xl border ${isSelected ? 'bg-black/5 border-black/10' : 'bg-crypto-bg/50 border-crypto-border/30'}`}>
               <div className={`text-[10px] font-bold tracking-widest uppercase ${isSelected ? 'text-black/60' : 'text-crypto-muted'}`}>Entry</div>
-              <div className={`mono font-black text-sm mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>${entry.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+              <div className={`mono font-black text-sm mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>${safeLocale(entry)}</div>
               <div className={`text-[11px] mt-1 ${isSelected ? 'text-black/50' : 'text-crypto-muted'}`}>Current</div>
             </div>
             <div className={`p-3 rounded-xl border ${isSelected ? 'bg-red-500/10 border-red-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
               <div className="text-[10px] font-bold tracking-widest uppercase text-red-400">Stop Loss</div>
-              <div className="mono font-black text-sm mt-1 text-red-400">${sl.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
-              <div className="text-[11px] mt-1 text-red-400/70">-{riskPct.toFixed(2)}%</div>
+              <div className="mono font-black text-sm mt-1 text-red-400">${safeLocale(sl)}</div>
+              <div className="text-[11px] mt-1 text-red-400/70">-{safeFixed(riskPct,2)}%</div>
             </div>
             <div className={`p-3 rounded-xl border ${isSelected ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
               <div className="text-[10px] font-bold tracking-widest uppercase text-emerald-400">TP1 (1:1)</div>
-              <div className="mono font-black text-sm mt-1 text-emerald-400">${tp1.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
-              <div className="text-[11px] mt-1 text-emerald-400/70">+{rewardPct1.toFixed(2)}%</div>
+              <div className="mono font-black text-sm mt-1 text-emerald-400">${safeLocale(tp1)}</div>
+              <div className="text-[11px] mt-1 text-emerald-400/70">+{safeFixed(rewardPct1,2)}%</div>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             <div className={`p-2.5 rounded-xl border ${isSelected ? 'bg-black/5 border-black/10' : 'bg-crypto-bg/30 border-crypto-border/20'}`}>
               <div className={`text-[10px] uppercase ${isSelected ? 'text-black/60' : 'text-crypto-muted'}`}>TP2 (1:2)</div>
-              <div className={`mono font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>${tp2.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+              <div className={`mono font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>${safeLocale(tp2)}</div>
             </div>
             <div className={`p-2.5 rounded-xl border ${isSelected ? 'bg-black/5 border-black/10' : 'bg-crypto-bg/30 border-crypto-border/20'}`}>
               <div className={`text-[10px] uppercase ${isSelected ? 'text-black/60' : 'text-crypto-muted'}`}>TP3 (1:3)</div>
-              <div className={`mono font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>${tp3.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+              <div className={`mono font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>${safeLocale(tp3)}</div>
             </div>
             <div className={`p-2.5 rounded-xl border ${isSelected ? 'bg-black/5 border-black/10' : 'bg-crypto-bg/30 border-crypto-border/20'}`}>
               <div className={`text-[10px] uppercase ${isSelected ? 'text-black/60' : 'text-crypto-muted'}`}>R:R</div>
-              <div className={`mono font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>1:{rr1.toFixed(1)}</div>
+              <div className={`mono font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>1:{safeFixed(rr1,1)}</div>
             </div>
           </div>
         </div>
@@ -135,29 +146,29 @@ export default function TradingCallCard({ call, onSelect, isSelected = false }) 
         <div className={`grid grid-cols-3 gap-2 p-3 rounded-xl border mb-4 ${isSelected ? 'bg-black/5 border-black/10' : 'bg-crypto-bg/30 border-crypto-border/20'}`}>
           <div className="text-center">
             <div className={`text-[10px] uppercase ${isSelected ? 'text-black/60' : 'text-crypto-muted'}`}>Size</div>
-            <div className={`font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>{call.position?.size?.toFixed(4) || '—'} {call.symbol.split('-')[0]}</div>
+            <div className={`font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>{call.position?.size != null ? safeFixed(call.position.size,4) : '—'} {call.symbol?.split('-')[0] || ''}</div>
           </div>
           <div className="text-center">
             <div className={`text-[10px] uppercase ${isSelected ? 'text-black/60' : 'text-crypto-muted'}`}>Risk</div>
-            <div className={`font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>${call.position?.risk_amount?.toFixed(0) || '—'}</div>
+            <div className={`font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>${call.position?.risk_amount != null ? safeFixed(call.position.risk_amount,0) : '—'}</div>
           </div>
           <div className="text-center">
             <div className={`text-[10px] uppercase ${isSelected ? 'text-black/60' : 'text-crypto-muted'}`}>Leverage</div>
-            <div className={`font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>{call.leverage?.split(' ')[0] || '—'}</div>
+            <div className={`font-bold text-xs mt-1 ${isSelected ? 'text-black' : 'text-white'}`}>{call.leverage?.split(' ')[0] || call.position?.leverage_suggestion || '—'}</div>
           </div>
         </div>
 
         {/* Indicators */}
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
           <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border ${isSelected ? 'bg-black/5 border-black/10 text-black/70' : 'bg-crypto-bg/50 border-crypto-border/30 text-crypto-muted'}`}>
             <BarChart3 size={10} />
-            RSI {call.indicators?.RSI?.toFixed(0) || '—'}
+            RSI {call.indicators?.RSI != null ? safeFixed(call.indicators.RSI,0) : '—'}
           </div>
           <div className={`px-2 py-1 rounded-full text-[11px] font-medium border ${isSelected ? 'bg-black/5 border-black/10 text-black/70' : 'bg-crypto-bg/50 border-crypto-border/30 text-crypto-muted'}`}>
-            Vol {((call.indicators?.volatility || 0) * 100).toFixed(1)}%
+            Vol {safeFixed((call.indicators?.volatility ?? 0) * 100,1)}%
           </div>
-          <div className={`px-2 py-1 rounded-full text-[11px] font-bold border ${call.sentiment?.average_compound > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : call.sentiment?.average_compound < 0 ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>
-            Sent {(call.sentiment?.average_compound || 0).toFixed(2)}
+          <div className={`px-2 py-1 rounded-full text-[11px] font-bold border ${(call.sentiment?.average_compound ?? 0) > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (call.sentiment?.average_compound ?? 0) < 0 ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>
+            Sent {safeFixed(call.sentiment?.average_compound,2)}
           </div>
         </div>
 
@@ -173,10 +184,10 @@ export default function TradingCallCard({ call, onSelect, isSelected = false }) 
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-crypto-border/20">
           <div className={`flex items-center gap-2 text-[11px] ${isSelected ? 'text-black/50' : 'text-crypto-muted'}`}>
             <Clock size={10} />
-            {new Date(call.timestamp).toLocaleTimeString()} • Exp {new Date(call.expiry).toLocaleDateString()}
+            {call.timestamp ? new Date(call.timestamp).toLocaleTimeString() : ''} • Exp {call.expiry ? new Date(call.expiry).toLocaleDateString() : ''}
           </div>
           <div className={`px-3 py-1 rounded-full text-xs font-black ${style.actionColor}`}>
-            {call.action} NOW
+            {call.action || 'HOLD'} NOW
           </div>
         </div>
       </div>
@@ -186,16 +197,21 @@ export default function TradingCallCard({ call, onSelect, isSelected = false }) 
 
 export function TradingCallSummary({ summary }) {
   if (!summary) return null
+  const safeFixedInner = (v, d=0) => {
+    const n = typeof v === 'number' ? v : parseFloat(v)
+    if (isNaN(n)) return '0'
+    return n.toFixed(d)
+  }
 
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div className="p-4 rounded-2xl bg-gradient-to-br from-crypto-card to-crypto-bg border border-crypto-border/50">
         <div className="flex items-center gap-2 mb-2">
           <Target size={14} className="text-crypto-accent" />
           <span className="text-xs font-bold tracking-widest text-crypto-muted uppercase">Total Calls</span>
         </div>
-        <div className="text-2xl font-black text-white mono">{summary.total}</div>
-        <div className="text-xs text-crypto-muted mt-1">{summary.buys} buys • {summary.sells} sells</div>
+        <div className="text-2xl font-black text-white mono">{summary.total ?? 0}</div>
+        <div className="text-xs text-crypto-muted mt-1">{summary.buys ?? 0} buys • {summary.sells ?? 0} sells</div>
       </div>
       
       <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-crypto-card border border-emerald-500/20">
@@ -203,7 +219,7 @@ export function TradingCallSummary({ summary }) {
           <CheckCircle size={14} className="text-emerald-400" />
           <span className="text-xs font-bold tracking-widest text-emerald-400 uppercase">Buy Signals</span>
         </div>
-        <div className="text-2xl font-black text-emerald-400 mono">{summary.buys}</div>
+        <div className="text-2xl font-black text-emerald-400 mono">{summary.buys ?? 0}</div>
         <div className="text-xs text-emerald-400/70 mt-1">Long opportunities</div>
       </div>
       
@@ -212,7 +228,7 @@ export function TradingCallSummary({ summary }) {
           <XCircle size={14} className="text-red-400" />
           <span className="text-xs font-bold tracking-widest text-red-400 uppercase">Sell Signals</span>
         </div>
-        <div className="text-2xl font-black text-red-400 mono">{summary.sells}</div>
+        <div className="text-2xl font-black text-red-400 mono">{summary.sells ?? 0}</div>
         <div className="text-xs text-red-400/70 mt-1">Short opportunities</div>
       </div>
       
@@ -221,8 +237,8 @@ export function TradingCallSummary({ summary }) {
           <Zap size={14} className="text-crypto-accent2" />
           <span className="text-xs font-bold tracking-widest text-crypto-accent2 uppercase">Avg Confidence</span>
         </div>
-        <div className="text-2xl font-black text-crypto-accent2 mono">{summary.avg_confidence?.toFixed(0)}%</div>
-        <div className="text-xs text-crypto-accent2/70 mt-1">{summary.high_confidence} high conf (&gt;80%)</div>
+        <div className="text-2xl font-black text-crypto-accent2 mono">{safeFixedInner(summary.avg_confidence,0)}%</div>
+        <div className="text-xs text-crypto-accent2/70 mt-1">{summary.high_confidence ?? 0} high conf (&gt;80%)</div>
       </div>
     </div>
   )

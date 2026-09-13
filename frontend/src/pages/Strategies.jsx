@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Bot, Grid3X3, TrendingUp, Zap, Plus, DollarSign } from 'lucide-react'
+import { api } from '../api/client'
 
 export default function Strategies() {
   const [bots, setBots] = useState(null)
@@ -10,11 +11,17 @@ export default function Strategies() {
   const [showDCA, setShowDCA] = useState(false)
   const [showGrid, setShowGrid] = useState(false)
 
+  const safeFixed = (v, d=2) => {
+    const n = typeof v === 'number' ? v : parseFloat(v)
+    if (isNaN(n)) return '0.00'
+    return n.toFixed(d)
+  }
+
   const fetchData = async () => {
     try {
       const [bRes, brRes] = await Promise.all([
-        fetch('/api/strategies/all').then(r => r.json()),
-        fetch('/api/strategies/breakout/scan').then(r => r.json())
+        api.getAllStrategies().catch(() => fetch('/api/strategies/all').then(r => r.json())),
+        api.scanBreakouts().catch(() => fetch('/api/strategies/breakout/scan').then(r => r.json()))
       ])
       setBots(bRes)
       setBreakouts(brRes.breakouts || brRes.all_signals || [])
@@ -25,17 +32,15 @@ export default function Strategies() {
 
   const createDCA = async () => {
     try {
-      const res = await fetch('/api/strategies/dca', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dcaForm) })
-      const data = await res.json()
-      if (res.ok) { setShowDCA(false); fetchData(); alert('DCA Bot created for real trading!') } else alert(data.detail)
+      const data = await api.createDCABot(dcaForm).catch(() => fetch('/api/strategies/dca', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dcaForm) }).then(r=>r.json()))
+      setShowDCA(false); fetchData(); alert('DCA Bot created for real trading!')
     } catch (e) { alert(e.message) }
   }
 
   const createGrid = async () => {
     try {
-      const res = await fetch('/api/strategies/grid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(gridForm) })
-      const data = await res.json()
-      if (res.ok) { setShowGrid(false); fetchData(); alert('Grid Bot created for real trading!') } else alert(data.detail)
+      await api.createGridBot(gridForm).catch(() => fetch('/api/strategies/grid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(gridForm) }).then(r=>r.json()))
+      setShowGrid(false); fetchData(); alert('Grid Bot created for real trading!')
     } catch (e) { alert(e.message) }
   }
 
@@ -81,8 +86,8 @@ export default function Strategies() {
 
       {/* Active Bots */}
       <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border">
-        <h3 className="font-bold mb-4">Active Bots - Real Trading ({bots?.count || 0})</h3>
-        {!bots || bots.count === 0 ? (
+        <h3 className="font-bold mb-4">Active Bots - Real Trading ({bots?.count ?? 0})</h3>
+        {!bots || (bots.count ?? 0) === 0 ? (
           <div className="text-center py-6 text-crypto-muted">No active bots - create DCA or Grid bot for real trading</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -90,19 +95,19 @@ export default function Strategies() {
               <div key={sym} className="p-4 rounded-xl bg-crypto-bg border border-emerald-500/20">
                 <div className="flex items-center justify-between">
                   <span className="font-bold">{sym} DCA</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">{bot.config?.num_orders} orders</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">{bot.config?.num_orders ?? bot.num_orders ?? 5} orders</span>
                 </div>
                 <div className="mt-3 space-y-1 text-xs">
-                  <div className="flex justify-between"><span className="text-crypto-muted">Total</span><span>${bot.config?.total_investment}</span></div>
-                  <div className="flex justify-between"><span className="text-crypto-muted">Live Price</span><span>${bot.live_price?.toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-crypto-muted">TP</span><span className="text-emerald-400">{bot.config?.take_profit_pct}%</span></div>
-                  <div className="flex justify-between"><span className="text-crypto-muted">SL</span><span className="text-red-400">{bot.config?.stop_loss_pct}%</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">Total</span><span>${safeFixed(bot.config?.total_investment ?? bot.total_investment,0)}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">Live Price</span><span>${safeFixed(bot.live_price ?? bot.current_price,2)}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">TP</span><span className="text-emerald-400">{safeFixed(bot.config?.take_profit_pct ?? bot.take_profit_pct,1)}%</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">SL</span><span className="text-red-400">{safeFixed(bot.config?.stop_loss_pct ?? bot.stop_loss_pct,1)}%</span></div>
                 </div>
                 <div className="mt-3">
                   <div className="text-[10px] text-crypto-muted uppercase">DCA Levels</div>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {bot.levels?.slice(0, 5).map((l, i) => (
-                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-crypto-card border border-crypto-border">${l.price?.toFixed(0)}</span>
+                    {(bot.levels || bot.dca_levels || []).slice(0, 5).map((l, i) => (
+                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-crypto-card border border-crypto-border">${safeFixed(l.price ?? l,0)}</span>
                     ))}
                   </div>
                 </div>
@@ -112,13 +117,13 @@ export default function Strategies() {
               <div key={sym} className="p-4 rounded-xl bg-crypto-bg border border-violet-500/20">
                 <div className="flex items-center justify-between">
                   <span className="font-bold">{sym} GRID</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400">{bot.config?.num_grids} grids</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400">{bot.config?.num_grids ?? bot.num_grids ?? 10} grids</span>
                 </div>
                 <div className="mt-3 space-y-1 text-xs">
-                  <div className="flex justify-between"><span className="text-crypto-muted">Range</span><span>${bot.config?.lower_price} - ${bot.config?.upper_price}</span></div>
-                  <div className="flex justify-between"><span className="text-crypto-muted">Total</span><span>${bot.config?.total_investment}</span></div>
-                  <div className="flex justify-between"><span className="text-crypto-muted">Profit/Grid</span><span className="text-emerald-400">${bot.profit_per_grid?.toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-crypto-muted">Live</span><span>${bot.live_price?.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">Range</span><span>${safeFixed(bot.config?.lower_price ?? bot.lower_price,0)} - ${safeFixed(bot.config?.upper_price ?? bot.upper_price,0)}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">Total</span><span>${safeFixed(bot.config?.total_investment ?? bot.total_investment,0)}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">Profit/Grid</span><span className="text-emerald-400">${safeFixed(bot.profit_per_grid ?? bot.profit_per_grid_pct,2)}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">Live</span><span>${safeFixed(bot.live_price ?? bot.current_price,2)}</span></div>
                 </div>
               </div>
             ))}
@@ -136,15 +141,15 @@ export default function Strategies() {
             {breakouts.map((b, i) => (
               <div key={i} className={`p-4 rounded-xl border ${b.signal?.includes('BUY') ? 'bg-emerald-500/5 border-emerald-500/20' : b.signal?.includes('SELL') ? 'bg-red-500/5 border-red-500/20' : 'bg-crypto-bg border-crypto-border/50'}`}>
                 <div className="flex items-center justify-between">
-                  <span className="font-bold">{b.symbol}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${b.signal?.includes('BUY') ? 'bg-emerald-500 text-black' : b.signal?.includes('SELL') ? 'bg-red-500 text-white' : 'bg-crypto-card text-crypto-muted'}`}>{b.signal}</span>
+                  <span className="font-bold">{b.symbol || 'Unknown'}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${b.signal?.includes('BUY') ? 'bg-emerald-500 text-black' : b.signal?.includes('SELL') ? 'bg-red-500 text-white' : 'bg-crypto-card text-crypto-muted'}`}>{b.signal || 'HOLD'}</span>
                 </div>
                 <div className="mt-2 text-xs space-y-1">
-                  <div className="flex justify-between"><span className="text-crypto-muted">Entry</span><span>${b.entry_price?.toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-crypto-muted">Breakout Level</span><span>${b.breakout_level?.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">Entry</span><span>${safeFixed(b.entry_price,2)}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">Breakout Level</span><span>${safeFixed(b.breakout_level,2)}</span></div>
                   <div className="flex justify-between"><span className="text-crypto-muted">Volume Confirmed</span><span className={b.volume_confirmed ? 'text-emerald-400' : 'text-crypto-muted'}>{b.volume_confirmed ? 'Yes ✓' : 'No'}</span></div>
-                  <div className="flex justify-between"><span className="text-crypto-muted">SL</span><span className="text-red-400">${b.stop_loss?.toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-crypto-muted">TP</span><span className="text-emerald-400">${b.take_profit?.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">SL</span><span className="text-red-400">${safeFixed(b.stop_loss,2)}</span></div>
+                  <div className="flex justify-between"><span className="text-crypto-muted">TP</span><span className="text-emerald-400">${safeFixed(b.take_profit,2)}</span></div>
                 </div>
               </div>
             ))}
@@ -161,14 +166,14 @@ export default function Strategies() {
               <select value={dcaForm.symbol} onChange={e => setDcaForm({ ...dcaForm, symbol: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
                 {['BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD', 'ADA-USD'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <input type="number" placeholder="Total Investment $" value={dcaForm.total_investment} onChange={e => setDcaForm({ ...dcaForm, total_investment: parseFloat(e.target.value) })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+              <input type="number" placeholder="Total Investment $" value={dcaForm.total_investment} onChange={e => setDcaForm({ ...dcaForm, total_investment: parseFloat(e.target.value)||1000 })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" placeholder="Orders" value={dcaForm.num_orders} onChange={e => setDcaForm({ ...dcaForm, num_orders: parseInt(e.target.value) })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
-                <input type="number" step="0.1" placeholder="Deviation %" value={dcaForm.price_deviation_pct} onChange={e => setDcaForm({ ...dcaForm, price_deviation_pct: parseFloat(e.target.value) })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" placeholder="Orders" value={dcaForm.num_orders} onChange={e => setDcaForm({ ...dcaForm, num_orders: parseInt(e.target.value)||5 })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" step="0.1" placeholder="Deviation %" value={dcaForm.price_deviation_pct} onChange={e => setDcaForm({ ...dcaForm, price_deviation_pct: parseFloat(e.target.value)||1.5 })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" step="0.1" placeholder="TP %" value={dcaForm.take_profit_pct} onChange={e => setDcaForm({ ...dcaForm, take_profit_pct: parseFloat(e.target.value) })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
-                <input type="number" step="0.1" placeholder="SL %" value={dcaForm.stop_loss_pct} onChange={e => setDcaForm({ ...dcaForm, stop_loss_pct: parseFloat(e.target.value) })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" step="0.1" placeholder="TP %" value={dcaForm.take_profit_pct} onChange={e => setDcaForm({ ...dcaForm, take_profit_pct: parseFloat(e.target.value)||5 })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" step="0.1" placeholder="SL %" value={dcaForm.stop_loss_pct} onChange={e => setDcaForm({ ...dcaForm, stop_loss_pct: parseFloat(e.target.value)||3 })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setShowDCA(false)} className="flex-1 py-2 rounded-xl bg-crypto-bg border border-crypto-border">Cancel</button>
@@ -188,12 +193,12 @@ export default function Strategies() {
                 {['BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD', 'ADA-USD'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" placeholder="Lower Price" value={gridForm.lower_price} onChange={e => setGridForm({ ...gridForm, lower_price: parseFloat(e.target.value) })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
-                <input type="number" placeholder="Upper Price" value={gridForm.upper_price} onChange={e => setGridForm({ ...gridForm, upper_price: parseFloat(e.target.value) })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" placeholder="Lower Price" value={gridForm.lower_price} onChange={e => setGridForm({ ...gridForm, lower_price: parseFloat(e.target.value)||0 })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" placeholder="Upper Price" value={gridForm.upper_price} onChange={e => setGridForm({ ...gridForm, upper_price: parseFloat(e.target.value)||0 })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" placeholder="Num Grids" value={gridForm.num_grids} onChange={e => setGridForm({ ...gridForm, num_grids: parseInt(e.target.value) })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
-                <input type="number" placeholder="Total Investment" value={gridForm.total_investment} onChange={e => setGridForm({ ...gridForm, total_investment: parseFloat(e.target.value) })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" placeholder="Num Grids" value={gridForm.num_grids} onChange={e => setGridForm({ ...gridForm, num_grids: parseInt(e.target.value)||10 })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" placeholder="Total Investment" value={gridForm.total_investment} onChange={e => setGridForm({ ...gridForm, total_investment: parseFloat(e.target.value)||1000 })} className="px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setShowGrid(false)} className="flex-1 py-2 rounded-xl bg-crypto-bg border border-crypto-border">Cancel</button>

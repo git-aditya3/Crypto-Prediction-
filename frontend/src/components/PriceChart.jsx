@@ -59,19 +59,24 @@ export default function PriceChart({ data, forecast, height = 420, realtimePrice
       priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
     })
 
-    const candles = data.dates.map((d, i) => ({
+    const candles = (data.dates || []).map((d, i) => ({
       time: d,
-      open: data.open[i],
-      high: data.high[i],
-      low: data.low[i],
-      close: data.close[i]
-    }))
+      open: data.open?.[i] ?? 0,
+      high: data.high?.[i] ?? 0,
+      low: data.low?.[i] ?? 0,
+      close: data.close?.[i] ?? 0
+    })).filter(c => c.open && c.close)
+
+    if (candles.length === 0) {
+      console.warn('No valid candles for chart')
+      return
+    }
 
     candleSeries.setData(candles)
     seriesRef.current.candle = candleSeries
 
     // Volume
-    if (showVolume && data.volume) {
+    if (showVolume && data.volume && data.volume.length > 0) {
       const volumeSeries = chart.addHistogramSeries({
         color: 'rgba(100,116,139,0.3)',
         priceFormat: { type: 'volume' },
@@ -81,11 +86,11 @@ export default function PriceChart({ data, forecast, height = 420, realtimePrice
       volumeSeries.priceScale().applyOptions({
         scaleMargins: { top: 0.85, bottom: 0 }
       })
-      const volData = data.dates.map((d, i) => ({
+      const volData = (data.dates || []).map((d, i) => ({
         time: d,
-        value: data.volume[i],
-        color: data.close[i] >= data.open[i] ? 'rgba(0,211,149,0.3)' : 'rgba(255,75,75,0.3)'
-      }))
+        value: data.volume?.[i] ?? 0,
+        color: (data.close?.[i] ?? 0) >= (data.open?.[i] ?? 0) ? 'rgba(0,211,149,0.3)' : 'rgba(255,75,75,0.3)'
+      })).filter(v => v.value != null)
       volumeSeries.setData(volData)
       seriesRef.current.volume = volumeSeries
     }
@@ -152,7 +157,7 @@ export default function PriceChart({ data, forecast, height = 420, realtimePrice
     }
 
     // Real-time price line
-    if (realtimePrice) {
+    if (realtimePrice && !isNaN(realtimePrice) && realtimePrice > 0) {
       const priceLine = candleSeries.createPriceLine({
         price: realtimePrice,
         color: '#00d395',
@@ -220,9 +225,9 @@ export default function PriceChart({ data, forecast, height = 420, realtimePrice
             <span className="text-xs font-bold tracking-widest text-white">{symbol}</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-crypto-accent/20 text-crypto-accent font-bold">BINANCE</span>
           </div>
-          {realtimePrice && (
+          {realtimePrice && !isNaN(realtimePrice) && (
             <div className="px-3 py-1.5 rounded-full bg-crypto-accent/10 border border-crypto-accent/20 backdrop-blur">
-              <span className="text-xs mono font-bold text-crypto-accent">${realtimePrice.toLocaleString()}</span>
+              <span className="text-xs mono font-bold text-crypto-accent">${(realtimePrice ?? 0).toLocaleString()}</span>
               <span className="text-[10px] text-crypto-accent/70 ml-2">LIVE</span>
             </div>
           )}

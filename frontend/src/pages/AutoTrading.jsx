@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Bot, Play, Square, AlertTriangle, Settings, Wallet, Shield, Zap, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react'
+import { api } from '../api/client'
 
 export default function AutoTrading() {
   const [config, setConfig] = useState(null)
@@ -12,20 +13,27 @@ export default function AutoTrading() {
   const [brokerForm, setBrokerForm] = useState({ broker_id: 'coindcx', broker_type: 'coindcx', api_key: '', api_secret: '', testnet: false, initial_balance: 10000 })
   const [showBrokerForm, setShowBrokerForm] = useState(false)
 
+  const safeFixed = (v, d=2) => {
+    const n = typeof v === 'number' ? v : parseFloat(v)
+    if (isNaN(n)) return '0.00'
+    return n.toFixed(d)
+  }
+
   const fetchData = async () => {
     try {
+      // Use api client where possible, fallback to fetch
       const [cfgRes, statusRes, brokersRes, tradesRes, pendingRes] = await Promise.all([
-        fetch('/api/autotrade/config').then(r => r.json()),
-        fetch('/api/autotrade/status').then(r => r.json()),
-        fetch('/api/brokers').then(r => r.json()),
-        fetch('/api/autotrade/trades?limit=50').then(r => r.json()),
-        fetch('/api/autotrade/pending').then(r => r.json())
+        api.getAutoTradeConfig().catch(() => fetch('/api/autotrade/config').then(r => r.json())),
+        api.getAutoTradeStatus().catch(() => fetch('/api/autotrade/status').then(r => r.json())),
+        api.getBrokers().catch(() => fetch('/api/brokers').then(r => r.json())),
+        api.getAutoTradeTrades(50).catch(() => fetch('/api/autotrade/trades?limit=50').then(r => r.json())),
+        api.getPendingApprovals().catch(() => fetch('/api/autotrade/pending').then(r => r.json()))
       ])
-      setConfig(cfgRes)
-      setStatus(statusRes)
-      setBrokers(brokersRes.brokers || {})
-      setTrades(tradesRes.trades || [])
-      setPending(pendingRes.pending || [])
+      if (cfgRes) setConfig(cfgRes.config || cfgRes)
+      if (statusRes) setStatus(statusRes)
+      if (brokersRes) setBrokers(brokersRes.brokers || {})
+      if (tradesRes) setTrades(tradesRes.trades || [])
+      if (pendingRes) setPending(pendingRes.pending || [])
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
 
@@ -33,16 +41,27 @@ export default function AutoTrading() {
 
   const updateConfig = async (newConfig) => {
     try {
-      const res = await fetch('/api/autotrade/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config: newConfig })
+      // Deep merge safety - ensure nested objects exist
+      const safeConfig = {
+        ...newConfig,
+        risk: { ...(config?.risk||{}), ...(newConfig.risk||{}) },
+        execution: { ...(config?.execution||{}), ...(newConfig.execution||{}) },
+        strategies: { ...(config?.strategies||{}), ...(newConfig.strategies||{}) },
+        symbols: { ...(config?.symbols||{}), ...(newConfig.symbols||{}) },
+        trading_hours: { ...(config?.trading_hours||{}), ...(newConfig.trading_hours||{}) },
+      }
+      const data = await api.updateAutoTradeConfig(safeConfig).catch(async () => {
+        const res = await fetch('/api/autotrade/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ config: safeConfig })
+        })
+        return res.json()
       })
-      const data = await res.json()
-      if (res.ok) {
+      if (data?.config) {
         setConfig(data.config)
         fetchData()
-      } else alert(data.detail)
+      } else if (data?.detail) alert(data.detail)
     } catch (e) { alert(e.message) }
   }
 
@@ -53,85 +72,95 @@ export default function AutoTrading() {
 
   const changeMode = (mode) => {
     if (!config) return
-    updateConfig({ ...config, mode, execution: { ...config.execution, broker_id: config.execution.broker_id || 'paper' } })
+    updateConfig({ ...config, mode, execution: { ...(config.execution||{}), broker_id: config.execution?.broker_id || 'coindcx' } })
   }
 
   const startTrading = async () => {
     try {
-      const res = await fetch('/api/autotrade/start', { method: 'POST' })
-      const data = await res.json()
-      if (res.ok) { alert(data.message); fetchData() } else alert(data.detail)
+      const data = await api.startAutoTrade().catch(() => fetch('/api/autotrade/start', { method: 'POST' }).then(r=>r.json()))
+      if (data?.message) { alert(data.message); fetchData() } else if (data?.detail) alert(data.detail)
     } catch (e) { alert(e.message) }
   }
 
   const stopTrading = async () => {
     try {
-      const res = await fetch('/api/autotrade/stop', { method: 'POST' })
-      const data = await res.json()
-      if (res.ok) fetchData()
+      await api.stopAutoTrade().catch(() => fetch('/api/autotrade/stop', { method: 'POST' }))
+      fetchData()
     } catch (e) { console.error(e) }
   }
 
   const emergencyStop = async () => {
     if (!confirm('🚨 EMERGENCY STOP - Halt all trading immediately?')) return
     try {
-      const res = await fetch('/api/autotrade/emergency/stop', { method: 'POST' })
-      const data = await res.json()
-      alert(data.message)
+      const data = await api.emergencyStop().catch(() => fetch('/api/autotrade/emergency/stop', { method: 'POST' }).then(r=>r.json()))
+      alert(data?.message || 'Emergency stopped')
       fetchData()
     } catch (e) { alert(e.message) }
   }
 
   const executeManual = async (symbol) => {
     try {
-      const res = await fetch('/api/autotrade/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, manual: true })
-      })
-      const data = await res.json()
-      if (data.success) alert(`✅ ${data.message}`)
-      else if (data.requires_approval) alert(`📋 Requires approval: ${data.approval_id}`)
-      else alert(`Failed: ${data.reason}`)
+      const data = await api.executeAutoTrade(symbol, true).catch(() => 
+        fetch('/api/autotrade/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol, manual: true })
+        }).then(r=>r.json())
+      )
+      if (data?.success) alert(`✅ ${data.message}`)
+      else if (data?.requires_approval) alert(`📋 Requires approval: ${data.approval_id}`)
+      else alert(`Failed: ${data?.reason || data?.detail || 'Unknown'}`)
       fetchData()
     } catch (e) { alert(e.message) }
   }
 
   const approveTrade = async (id) => {
     try {
-      const res = await fetch(`/api/autotrade/approve/${id}`, { method: 'POST' })
-      const data = await res.json()
-      if (data.success) { alert('Approved and executed'); fetchData() } else alert(data.reason)
+      const data = await api.approveTrade(id).catch(() => fetch(`/api/autotrade/approve/${id}`, { method: 'POST' }).then(r=>r.json()))
+      if (data?.success) { alert('Approved and executed'); fetchData() } else alert(data?.reason || data?.detail || 'Failed')
     } catch (e) { alert(e.message) }
   }
 
   const rejectTrade = async (id) => {
     try {
-      const res = await fetch(`/api/autotrade/reject/${id}`, { method: 'POST' })
+      await api.rejectTrade(id).catch(() => fetch(`/api/autotrade/reject/${id}`, { method: 'POST' }))
       fetchData()
     } catch (e) { console.error(e) }
   }
 
   const connectBroker = async () => {
     try {
-      const res = await fetch('/api/brokers/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(brokerForm)
+      // If broker exists, try to remove first to allow update (fixes duplicate id bug)
+      if (brokers[brokerForm.broker_id]) {
+        try {
+          await api.removeBroker(brokerForm.broker_id).catch(() => fetch(`/api/brokers/${brokerForm.broker_id}/remove`, { method: 'DELETE' }))
+        } catch {}
+      }
+      const data = await api.connectBroker(brokerForm).catch(async () => {
+        const res = await fetch('/api/brokers/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(brokerForm)
+        })
+        const j = await res.json()
+        if (!res.ok) throw new Error(j.detail || 'Failed')
+        return j
       })
-      const data = await res.json()
-      if (res.ok) { setShowBrokerForm(false); fetchData(); alert(data.message) } else alert(data.detail)
+      setShowBrokerForm(false)
+      fetchData()
+      alert(data.message || `Connected ${brokerForm.broker_id}`)
     } catch (e) { alert(e.message) }
   }
 
   if (loading) return <div className="p-6 text-center">Loading automated trading engine - extensive controls...</div>
+  if (!config) return <div className="p-6 text-center">Loading config... If this persists, check backend /autotrade/config</div>
 
   return (
     <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-black flex items-center gap-3">
+          <h1 className="text-3xl font-black flex items-center gap-3 flex-wrap">
             <Bot className="text-emerald-400" /> Automated Real Trading - CoinDCX
             <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-bold">COINDCX REAL MONEY</span>
             <span className="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold animate-pulse">ACTUAL INR</span>
@@ -162,37 +191,37 @@ export default function AutoTrading() {
           <div className={`text-lg font-black flex items-center gap-2 ${status?.is_running ? 'text-emerald-400' : 'text-crypto-muted'}`}>
             {status?.is_running ? <><div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div> Running</> : 'Stopped'}
           </div>
-          <div className="text-xs text-crypto-muted mt-1">Mode: {status?.mode}</div>
+          <div className="text-xs text-crypto-muted mt-1">Mode: {status?.mode || config?.mode}</div>
         </div>
         <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
           <div className="text-[10px] text-crypto-muted uppercase">Broker</div>
-          <div className="text-sm font-bold">{status?.broker_id}</div>
+          <div className="text-sm font-bold">{status?.broker_id || config?.execution?.broker_id || 'coindcx'}</div>
           <div className="text-xs text-crypto-muted mt-1">{status?.broker_connected ? 'Connected' : 'Not connected'}</div>
         </div>
         <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
           <div className="text-[10px] text-crypto-muted uppercase">Open Positions</div>
-          <div className="text-lg font-black">{status?.open_positions || 0} / {status?.config?.risk?.max_positions || 5}</div>
-          <div className="text-xs text-crypto-muted mt-1">Max {config?.risk?.max_positions}</div>
+          <div className="text-lg font-black">{status?.open_positions ?? 0} / {status?.config?.risk?.max_positions ?? config?.risk?.max_positions ?? 5}</div>
+          <div className="text-xs text-crypto-muted mt-1">Max {config?.risk?.max_positions ?? 5}</div>
         </div>
         <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
           <div className="text-[10px] text-crypto-muted uppercase">Daily Trades</div>
-          <div className="text-lg font-black">{status?.daily_trades || 0} / {config?.max_daily_trades || 10}</div>
+          <div className="text-lg font-black">{status?.daily_trades ?? 0} / {config?.max_daily_trades ?? 10}</div>
           <div className="text-xs text-crypto-muted mt-1">Today</div>
         </div>
         <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
           <div className="text-[10px] text-crypto-muted uppercase">Pending Approvals</div>
-          <div className="text-lg font-black text-amber-400">{status?.pending_approvals || 0}</div>
+          <div className="text-lg font-black text-amber-400">{status?.pending_approvals ?? pending.length ?? 0}</div>
           <div className="text-xs text-crypto-muted mt-1">Semi-auto</div>
         </div>
         <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
           <div className="text-[10px] text-crypto-muted uppercase">Risk/Trade</div>
-          <div className="text-lg font-black">{config?.risk?.risk_per_trade_pct || 2}%</div>
-          <div className="text-xs text-crypto-muted mt-1">${(config?.account_balance * (config?.risk?.risk_per_trade_pct / 100)).toFixed(0)} risk</div>
+          <div className="text-lg font-black">{config?.risk?.risk_per_trade_pct ?? 2}%</div>
+          <div className="text-xs text-crypto-muted mt-1">${((config?.account_balance||10000) * ((config?.risk?.risk_per_trade_pct||2) / 100)).toFixed(0)} risk</div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 p-1 rounded-xl bg-crypto-card border border-crypto-border w-fit">
+      <div className="flex gap-2 p-1 rounded-xl bg-crypto-card border border-crypto-border w-fit overflow-x-auto">
         {[
           { id: 'control', label: 'Control Panel', icon: Settings },
           { id: 'brokers', label: 'Brokers', icon: Wallet },
@@ -200,14 +229,14 @@ export default function AutoTrading() {
           { id: 'trades', label: 'Trades', icon: TrendingUp },
           { id: 'pending', label: `Pending (${pending.length})`, icon: Clock }
         ].map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${activeTab === t.id ? 'bg-white text-black' : 'text-crypto-muted hover:text-white'}`}>
+          <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black' : 'text-crypto-muted hover:text-white'}`}>
             <t.icon size={14} /> {t.label}
           </button>
         ))}
       </div>
 
       {/* Control Panel */}
-      {activeTab === 'control' && config && (
+      {activeTab === 'control' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Main Controls */}
           <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border space-y-5">
@@ -246,11 +275,11 @@ export default function AutoTrading() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-crypto-muted">Account Balance $</label>
-                <input type="number" value={config.account_balance} onChange={e => updateConfig({ ...config, account_balance: parseFloat(e.target.value) })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" value={config.account_balance||10000} onChange={e => updateConfig({ ...config, account_balance: parseFloat(e.target.value)||10000 })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
               <div>
                 <label className="text-xs text-crypto-muted">Max Daily Trades</label>
-                <input type="number" value={config.max_daily_trades} onChange={e => updateConfig({ ...config, max_daily_trades: parseInt(e.target.value) })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" value={config.max_daily_trades||10} onChange={e => updateConfig({ ...config, max_daily_trades: parseInt(e.target.value)||10 })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
             </div>
 
@@ -274,7 +303,7 @@ export default function AutoTrading() {
                   { key: 'use_grid_bot', label: 'Grid Bot' }
                 ].map(s => (
                   <label key={s.key} className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
-                    <input type="checkbox" checked={config.strategies[s.key]} onChange={e => updateConfig({ ...config, strategies: { ...config.strategies, [s.key]: e.target.checked } })} className="rounded" />
+                    <input type="checkbox" checked={!!config.strategies?.[s.key]} onChange={e => updateConfig({ ...config, strategies: { ...(config.strategies||{}), [s.key]: e.target.checked } })} className="rounded" />
                     <span className="text-sm">{s.label}</span>
                   </label>
                 ))}
@@ -282,11 +311,11 @@ export default function AutoTrading() {
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-crypto-muted">Confidence Threshold %</label>
-                  <input type="number" value={config.strategies.ai_confidence_threshold} onChange={e => updateConfig({ ...config, strategies: { ...config.strategies, ai_confidence_threshold: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                  <input type="number" value={config.strategies?.ai_confidence_threshold||70} onChange={e => updateConfig({ ...config, strategies: { ...(config.strategies||{}), ai_confidence_threshold: parseFloat(e.target.value)||70 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
                 </div>
                 <div>
                   <label className="text-xs text-crypto-muted">Min RR Ratio</label>
-                  <input type="number" step="0.1" value={config.strategies.min_risk_reward} onChange={e => updateConfig({ ...config, strategies: { ...config.strategies, min_risk_reward: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                  <input type="number" step="0.1" value={config.strategies?.min_risk_reward||1.5} onChange={e => updateConfig({ ...config, strategies: { ...(config.strategies||{}), min_risk_reward: parseFloat(e.target.value)||1.5 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
                 </div>
               </div>
             </div>
@@ -295,15 +324,15 @@ export default function AutoTrading() {
               <h3 className="font-bold mb-3">Symbol Controls - Whitelist/Blacklist</h3>
               <div>
                 <label className="text-xs text-crypto-muted">Whitelist (comma separated, empty = all)</label>
-                <input value={config.symbols.whitelist.join(',')} onChange={e => updateConfig({ ...config, symbols: { ...config.symbols, whitelist: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } })} placeholder="BTC-USD,ETH-USD,BNB-USD,SOL-USD" className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input value={(config.symbols?.whitelist||[]).join(',')} onChange={e => updateConfig({ ...config, symbols: { ...(config.symbols||{}), whitelist: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } })} placeholder="BTC-USD,ETH-USD,BNB-USD,SOL-USD" className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
               <div className="mt-3">
                 <label className="text-xs text-crypto-muted">Blacklist</label>
-                <input value={config.symbols.blacklist.join(',')} onChange={e => updateConfig({ ...config, symbols: { ...config.symbols, blacklist: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } })} placeholder="DOGE-USD,SHIB-USD" className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input value={(config.symbols?.blacklist||[]).join(',')} onChange={e => updateConfig({ ...config, symbols: { ...(config.symbols||{}), blacklist: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } })} placeholder="DOGE-USD,SHIB-USD" className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
               <div className="mt-3">
                 <label className="text-xs text-crypto-muted">Max Positions Per Symbol</label>
-                <input type="number" value={config.symbols.max_positions_per_symbol} onChange={e => updateConfig({ ...config, symbols: { ...config.symbols, max_positions_per_symbol: parseInt(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" value={config.symbols?.max_positions_per_symbol||1} onChange={e => updateConfig({ ...config, symbols: { ...(config.symbols||{}), max_positions_per_symbol: parseInt(e.target.value)||1 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
             </div>
           </div>
@@ -313,7 +342,7 @@ export default function AutoTrading() {
       {/* Brokers Tab */}
       {activeTab === 'brokers' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h3 className="font-bold">Broker Integration - CoinDCX REAL MONEY</h3>
               <p className="text-xs text-crypto-muted">No paper simulation - actual INR from CoinDCX account</p>
@@ -336,14 +365,24 @@ export default function AutoTrading() {
                     <div className="mt-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50">
                       <div className="text-[10px] text-crypto-muted uppercase">Balances</div>
                       {Object.entries(broker.balances).slice(0, 3).map(([asset, bal]) => (
-                        <div key={asset} className="flex justify-between text-xs"><span>{asset}</span><span>{bal.total?.toFixed(4)}</span></div>
+                        <div key={asset} className="flex justify-between text-xs"><span>{asset}</span><span>{safeFixed(bal.total ?? bal.free, 4)}</span></div>
                       ))}
                     </div>
                   )}
                 </div>
                 <div className="mt-3 flex gap-2">
-                  <button onClick={async () => { const res = await fetch(`/api/brokers/${id}/test`); const data = await res.json(); alert(JSON.stringify(data, null, 2)) }} className="flex-1 py-1.5 rounded-lg bg-crypto-bg border border-crypto-border text-xs">Test</button>
-                  <button onClick={async () => { if (confirm(`Remove broker ${id}?`)) { await fetch(`/api/brokers/${id}/remove`, { method: 'DELETE' }); fetchData() } }} className="flex-1 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 text-xs">Remove</button>
+                  <button onClick={async () => { 
+                    try {
+                      const data = await api.testBroker(id).catch(() => fetch(`/api/brokers/${id}/test`).then(r=>r.json()))
+                      alert(JSON.stringify(data, null, 2))
+                    } catch(e){ alert(e.message) }
+                  }} className="flex-1 py-1.5 rounded-lg bg-crypto-bg border border-crypto-border text-xs">Test</button>
+                  <button onClick={async () => { 
+                    if (confirm(`Remove broker ${id}?`)) { 
+                      await api.removeBroker(id).catch(()=> fetch(`/api/brokers/${id}/remove`, { method: 'DELETE' }))
+                      fetchData() 
+                    }
+                  }} className="flex-1 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 text-xs">Remove</button>
                 </div>
               </div>
             ))}
@@ -364,7 +403,7 @@ export default function AutoTrading() {
       )}
 
       {/* Risk Tab */}
-      {activeTab === 'risk' && config && (
+      {activeTab === 'risk' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border space-y-4">
             <h3 className="font-bold flex items-center gap-2"><Shield size={16} className="text-violet-400" /> Risk Controls - Extensive Protection</h3>
@@ -372,35 +411,35 @@ export default function AutoTrading() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-crypto-muted">Risk Per Trade %</label>
-                <input type="number" step="0.1" value={config.risk.risk_per_trade_pct} onChange={e => updateConfig({ ...config, risk: { ...config.risk, risk_per_trade_pct: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" step="0.1" value={config.risk?.risk_per_trade_pct||2} onChange={e => updateConfig({ ...config, risk: { ...(config.risk||{}), risk_per_trade_pct: parseFloat(e.target.value)||2 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
                 <div className="text-[10px] text-crypto-muted mt-1">Recommended 1-2%</div>
               </div>
               <div>
                 <label className="text-xs text-crypto-muted">Max Daily Loss %</label>
-                <input type="number" step="0.1" value={config.risk.max_daily_loss_pct} onChange={e => updateConfig({ ...config, risk: { ...config.risk, max_daily_loss_pct: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" step="0.1" value={config.risk?.max_daily_loss_pct||6} onChange={e => updateConfig({ ...config, risk: { ...(config.risk||{}), max_daily_loss_pct: parseFloat(e.target.value)||6 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
                 <div className="text-[10px] text-crypto-muted mt-1">Halt if exceeded</div>
               </div>
               <div>
                 <label className="text-xs text-crypto-muted">Max Positions</label>
-                <input type="number" value={config.risk.max_positions} onChange={e => updateConfig({ ...config, risk: { ...config.risk, max_positions: parseInt(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" value={config.risk?.max_positions||5} onChange={e => updateConfig({ ...config, risk: { ...(config.risk||{}), max_positions: parseInt(e.target.value)||5 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
               <div>
                 <label className="text-xs text-crypto-muted">Max Drawdown %</label>
-                <input type="number" value={config.risk.max_drawdown_pct} onChange={e => updateConfig({ ...config, risk: { ...config.risk, max_drawdown_pct: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" value={config.risk?.max_drawdown_pct||10} onChange={e => updateConfig({ ...config, risk: { ...(config.risk||{}), max_drawdown_pct: parseFloat(e.target.value)||10 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
               <div>
                 <label className="text-xs text-crypto-muted">Max Leverage</label>
-                <input type="number" value={config.risk.max_leverage} onChange={e => updateConfig({ ...config, risk: { ...config.risk, max_leverage: parseInt(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" value={config.risk?.max_leverage||5} onChange={e => updateConfig({ ...config, risk: { ...(config.risk||{}), max_leverage: parseInt(e.target.value)||5 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
               <div>
                 <label className="text-xs text-crypto-muted">Max Consecutive Losses</label>
-                <input type="number" value={config.risk.max_consecutive_losses} onChange={e => updateConfig({ ...config, risk: { ...config.risk, max_consecutive_losses: parseInt(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" value={config.risk?.max_consecutive_losses||3} onChange={e => updateConfig({ ...config, risk: { ...(config.risk||{}), max_consecutive_losses: parseInt(e.target.value)||3 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               </div>
             </div>
 
             <div>
               <label className="text-xs text-crypto-muted">Position Size Method</label>
-              <select value={config.risk.position_size_method} onChange={e => updateConfig({ ...config, risk: { ...config.risk, position_size_method: e.target.value } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
+              <select value={config.risk?.position_size_method||'risk_based'} onChange={e => updateConfig({ ...config, risk: { ...(config.risk||{}), position_size_method: e.target.value } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
                 <option value="risk_based">Risk Based (risk% / |entry-SL|)</option>
                 <option value="fixed">Fixed $ amount</option>
                 <option value="percent_balance">% of Balance</option>
@@ -410,15 +449,15 @@ export default function AutoTrading() {
 
             <div className="space-y-2">
               <label className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
-                <input type="checkbox" checked={config.risk.use_trailing_stop} onChange={e => updateConfig({ ...config, risk: { ...config.risk, use_trailing_stop: e.target.checked } })} />
+                <input type="checkbox" checked={!!config.risk?.use_trailing_stop} onChange={e => updateConfig({ ...config, risk: { ...(config.risk||{}), use_trailing_stop: e.target.checked } })} />
                 <span className="text-sm">Use Trailing Stop</span>
               </label>
               <label className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
-                <input type="checkbox" checked={config.risk.move_sl_to_breakeven_at_tp1} onChange={e => updateConfig({ ...config, risk: { ...config.risk, move_sl_to_breakeven_at_tp1: e.target.checked } })} />
+                <input type="checkbox" checked={!!config.risk?.move_sl_to_breakeven_at_tp1} onChange={e => updateConfig({ ...config, risk: { ...(config.risk||{}), move_sl_to_breakeven_at_tp1: e.target.checked } })} />
                 <span className="text-sm">Move SL to Breakeven at TP1</span>
               </label>
               <label className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
-                <input type="checkbox" checked={config.risk.daily_loss_halt} onChange={e => updateConfig({ ...config, risk: { ...config.risk, daily_loss_halt: e.target.checked } })} />
+                <input type="checkbox" checked={!!config.risk?.daily_loss_halt} onChange={e => updateConfig({ ...config, risk: { ...(config.risk||{}), daily_loss_halt: e.target.checked } })} />
                 <span className="text-sm">Halt Trading if Daily Loss Exceeded</span>
               </label>
             </div>
@@ -430,37 +469,37 @@ export default function AutoTrading() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-crypto-muted">Order Type</label>
-                  <select value={config.execution.order_type} onChange={e => updateConfig({ ...config, execution: { ...config.execution, order_type: e.target.value } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
+                  <select value={config.execution?.order_type||'MARKET'} onChange={e => updateConfig({ ...config, execution: { ...(config.execution||{}), order_type: e.target.value } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
                     <option value="MARKET">Market (instant)</option>
                     <option value="LIMIT">Limit (better price)</option>
                   </select>
                 </div>
                 <div>
                   <label className="text-xs text-crypto-muted">Broker</label>
-                  <select value={config.execution.broker_id} onChange={e => updateConfig({ ...config, execution: { ...config.execution, broker_id: e.target.value } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
-                    {Object.keys(brokers).map(id => <option key={id} value={id}>{id} - {brokers[id].type}</option>)}
+                  <select value={config.execution?.broker_id||'coindcx'} onChange={e => updateConfig({ ...config, execution: { ...(config.execution||{}), broker_id: e.target.value } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border">
+                    {Object.keys(brokers).length>0 ? Object.keys(brokers).map(id => <option key={id} value={id}>{id} - {brokers[id].type}</option>) : <option value="coindcx">coindcx - CoinDCX REAL</option>}
                   </select>
                 </div>
                 <div>
                   <label className="text-xs text-crypto-muted">Slippage Tolerance %</label>
-                  <input type="number" step="0.1" value={config.execution.slippage_tolerance_pct} onChange={e => updateConfig({ ...config, execution: { ...config.execution, slippage_tolerance_pct: parseFloat(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                  <input type="number" step="0.1" value={config.execution?.slippage_tolerance_pct||0.5} onChange={e => updateConfig({ ...config, execution: { ...(config.execution||{}), slippage_tolerance_pct: parseFloat(e.target.value)||0.5 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
                 </div>
                 <div>
                   <label className="text-xs text-crypto-muted">Cooldown Between Trades (min)</label>
-                  <input type="number" value={config.trading_hours.cooldown_between_trades_minutes} onChange={e => updateConfig({ ...config, trading_hours: { ...config.trading_hours, cooldown_between_trades_minutes: parseInt(e.target.value) } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                  <input type="number" value={config.trading_hours?.cooldown_between_trades_minutes||30} onChange={e => updateConfig({ ...config, trading_hours: { ...(config.trading_hours||{}), cooldown_between_trades_minutes: parseInt(e.target.value)||30 } })} className="w-full mt-1 px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
                 </div>
               </div>
               <div className="mt-3 space-y-2">
                 <label className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
-                  <input type="checkbox" checked={config.execution.auto_sl_tp} onChange={e => updateConfig({ ...config, execution: { ...config.execution, auto_sl_tp: e.target.checked } })} />
+                  <input type="checkbox" checked={!!config.execution?.auto_sl_tp} onChange={e => updateConfig({ ...config, execution: { ...(config.execution||{}), auto_sl_tp: e.target.checked } })} />
                   <span className="text-sm">Auto SL/TP (OCO)</span>
                 </label>
                 <label className="flex items-center gap-2 p-2 rounded-lg bg-crypto-bg border border-crypto-border/50 cursor-pointer">
-                  <input type="checkbox" checked={config.execution.multiple_tp} onChange={e => updateConfig({ ...config, execution: { ...config.execution, multiple_tp: e.target.checked } })} />
+                  <input type="checkbox" checked={!!config.execution?.multiple_tp} onChange={e => updateConfig({ ...config, execution: { ...(config.execution||{}), multiple_tp: e.target.checked } })} />
                   <span className="text-sm">Multiple TP (50/30/20)</span>
                 </label>
                 <label className="flex items-center gap-2 p-2 rounded-lg bg-red-500/5 border border-red-500/20 cursor-pointer">
-                  <input type="checkbox" checked={config.execution.enable_real_trading} onChange={e => updateConfig({ ...config, execution: { ...config.execution, enable_real_trading: e.target.checked } })} />
+                  <input type="checkbox" checked={!!config.execution?.enable_real_trading} onChange={e => updateConfig({ ...config, execution: { ...(config.execution||{}), enable_real_trading: e.target.checked } })} />
                   <span className="text-sm text-red-400 font-bold">Enable REAL Trading (requires API keys + safety flag)</span>
                 </label>
               </div>
@@ -490,16 +529,16 @@ export default function AutoTrading() {
             <div className="space-y-2 max-h-[600px] overflow-auto">
               {trades.slice().reverse().map((trade, i) => (
                 <div key={i} className={`p-3 rounded-xl border flex items-center justify-between ${trade.real_trading ? 'bg-red-500/5 border-red-500/20' : 'bg-crypto-bg border-crypto-border/50'}`}>
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold">{trade.symbol}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${trade.side === 'BUY' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{trade.side}</span>
-                    <span className="text-xs text-crypto-muted">{trade.quantity?.toFixed(4)} @ ${trade.entry_price?.toFixed(2)}</span>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-bold">{trade.symbol||'Unknown'}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${trade.side === 'BUY' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{trade.side||'BUY'}</span>
+                    <span className="text-xs text-crypto-muted">{safeFixed(trade.quantity,4)} @ ${safeFixed(trade.entry_price,2)}</span>
                     <span className={`text-xs px-1.5 py-0.5 rounded-full ${trade.real_trading ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>{trade.real_trading ? 'REAL' : 'PAPER'}</span>
-                    <span className="text-xs text-crypto-muted">{trade.signal} {trade.confidence?.toFixed(0)}%</span>
+                    <span className="text-xs text-crypto-muted">{trade.signal||''} {safeFixed(trade.confidence,0)}%</span>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-crypto-muted">{new Date(trade.timestamp).toLocaleString()}</div>
-                    <div className="text-xs">{trade.mode} • {trade.broker}</div>
+                    <div className="text-xs text-crypto-muted">{trade.timestamp ? new Date(trade.timestamp).toLocaleString() : 'Unknown time'}</div>
+                    <div className="text-xs">{trade.mode||'auto'} • {trade.broker||'paper'}</div>
                   </div>
                 </div>
               ))}
@@ -518,15 +557,15 @@ export default function AutoTrading() {
             <div className="space-y-3">
               {pending.map((approval) => (
                 <div key={approval.id} className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-lg">{approval.symbol}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${approval.call.signal.includes('BUY') ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>{approval.call.signal}</span>
-                        <span className="text-xs text-crypto-muted">{approval.quantity?.toFixed(4)} @ ${approval.call.entry_price?.toFixed(2)} • {approval.call.confidence?.toFixed(0)}% conf</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${approval.call?.signal?.includes('BUY') ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>{approval.call?.signal||'BUY'}</span>
+                        <span className="text-xs text-crypto-muted">{safeFixed(approval.quantity,4)} @ ${safeFixed(approval.call?.entry_price,2)} • {safeFixed(approval.call?.confidence,0)}% conf</span>
                       </div>
-                      <div className="text-xs text-crypto-muted mt-1">SL ${approval.call.stop_loss?.toFixed(2)} • TP1 ${approval.call.take_profits?.tp1?.toFixed(2)} • RR {approval.call.risk_reward?.toFixed(2)}</div>
-                      <div className="text-[10px] text-crypto-muted mt-1">ID: {approval.id} • {new Date(approval.timestamp).toLocaleString()}</div>
+                      <div className="text-xs text-crypto-muted mt-1">SL ${safeFixed(approval.call?.stop_loss,2)} • TP1 ${safeFixed(approval.call?.take_profits?.tp1,2)} • RR {safeFixed(approval.call?.risk_reward,2)}</div>
+                      <div className="text-[10px] text-crypto-muted mt-1">ID: {approval.id} • {approval.timestamp ? new Date(approval.timestamp).toLocaleString() : ''}</div>
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => approveTrade(approval.id)} className="px-4 py-2 rounded-xl bg-emerald-500 text-black font-bold flex items-center gap-1"><CheckCircle size={14} /> Approve & Execute</button>
@@ -568,7 +607,7 @@ export default function AutoTrading() {
                 </>
               )}
               {brokerForm.broker_type === 'paper' && (
-                <input type="number" placeholder="Initial Balance (testing only)" value={brokerForm.initial_balance} onChange={e => setBrokerForm({ ...brokerForm, initial_balance: parseFloat(e.target.value) })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
+                <input type="number" placeholder="Initial Balance (testing only)" value={brokerForm.initial_balance} onChange={e => setBrokerForm({ ...brokerForm, initial_balance: parseFloat(e.target.value)||10000 })} className="w-full px-3 py-2 rounded-xl bg-crypto-bg border border-crypto-border" />
               )}
               <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs">
                 <div className="font-bold text-emerald-400">CoinDCX Real Money - No Paper Simulation</div>

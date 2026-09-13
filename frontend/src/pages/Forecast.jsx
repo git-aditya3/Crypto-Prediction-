@@ -97,7 +97,7 @@ export default function Forecast() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-white flex items-center gap-2">
                   <BarChart3 size={18} className="text-crypto-accent" />
-                  Forecast Comparison ({steps} days) • Current: ${forecast?.current_price?.toFixed(2) || livePrice.toFixed(2)}
+                  Forecast Comparison ({steps} days) • Current: ${(forecast?.current_price ?? livePrice ?? 0).toFixed(2)}
                 </h3>
                 <div className="flex gap-1 p-1 rounded-xl bg-crypto-bg border border-crypto-border">
                   {['ensemble','transformer','lstm','xgboost','arima'].map(m => (
@@ -158,9 +158,9 @@ export default function Forecast() {
                         <div className="text-[11px] text-crypto-muted">Day {i+1}</div>
                       </div>
                       <div className="text-right">
-                        <div className="mono font-bold text-sm text-white">${row[activeModel]?.toFixed(2) || row.ensemble?.toFixed(2)}</div>
+                        <div className="mono font-bold text-sm text-white">${(row[activeModel] ?? row.ensemble ?? 0).toFixed(2)}</div>
                         <div className={`text-xs font-bold ${row.ensemble > livePrice ? 'text-crypto-bull' : 'text-crypto-bear'}`}>
-                          {(((row.ensemble - livePrice) / livePrice) * 100).toFixed(2)}%
+                          {(((row.ensemble ?? 0) - (livePrice||1)) / (livePrice||1) * 100).toFixed(2)}%
                         </div>
                       </div>
                     </div>
@@ -223,15 +223,15 @@ export default function Forecast() {
                 </thead>
                 <tbody>
                   {chartData.map((row, i) => {
-                    const change = ((row.ensemble - livePrice) / livePrice * 100)
+                    const change = (((row.ensemble ?? 0) - (livePrice||1)) / (livePrice||1) * 100)
                     return (
                       <tr key={i} className="border-b border-crypto-border/20 hover:bg-crypto-card/30 transition">
                         <td className="p-3 font-medium text-white">{row.fullDate}</td>
-                        <td className="p-3 text-right mono text-crypto-muted">${row.lstm?.toFixed(2) || '-'}</td>
-                        <td className="p-3 text-right mono text-crypto-accent2">${row.transformer?.toFixed(2) || '-'}</td>
-                        <td className="p-3 text-right mono text-violet-400">${row.xgboost?.toFixed(2) || '-'}</td>
-                        <td className="p-3 text-right mono text-gray-400">${row.arima?.toFixed(2) || '-'}</td>
-                        <td className="p-3 text-right mono font-bold text-crypto-accent">${row.ensemble?.toFixed(2) || '-'}</td>
+                        <td className="p-3 text-right mono text-crypto-muted">${row.lstm != null ? row.lstm.toFixed(2) : '-'}</td>
+                        <td className="p-3 text-right mono text-crypto-accent2">${row.transformer != null ? row.transformer.toFixed(2) : '-'}</td>
+                        <td className="p-3 text-right mono text-violet-400">${row.xgboost != null ? row.xgboost.toFixed(2) : '-'}</td>
+                        <td className="p-3 text-right mono text-gray-400">${row.arima != null ? row.arima.toFixed(2) : '-'}</td>
+                        <td className="p-3 text-right mono font-bold text-crypto-accent">${row.ensemble != null ? row.ensemble.toFixed(2) : '-'}</td>
                         <td className={`p-3 text-right mono font-bold ${change >= 0 ? 'text-crypto-bull' : 'text-crypto-bear'}`}>
                           {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                         </td>

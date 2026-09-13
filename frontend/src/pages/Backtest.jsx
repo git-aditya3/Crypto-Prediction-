@@ -5,6 +5,8 @@ import GlassCard, { StatCard } from '../components/GlassCard'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
 import { BarChart3, TrendingUp, TrendingDown, Zap, Target, Shield, DollarSign, Activity } from 'lucide-react'
 
+const safeFixed = (v,d=2)=>{ const n=typeof v==="number"?v:parseFloat(v); return isNaN(n)? (0).toFixed(d) : n.toFixed(d) }
+
 export default function Backtest() {
   const { selectedSymbol, setSelectedSymbol } = useMarketStore()
   const [strategy, setStrategy] = useState('ma')
@@ -90,10 +92,10 @@ export default function Backtest() {
         {result && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <StatCard label="Total Return" value={`${result.metrics.total_return_pct.toFixed(2)}%`} subValue={`${result.metrics.num_trades} trades`} trend={result.metrics.total_return_pct >= 0 ? `+${result.metrics.total_return_pct.toFixed(2)}%` : `${result.metrics.total_return_pct.toFixed(2)}%`} icon={TrendingUp} accent={result.metrics.total_return_pct >= 0 ? 'bull' : 'bear'} />
-              <StatCard label="Sharpe Ratio" value={result.metrics.sharpe_ratio.toFixed(2)} subValue="Risk-adjusted" icon={Activity} accent="accent2" />
-              <StatCard label="Max Drawdown" value={`${result.metrics.max_drawdown_pct.toFixed(2)}%`} subValue="Worst drop" icon={TrendingDown} accent="bear" />
-              <StatCard label="Win Rate" value={`${result.metrics.win_rate_pct.toFixed(1)}%`} subValue={`PF: ${result.metrics.profit_factor?.toFixed(2) || '—'}`} icon={Target} accent="accent" />
+              <StatCard label="Total Return" value={`${safeFixed(result.metrics?.total_return_pct,2)}%`} subValue={`${result.metrics.num_trades} trades`} trend={result.metrics.total_return_pct >= 0 ? `+${safeFixed(result.metrics?.total_return_pct,2)}%` : `${safeFixed(result.metrics?.total_return_pct,2)}%`} icon={TrendingUp} accent={result.metrics.total_return_pct >= 0 ? 'bull' : 'bear'} />
+              <StatCard label="Sharpe Ratio" value={safeFixed(result.metrics?.sharpe_ratio,2)} subValue="Risk-adjusted" icon={Activity} accent="accent2" />
+              <StatCard label="Max Drawdown" value={`${safeFixed(result.metrics?.max_drawdown_pct,2)}%`} subValue="Worst drop" icon={TrendingDown} accent="bear" />
+              <StatCard label="Win Rate" value={`${safeFixed(result.metrics?.win_rate_pct,1)}%`} subValue={`PF: ${result.metrics?.profit_factor ? safeFixed(result.metrics.profit_factor,2) : "—" || '—'}`} icon={Target} accent="accent" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -140,10 +142,10 @@ export default function Backtest() {
                       <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-crypto-bg/40 border border-crypto-border/20">
                         <div>
                           <div className="text-xs font-bold text-white">{t.entry_date?.slice(0,10)} → {t.exit_date?.slice(0,10)}</div>
-                          <div className="text-[11px] text-crypto-muted">{t.entry_price?.toFixed(2)} → {t.exit_price?.toFixed(2)}</div>
+                          <div className="text-[11px] text-crypto-muted">{safeFixed(t.entry_price,2)} → {safeFixed(t.exit_price,2)}</div>
                         </div>
                         <div className={`px-2.5 py-1 rounded-full text-xs font-bold mono ${t.pnl >= 0 ? 'bg-crypto-bull/10 text-crypto-bull border border-crypto-bull/20' : 'bg-crypto-bear/10 text-crypto-bear border border-crypto-bear/20'}`}>
-                          {t.pnl >= 0 ? '+' : ''}${t.pnl?.toFixed(2)}
+                          {t.pnl >= 0 ? '+' : ''}${safeFixed(t.pnl,2)}
                         </div>
                       </div>
                     ))}
@@ -177,12 +179,12 @@ export default function Backtest() {
                   {Object.entries(compare).map(([name, m]) => (
                     <tr key={name} className="border-b border-crypto-border/20 hover:bg-crypto-card/30 transition">
                       <td className="p-3 font-bold text-white">{name}</td>
-                      <td className={`p-3 text-right mono font-bold ${m.total_return_pct >= 0 ? 'text-crypto-bull' : 'text-crypto-bear'}`}>{m.total_return_pct.toFixed(2)}%</td>
-                      <td className="p-3 text-right mono text-white">{m.sharpe_ratio.toFixed(2)}</td>
-                      <td className="p-3 text-right mono text-crypto-bear">{m.max_drawdown_pct.toFixed(2)}%</td>
-                      <td className="p-3 text-right mono text-white">{m.win_rate_pct.toFixed(1)}%</td>
+                      <td className={`p-3 text-right mono font-bold ${m.total_return_pct >= 0 ? 'text-crypto-bull' : 'text-crypto-bear'}`}>{safeFixed(m.total_return_pct,2)}%</td>
+                      <td className="p-3 text-right mono text-white">{safeFixed(m.sharpe_ratio,2)}</td>
+                      <td className="p-3 text-right mono text-crypto-bear">{safeFixed(m.max_drawdown_pct,2)}%</td>
+                      <td className="p-3 text-right mono text-white">{safeFixed(m.win_rate_pct,1)}%</td>
                       <td className="p-3 text-right mono text-crypto-muted">{m.num_trades}</td>
-                      <td className="p-3 text-right mono text-white">{m.profit_factor?.toFixed(2) || '—'}</td>
+                      <td className="p-3 text-right mono text-white">{m.profit_factor ? safeFixed(m.profit_factor,2) : "—" || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

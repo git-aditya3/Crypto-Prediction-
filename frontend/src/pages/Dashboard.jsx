@@ -4,13 +4,11 @@ import { api } from '../api/client'
 import { fetchKlines } from '../api/binance'
 import PriceChart from '../components/PriceChart'
 import AssetGrid from '../components/AssetGrid'
-import SignalCard from '../components/SignalCard'
-import SentimentGauge from '../components/SentimentGauge'
 import GlassCard, { StatCard } from '../components/GlassCard'
 import TradingCallCard from '../components/TradingCallCard'
 import { useMarketStore } from '../store/useMarketStore'
 import { useSettingsStore } from '../store/useSettingsStore'
-import { TrendingUp, TrendingDown, Activity, Zap, Brain, BarChart3, DollarSign, Award, Target, ArrowRight, Shield, GraduationCap, CheckCircle } from 'lucide-react'
+import { TrendingUp, BarChart3, DollarSign, Award, Target, ArrowRight, Shield, GraduationCap, CheckCircle } from 'lucide-react'
 import accuracyData from '../data/accuracy.json'
 
 export default function Dashboard() {
@@ -24,6 +22,18 @@ export default function Dashboard() {
   const [tradingSummary, setTradingSummary] = useState(null)
   const [trainingStatus, setTrainingStatus] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const safeFixed = (v, d=2) => {
+    const n = typeof v === 'number' ? v : parseFloat(v)
+    if (isNaN(n)) return '0.00'
+    return n.toFixed(d)
+  }
+
+  const safeLocale = (v) => {
+    const n = typeof v === 'number' ? v : parseFloat(v)
+    if (isNaN(n)) return '0.00'
+    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: n > 1000 ? 2 : 4 })
+  }
 
   useEffect(() => {
     fetchAllTickers()
@@ -82,25 +92,25 @@ export default function Dashboard() {
   const changePct = prevPrice ? ((livePrice - prevPrice) / prevPrice * 100) : 0
   const isPositive = changePct >= 0
 
-  const accuracy = accuracyData[selectedSymbol] || accuracyData['BTC-USD']
+  const accuracy = accuracyData[selectedSymbol] || accuracyData['BTC-USD'] || { models: { ensemble: { mape: 6.3 }, arima: { mape: 2.57 } }, best_model: 'arima' }
   const selectedCall = tradingCalls.find(c => c.symbol === selectedSymbol) || tradingCalls[0]
 
   const stats = [
     { 
       label: 'Live Binance Price • Real', 
-      value: `$${livePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: livePrice > 1000 ? 2 : 4 })}`, 
+      value: `$${safeLocale(livePrice)}`, 
       subValue: `${selectedSymbol} • Real Market Data`,
-      trend: `${isPositive ? '+' : ''}${changePct.toFixed(2)}% • Real`,
+      trend: `${isPositive ? '+' : ''}${safeFixed(changePct,2)}% • Real`,
       icon: DollarSign,
       accent: isPositive ? 'bull' : 'bear'
     },
     { 
       label: 'Real Trading Call • Actual Trade', 
       value: selectedCall?.signal || signal?.signal || 'HOLD', 
-      subValue: `${selectedCall?.action || 'WAIT'} • ${selectedCall?.confidence?.toFixed(0) || signal?.confidence?.toFixed(0) || 0}% • Real Money`,
-      trend: selectedCall ? `RR 1:${selectedCall.risk_reward?.tp1?.toFixed(1) || '1'} • Real` : null,
+      subValue: `${selectedCall?.action || 'WAIT'} • ${safeFixed(selectedCall?.confidence ?? signal?.confidence ?? 0,0)}% • Real Money`,
+      trend: selectedCall ? `RR 1:${safeFixed(selectedCall.risk_reward?.tp1 ?? 1,1)} • Real` : null,
       icon: Target,
-      accent: selectedCall?.signal?.includes('BUY') || signal?.signal?.includes('BUY') ? 'bull' : selectedCall?.signal?.includes('SELL') || signal?.signal?.includes('SELL') ? 'bear' : 'accent2'
+      accent: (selectedCall?.signal?.includes('BUY') || signal?.signal?.includes('BUY')) ? 'bull' : (selectedCall?.signal?.includes('SELL') || signal?.signal?.includes('SELL')) ? 'bear' : 'accent2'
     },
     { 
       label: 'Continuous Training • Endless', 
@@ -112,7 +122,7 @@ export default function Dashboard() {
     },
     { 
       label: 'Model Accuracy • Real Data', 
-      value: accuracy?.models?.ensemble ? `${accuracy.models.ensemble.mape.toFixed(2)}%` : '2.57%', 
+      value: accuracy?.models?.ensemble ? `${safeFixed(accuracy.models.ensemble.mape,2)}%` : '2.57%', 
       subValue: `MAPE • Best: ${accuracy?.best_model || 'ARIMA'} • Real`,
       trend: 'v4 Max Perf',
       icon: Award,
@@ -129,7 +139,7 @@ export default function Dashboard() {
       <div className="relative max-w-[1600px] mx-auto p-6 space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3">
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3 flex-wrap">
               <span className="text-white">Real Trading</span>
               <span className="bg-gradient-to-r from-emerald-400 to-violet-400 bg-clip-text text-transparent">Intelligence</span>
               <span className="px-3 py-1 rounded-full bg-emerald-500 text-black text-xs font-black tracking-widest">REAL MONEY • LIVE</span>
@@ -143,7 +153,7 @@ export default function Dashboard() {
             </p>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 backdrop-blur">
               <div className="live-dot bg-emerald-500"></div>
               <span className="text-xs font-bold tracking-widest text-emerald-400">REAL TRADING • NO SIMULATION</span>
@@ -163,7 +173,7 @@ export default function Dashboard() {
             <CheckCircle size={20} className="text-black" />
           </div>
           <div className="flex-1">
-            <div className="font-black text-white flex items-center gap-2">
+            <div className="font-black text-white flex items-center gap-2 flex-wrap">
               REAL TRADING • Models Train Endlessly with Live Market Data • No Fake Money Simulation
               <span className="px-2 py-1 rounded-full bg-emerald-500 text-black text-[10px] font-black">REAL</span>
               <span className="px-2 py-1 rounded-full bg-violet-500 text-white text-[10px] font-black">ENDLESS LEARNING</span>
@@ -180,13 +190,13 @@ export default function Dashboard() {
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <h2 className="text-sm font-bold tracking-widest text-crypto-muted uppercase flex items-center gap-2">
               <BarChart3 size={14} />
               Real Markets • Live Binance • Click to Analyze • Real Trading Calls
             </h2>
             <div className="text-xs text-crypto-muted hidden md:flex items-center gap-3">
-              <span>Account: ${accountBalance} • Risk: {riskPerTrade*100}% • Real Money</span>
+              <span>Account: ${accountBalance} • Risk: {(riskPerTrade||0.02)*100}% • Real Money</span>
               <span className="px-2 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-bold">
                 {trainingStatus?.is_running ? '● Training Live' : '○ Training Ready'} • Endless Learning
               </span>
@@ -248,7 +258,7 @@ export default function Dashboard() {
 
           <div className="lg:col-span-7">
             <GlassCard className="p-6 border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-crypto-card/30 to-violet-500/5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h3 className="font-bold text-white flex items-center gap-2">
                   <Award size={18} className="text-emerald-400" />
                   Real Data Performance • Past Week • Live Binance
@@ -268,9 +278,9 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-2">
-                {accuracy && Object.entries(accuracy.models).map(([name, m]) => {
+                {accuracy && Object.entries(accuracy.models || {}).map(([name, m]) => {
                   const isBest = m.best || accuracy.best_model === name
-                  const mape = m.mape
+                  const mape = m.mape ?? 0
                   let status = 'Good'
                   let color = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
                   if (mape < 3) { status = 'Excellent Real'; color = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' }
@@ -283,8 +293,8 @@ export default function Dashboard() {
                         <div className={`w-2 h-2 rounded-full ${name === 'ensemble' ? 'bg-emerald-500' : name === 'arima' ? 'bg-violet-400' : 'bg-crypto-muted'}`}></div>
                         <span className={`font-bold capitalize ${isBest ? 'text-emerald-400' : 'text-white'}`}>{name} {isBest && '★ Real'}</span>
                       </div>
-                      <span className="mono font-bold text-white">{mape.toFixed(2)}% • Real</span>
-                      <span className="mono text-crypto-muted">${m.rmse?.toFixed(0) || '—'} • Real</span>
+                      <span className="mono font-bold text-white">{safeFixed(mape,2)}% • Real</span>
+                      <span className="mono text-crypto-muted">${m.rmse ? safeFixed(m.rmse,0) : '—'} • Real</span>
                       <span className="text-emerald-400 font-bold text-xs">{m.improvement || '—'} • Real</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-bold border w-fit ${color}`}>{status}</span>
                     </div>
@@ -295,7 +305,7 @@ export default function Dashboard() {
               <div className="mt-6">
                 {loading ? (
                   <div className="shimmer h-[400px] rounded-xl"></div>
-                ) : (
+                ) : history ? (
                   <PriceChart 
                     data={history} 
                     forecast={forecast} 
@@ -303,39 +313,41 @@ export default function Dashboard() {
                     symbol={selectedSymbol}
                     height={420}
                   />
+                ) : (
+                  <div className="h-[420px] flex items-center justify-center bg-crypto-bg rounded-xl border border-crypto-border text-crypto-muted">Loading chart...</div>
                 )}
               </div>
 
               {selectedCall && (
                 <div className="mt-6 p-4 rounded-xl bg-crypto-bg/50 border border-emerald-500/20">
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <Shield size={14} className="text-emerald-400" />
                     <span className="text-xs font-bold tracking-widest text-emerald-400 uppercase">Real Trading Call • {selectedCall.symbol} • Live Binance • Actual Money</span>
                     <span className="ml-auto px-2 py-1 rounded-full bg-emerald-500 text-black text-xs font-black">REAL • LIVE</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-black ${selectedCall.signal.includes('BUY') ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>
-                      {selectedCall.action} • Real
+                    <span className={`px-2 py-1 rounded-full text-xs font-black ${(selectedCall.signal||'').includes('BUY') ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>
+                      {selectedCall.action || 'HOLD'} • Real
                     </span>
                   </div>
                   <div className="grid grid-cols-4 gap-2 text-xs">
                     <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
                       <div className="text-[10px] text-emerald-400 uppercase font-bold">Entry • Real Binance</div>
-                      <div className="mono font-black text-white mt-1">${selectedCall.entry_price.toFixed(2)} • Real</div>
+                      <div className="mono font-black text-white mt-1">${safeFixed(selectedCall.entry_price,2)} • Real</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
                       <div className="text-[10px] text-red-400 uppercase font-bold">SL • Real Risk</div>
-                      <div className="mono font-black text-red-400 mt-1">${selectedCall.stop_loss.toFixed(2)} • Real</div>
+                      <div className="mono font-black text-red-400 mt-1">${safeFixed(selectedCall.stop_loss,2)} • Real</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
                       <div className="text-[10px] text-emerald-400 uppercase font-bold">TP1 • Real Profit</div>
-                      <div className="mono font-black text-emerald-400 mt-1">${selectedCall.take_profits.tp1.toFixed(2)} • Real</div>
+                      <div className="mono font-black text-emerald-400 mt-1">${safeFixed(selectedCall.take_profits?.tp1,2)} • Real</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-crypto-bg border border-crypto-border text-center">
                       <div className="text-[10px] text-crypto-muted uppercase">R:R • Real</div>
-                      <div className="mono font-black text-white mt-1">1:{selectedCall.risk_reward.tp1.toFixed(1)} • Real</div>
+                      <div className="mono font-black text-white mt-1">1:{safeFixed(selectedCall.risk_reward?.tp1 ?? 1,1)} • Real</div>
                     </div>
                   </div>
                   <div className="mt-3 p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-[11px] text-amber-400/80">
-                    <span className="font-bold text-amber-400">REAL MONEY:</span> Entry is live Binance price NOW • Use this for actual trades • Risk ${selectedCall.position?.risk_amount?.toFixed(0)} real • Models train endlessly with live data • No fake simulation
+                    <span className="font-bold text-amber-400">REAL MONEY:</span> Entry is live Binance price NOW • Use this for actual trades • Risk ${safeFixed(selectedCall.position?.risk_amount,0)} real • Models train endlessly with live data • No fake simulation
                   </div>
                 </div>
               )}

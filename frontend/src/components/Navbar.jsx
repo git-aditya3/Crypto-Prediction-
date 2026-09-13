@@ -45,10 +45,10 @@ export default function Navbar() {
           <div className="hidden sm:block">
             <div className="font-bold text-[17px] tracking-tight leading-none flex items-center gap-2">
               CryptoPred
-              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500/20 to-violet-500/20 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold tracking-widest">V6 • AUTO REAL TRADING</span>
+              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500/20 to-violet-500/20 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold tracking-widest">V7 • COINDCX REAL MONEY</span>
             </div>
             <div className="text-[11px] text-crypto-muted font-medium tracking-wide mt-0.5 flex items-center gap-2">
-              <span>AUTO REAL TRADES • EXTENSIVE CONTROL • LIVE DATA</span>
+              <span>COINDCX REAL INR • NO PAPER • LIVE DATA</span>
               {isLive && (
                 <span className="flex items-center gap-1 text-emerald-400">
                   <span className="live-dot !w-1.5 !h-1.5"></span> LIVE
@@ -123,7 +123,7 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="lg:hidden border-t border-crypto-border/50 bg-crypto-card/90 backdrop-blur-2xl">
+        <div className="lg:hidden border-t border-crypto-border/50 bg-crypto-card/90 backdrop-blur-2xl max-h-[80vh] overflow-auto">
           <div className="p-4 grid grid-cols-2 gap-2">
             {nav.map(item => {
               const active = loc.pathname === item.path

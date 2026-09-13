@@ -6,6 +6,8 @@ import SentimentGauge from '../components/SentimentGauge'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, AreaChart, Area } from 'recharts'
 import { Sparkles, MessageCircle, Newspaper, Users, Brain, TrendingUp, Search } from 'lucide-react'
 
+const safeFixed = (v,d=2)=>{ const n=typeof v==="number"?v:parseFloat(v); return isNaN(n)? (0).toFixed(d) : n.toFixed(d) }
+
 export default function Sentiment() {
   const { selectedSymbol, setSelectedSymbol } = useMarketStore()
   const [data, setData] = useState(null)
@@ -51,7 +53,7 @@ export default function Sentiment() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-white flex items-center gap-2">
                   <TrendingUp size={18} className="text-crypto-accent" />
-                  Daily Sentiment • {selectedSymbol} • Avg: {data?.average_compound?.toFixed(3) || '0.000'}
+                  Daily Sentiment • {selectedSymbol} • Avg: {safeFixed(data?.average_compound,3) || '0.000'}
                 </h3>
                 <div className="flex items-center gap-2 text-xs">
                   <span className="px-2 py-1 rounded-full bg-crypto-bull/10 text-crypto-bull border border-crypto-bull/20">Bullish &gt; 0.1</span>
@@ -151,19 +153,19 @@ export default function Sentiment() {
                       {analysis.sentiment.compound > 0.5 ? 'Very Bullish' : analysis.sentiment.compound > 0.1 ? 'Bullish' : analysis.sentiment.compound < -0.5 ? 'Very Bearish' : analysis.sentiment.compound < -0.1 ? 'Bearish' : 'Neutral'}
                     </span>
                   </div>
-                  <div className="text-2xl font-black mono text-white mb-2">{analysis.sentiment.compound?.toFixed(3)}</div>
+                  <div className="text-2xl font-black mono text-white mb-2">{safeFixed(analysis.sentiment?.compound,3)}</div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
                     <div className="p-2 rounded-lg bg-crypto-bull/10 text-center">
                       <div className="text-crypto-muted">Pos</div>
-                      <div className="font-bold text-crypto-bull">{analysis.sentiment.pos?.toFixed(2)}</div>
+                      <div className="font-bold text-crypto-bull">{safeFixed(analysis.sentiment?.pos,2)}</div>
                     </div>
                     <div className="p-2 rounded-lg bg-crypto-bear/10 text-center">
                       <div className="text-crypto-muted">Neg</div>
-                      <div className="font-bold text-crypto-bear">{analysis.sentiment.neg?.toFixed(2)}</div>
+                      <div className="font-bold text-crypto-bear">{safeFixed(analysis.sentiment?.neg,2)}</div>
                     </div>
                     <div className="p-2 rounded-lg bg-gray-500/10 text-center">
                       <div className="text-crypto-muted">Neu</div>
-                      <div className="font-bold text-gray-400">{analysis.sentiment.neu?.toFixed(2)}</div>
+                      <div className="font-bold text-gray-400">{safeFixed(analysis.sentiment?.neu,2)}</div>
                     </div>
                   </div>
                 </div>

@@ -1,16 +1,28 @@
 import { useEffect, useState } from 'react'
 import { Search, Zap, TrendingUp, Activity, AlertTriangle } from 'lucide-react'
+import { api } from '../api/client'
 
 export default function Scanner() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('all')
 
+  const safeFixed = (v, d=2) => {
+    const n = typeof v === 'number' ? v : parseFloat(v)
+    if (isNaN(n)) return '0.00'
+    return n.toFixed(d)
+  }
+
+  const safeLocale = (v) => {
+    const n = typeof v === 'number' ? v : parseFloat(v)
+    if (isNaN(n)) return 'N/A'
+    return n.toLocaleString(undefined, { maximumFractionDigits: 4 })
+  }
+
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/scanner')
-      const json = await res.json()
+      const json = await api.getScanner().catch(() => fetch('/api/scanner').then(r => r.json()))
       setData(json)
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
@@ -29,7 +41,7 @@ export default function Scanner() {
 
   return (
     <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-black flex items-center gap-3"><Search className="text-emerald-400" /> Market Scanner - Real Opportunities</h1>
           <p className="text-crypto-muted mt-1">Live Binance scan - volume spikes, momentum, RSI - real trading opportunities, no fake</p>
@@ -40,34 +52,34 @@ export default function Scanner() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
           <div className="text-xs text-crypto-muted uppercase">Total Opportunities</div>
-          <div className="text-2xl font-black mt-1">{data?.total_opportunities || 0}</div>
+          <div className="text-2xl font-black mt-1">{data?.total_opportunities ?? 0}</div>
           <div className="text-xs text-emerald-400 mt-1">Real market data</div>
         </div>
         <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
           <div className="text-xs text-crypto-muted uppercase">Volume Spikes</div>
-          <div className="text-2xl font-black mt-1">{data?.volume_spikes?.length || 0}</div>
+          <div className="text-2xl font-black mt-1">{data?.volume_spikes?.length ?? 0}</div>
           <div className="text-xs text-amber-400 mt-1">Whale activity</div>
         </div>
         <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
           <div className="text-xs text-crypto-muted uppercase">Momentum</div>
-          <div className="text-2xl font-black mt-1">{data?.momentum?.length || 0}</div>
+          <div className="text-2xl font-black mt-1">{data?.momentum?.length ?? 0}</div>
           <div className="text-xs text-violet-400 mt-1">Strong movers</div>
         </div>
         <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
           <div className="text-xs text-crypto-muted uppercase">RSI Signals</div>
-          <div className="text-2xl font-black mt-1">{data?.rsi_signals?.length || 0}</div>
+          <div className="text-2xl font-black mt-1">{data?.rsi_signals?.length ?? 0}</div>
           <div className="text-xs text-blue-400 mt-1">Oversold/Overbought</div>
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 rounded-xl bg-crypto-card border border-crypto-border w-fit">
+      <div className="flex gap-2 p-1 rounded-xl bg-crypto-card border border-crypto-border w-fit overflow-x-auto">
         {[
           { id: 'all', label: 'Top Opportunities' },
           { id: 'volume', label: 'Volume Spikes' },
           { id: 'momentum', label: 'Momentum' },
           { id: 'rsi', label: 'RSI' }
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === t.id ? 'bg-white text-black' : 'text-crypto-muted hover:text-white'}`}>{t.label}</button>
+          <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${tab === t.id ? 'bg-white text-black' : 'text-crypto-muted hover:text-white'}`}>{t.label}</button>
         ))}
       </div>
 
@@ -78,28 +90,28 @@ export default function Scanner() {
           filtered.map((item, i) => (
             <div key={i} className="p-4 rounded-2xl bg-crypto-card border border-crypto-border hover:border-crypto-borderLight transition">
               <div className="flex items-center justify-between">
-                <span className="font-black text-lg">{item.symbol}</span>
+                <span className="font-black text-lg">{item.symbol || 'Unknown'}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
                   item.type === 'VOLUME_SPIKE' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
                   item.type === 'MOMENTUM' ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20' :
                   item.type === 'OVERSOLD' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                   item.type === 'OVERBOUGHT' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
                   'bg-crypto-bg text-crypto-muted'
-                }`}>{item.type}</span>
+                }`}>{item.type || 'UNKNOWN'}</span>
               </div>
               
               <div className="mt-3 space-y-1 text-sm">
-                {item.price && <div className="flex justify-between"><span className="text-crypto-muted">Price</span><span className="font-bold">${item.price?.toLocaleString?.() || item.price}</span></div>}
-                {item.change_pct !== undefined && <div className="flex justify-between"><span className="text-crypto-muted">Change</span><span className={`font-bold ${item.change_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{item.change_pct?.toFixed(2)}%</span></div>}
-                {item.ratio && <div className="flex justify-between"><span className="text-crypto-muted">Vol Ratio</span><span className="font-bold text-amber-400">{item.ratio?.toFixed(2)}x</span></div>}
-                {item.rsi && <div className="flex justify-between"><span className="text-crypto-muted">RSI</span><span className={`font-bold ${item.rsi < 30 ? 'text-emerald-400' : 'text-red-400'}`}>{item.rsi?.toFixed(1)}</span></div>}
+                {item.price != null && <div className="flex justify-between"><span className="text-crypto-muted">Price</span><span className="font-bold">${safeLocale(item.price)}</span></div>}
+                {item.change_pct != null && <div className="flex justify-between"><span className="text-crypto-muted">Change</span><span className={`font-bold ${(item.change_pct||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{safeFixed(item.change_pct,2)}%</span></div>}
+                {item.ratio != null && <div className="flex justify-between"><span className="text-crypto-muted">Vol Ratio</span><span className="font-bold text-amber-400">{safeFixed(item.ratio,2)}x</span></div>}
+                {item.rsi != null && <div className="flex justify-between"><span className="text-crypto-muted">RSI</span><span className={`font-bold ${(item.rsi||50) < 30 ? 'text-emerald-400' : (item.rsi||50) > 70 ? 'text-red-400' : 'text-crypto-muted'}`}>{safeFixed(item.rsi,1)}</span></div>}
                 {item.strength && <div className="flex justify-between"><span className="text-crypto-muted">Strength</span><span className={`text-xs px-2 py-0.5 rounded-full ${item.strength === 'STRONG' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>{item.strength}</span></div>}
               </div>
 
               <div className="mt-3 p-2 rounded-xl bg-crypto-bg border border-crypto-border/50">
                 <div className="text-xs text-crypto-muted flex items-center gap-1">
                   {item.type === 'VOLUME_SPIKE' ? <Activity size={12} /> : item.type === 'MOMENTUM' ? <TrendingUp size={12} /> : <AlertTriangle size={12} />}
-                  {item.signal || item.action}
+                  {item.signal || item.action || 'No signal'}
                 </div>
               </div>
 
@@ -115,7 +127,7 @@ export default function Scanner() {
 
       {data && (
         <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
-          <div className="text-xs text-crypto-muted">Source: {data.source} • {data.no_fake} • Timestamp: {new Date(data.timestamp).toLocaleString()}</div>
+          <div className="text-xs text-crypto-muted">Source: {data.source || 'Live Binance'} • {data.no_fake || 'Real data'} • Timestamp: {data.timestamp ? new Date(data.timestamp).toLocaleString() : new Date().toLocaleString()}</div>
         </div>
       )}
     </div>

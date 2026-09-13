@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BookOpen, Plus, TrendingUp, Award } from 'lucide-react'
+import { api } from '../api/client'
 
 export default function Journal() {
   const [entries, setEntries] = useState([])
@@ -8,11 +9,18 @@ export default function Journal() {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ symbol: 'BTC-USD', side: 'LONG', entry_price: 100000, quantity: 0.01, strategy: 'AI Ensemble', notes: '', emotions: '', lessons: '', tags: '' })
 
+  const safeFixed = (v, d=2) => {
+    if (v == null) return '0.00'
+    const n = typeof v === 'number' ? v : parseFloat(v)
+    if (isNaN(n)) return '0.00'
+    return n.toFixed(d)
+  }
+
   const fetchData = async () => {
     try {
       const [jRes, sRes] = await Promise.all([
-        fetch('/api/journal').then(r => r.json()),
-        fetch('/api/journal/stats').then(r => r.json())
+        api.getJournal().catch(() => fetch('/api/journal').then(r => r.json())),
+        api.getJournalStats().catch(() => fetch('/api/journal/stats').then(r => r.json()))
       ])
       setEntries(jRes.entries || [])
       setStats(jRes.stats || sRes)
@@ -23,12 +31,13 @@ export default function Journal() {
 
   const addEntry = async () => {
     try {
-      const res = await fetch('/api/journal/add', {
+      const payload = { ...form, entry_price: parseFloat(form.entry_price)||0, quantity: parseFloat(form.quantity)||0, tags: form.tags.split(',').map(t => t.trim()).filter(Boolean) }
+      await api.addJournalEntry(payload).catch(() => fetch('/api/journal/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, entry_price: parseFloat(form.entry_price), quantity: parseFloat(form.quantity), tags: form.tags.split(',').map(t => t.trim()).filter(Boolean) })
-      })
-      if (res.ok) { setShowAdd(false); fetchData() } else { const d = await res.json(); alert(d.detail) }
+        body: JSON.stringify(payload)
+      }))
+      setShowAdd(false); fetchData()
     } catch (e) { alert(e.message) }
   }
 
@@ -36,7 +45,7 @@ export default function Journal() {
 
   return (
     <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-black flex items-center gap-3"><BookOpen className="text-blue-400" /> Trading Journal - Real Trades</h1>
           <p className="text-crypto-muted mt-1">Log real trades with notes, emotions, lessons - improve actual trading</p>
@@ -48,19 +57,19 @@ export default function Journal() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
             <div className="text-xs text-crypto-muted uppercase">Total Entries</div>
-            <div className="text-2xl font-black">{stats.total_entries}</div>
+            <div className="text-2xl font-black">{stats.total_entries ?? 0}</div>
           </div>
           <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
             <div className="text-xs text-crypto-muted uppercase">Win Rate</div>
-            <div className="text-2xl font-black text-emerald-400">{stats.win_rate?.toFixed(1)}%</div>
+            <div className="text-2xl font-black text-emerald-400">{safeFixed(stats.win_rate,1)}%</div>
           </div>
           <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
             <div className="text-xs text-crypto-muted uppercase">Total P&L</div>
-            <div className={`text-2xl font-black ${stats.total_pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${stats.total_pnl?.toFixed(2)}</div>
+            <div className={`text-2xl font-black ${(stats.total_pnl??0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${safeFixed(stats.total_pnl,2)}</div>
           </div>
           <div className="p-4 rounded-2xl bg-crypto-card border border-crypto-border">
             <div className="text-xs text-crypto-muted uppercase">Avg P&L</div>
-            <div className="text-2xl font-black">${stats.avg_pnl?.toFixed(2)}</div>
+            <div className="text-2xl font-black">${safeFixed(stats.avg_pnl,2)}</div>
           </div>
         </div>
       )}
@@ -73,19 +82,19 @@ export default function Journal() {
           <div className="space-y-4">
             {entries.map(entry => (
               <div key={entry.id} className="p-4 rounded-xl bg-crypto-bg border border-crypto-border/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold">{entry.symbol}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${entry.side === 'LONG' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{entry.side}</span>
-                    <span className="text-xs text-crypto-muted">{entry.quantity} @ ${entry.entry_price}</span>
-                    <span className={`text-xs font-bold ${entry.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${entry.pnl?.toFixed(2)} ({entry.pnl_pct?.toFixed(2)}%)</span>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold">{entry.symbol || 'Unknown'}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${entry.side === 'LONG' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{entry.side || 'LONG'}</span>
+                    <span className="text-xs text-crypto-muted">{safeFixed(entry.quantity,6)} @ ${safeFixed(entry.entry_price,2)}</span>
+                    <span className={`text-xs font-bold ${(entry.pnl??0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${safeFixed(entry.pnl,2)} ({safeFixed(entry.pnl_pct,2)}%)</span>
                   </div>
-                  <span className="text-[10px] text-crypto-muted">{new Date(entry.timestamp).toLocaleString()}</span>
+                  <span className="text-[10px] text-crypto-muted">{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : ''}</span>
                 </div>
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                   <div className="p-2 rounded-lg bg-crypto-card border border-crypto-border/30">
                     <div className="text-[10px] text-crypto-muted uppercase">Strategy</div>
-                    <div className="font-medium mt-1">{entry.strategy}</div>
+                    <div className="font-medium mt-1">{entry.strategy || 'Unknown'}</div>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {entry.tags?.map((tag, i) => <span key={i} className="px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400 text-[10px]">{tag}</span>)}
                     </div>

@@ -133,9 +133,21 @@ class BrokerManager:
 
     def add_broker(self, broker_id: str, broker_type: str, api_key: str = None, api_secret: str = None,
                    testnet: bool = False, initial_balance: float = 10000) -> Dict:
-        """Add new broker with extensive controls"""
+        """Add new broker with extensive controls - updates if exists (fixes UI duplicate bug)"""
+        # If broker exists, remove old to allow update (fixes UI bug where coindcx placeholder exists)
         if broker_id in self.brokers:
-            raise ValueError(f"Broker {broker_id} already exists")
+            logger.info(f"Broker {broker_id} exists, updating with new credentials")
+            # Don't delete paper broker protection, but allow coindcx update
+            if broker_id != "paper":
+                try:
+                    if broker_id in self.brokers:
+                        del self.brokers[broker_id]
+                    if broker_id in self.broker_configs:
+                        del self.broker_configs[broker_id]
+                except:
+                    pass
+            else:
+                raise ValueError(f"Broker {broker_id} already exists and is protected")
 
         if broker_type == "binance":
             broker = BinanceBroker(testnet=testnet)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { api } from '../api/client'
 import TradingCallCard, { TradingCallSummary } from '../components/TradingCallCard'
 import GlassCard from '../components/GlassCard'
@@ -7,8 +7,10 @@ import { useMarketStore } from '../store/useMarketStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { Target, Filter, RefreshCw, TrendingUp, AlertTriangle, Zap, DollarSign, Shield, CheckCircle, ExternalLink, BookOpen } from 'lucide-react'
 
+const DEFAULT_SYMBOLS = ['BTC-USD','ETH-USD','BNB-USD','SOL-USD','XRP-USD','ADA-USD']
+
 export default function TradingCalls() {
-  const { tickers, prices, selectedSymbol, setSelectedSymbol } = useMarketStore()
+  const { tickers, setSelectedSymbol } = useMarketStore()
   const { accountBalance, riskPerTrade, timeframe, updateAccountBalance, updateRiskPerTrade, updateTimeframe } = useSettingsStore()
   
   const [calls, setCalls] = useState([])
@@ -27,20 +29,23 @@ export default function TradingCalls() {
         api.getTradingCalls({ timeframe, accountBalance, riskPerTrade }),
         api.getTradingGuide().catch(() => null)
       ])
-      setCalls(callsData.calls || [])
-      setSummary(callsData.summary || null)
+      const list = callsData?.calls || []
+      setCalls(list)
+      setSummary(callsData?.summary || null)
       if (guideData) setGuide(guideData)
-      if (callsData.calls && callsData.calls.length > 0) {
-        const activeCalls = callsData.calls.filter(c => c.status === 'ACTIVE' && c.entry_price > 0)
-        const topCall = activeCalls[0] || callsData.calls[0]
+      if (list.length > 0) {
+        const activeCalls = list.filter(c => c.status === 'ACTIVE' && (c.entry_price ?? 0) > 0)
+        const topCall = activeCalls[0] || list[0]
         setSelectedCall(topCall)
         setSelectedSymbol(topCall.symbol)
       }
     } catch (e) {
       console.error('Failed to fetch trading calls', e)
-      const mockCalls = Object.keys(tickers).slice(0, 6).map(sym => {
-        const ticker = tickers[sym]
-        const price = ticker?.price || 100
+      // Robust mock fallback - use DEFAULT_SYMBOLS if tickers empty
+      const symbols = Object.keys(tickers || {}).length > 0 ? Object.keys(tickers).slice(0, 6) : DEFAULT_SYMBOLS
+      const mockCalls = symbols.map(sym => {
+        const ticker = tickers?.[sym]
+        const price = ticker?.price || (100 + Math.random()*50000)
         const isBuy = Math.random() > 0.5
         return {
           symbol: sym,
@@ -56,7 +61,7 @@ export default function TradingCalls() {
             tp3: isBuy ? price * 1.09 : price * 0.91
           },
           risk_reward: { tp1: 1, tp2: 2, tp3: 3 },
-          position: { size: 0.1, risk_amount: accountBalance * riskPerTrade, risk_pct: riskPerTrade * 100, leverage_suggestion: '3x-5x' },
+          position: { size: 0.1, risk_amount: (accountBalance||10000) * (riskPerTrade||0.02), risk_pct: (riskPerTrade||0.02) * 100, leverage_suggestion: '3x-5x', position_value: price * 0.1 },
           timeframe,
           risk_level: Math.random() > 0.6 ? 'LOW' : Math.random() > 0.3 ? 'MEDIUM' : 'HIGH',
           model_used: 'Ensemble v3 - Real Data',
@@ -80,10 +85,13 @@ export default function TradingCalls() {
         buys: mockCalls.filter(c => c.signal.includes('BUY')).length,
         sells: mockCalls.filter(c => c.signal.includes('SELL')).length,
         holds: 0,
-        avg_confidence: mockCalls.reduce((a, b) => a + b.confidence, 0) / mockCalls.length,
-        high_confidence: mockCalls.filter(c => c.confidence > 80).length
+        avg_confidence: mockCalls.reduce((a, b) => a + (b.confidence||0), 0) / (mockCalls.length||1),
+        high_confidence: mockCalls.filter(c => (c.confidence||0) > 80).length
       })
-      if (mockCalls.length > 0) setSelectedCall(mockCalls[0])
+      if (mockCalls.length > 0) {
+        setSelectedCall(mockCalls[0])
+        setSelectedSymbol(mockCalls[0].symbol)
+      }
     } finally {
       setLoading(false)
     }
@@ -94,7 +102,7 @@ export default function TradingCalls() {
   }, [timeframe, accountBalance, riskPerTrade])
 
   useEffect(() => {
-    if (selectedCall) {
+    if (selectedCall?.symbol) {
       setSelectedSymbol(selectedCall.symbol)
       Promise.all([
         api.getHistory(selectedCall.symbol, '1y').catch(() => null),
@@ -104,18 +112,27 @@ export default function TradingCalls() {
         if (f) setForecast(f)
       })
     }
-  }, [selectedCall])
+  }, [selectedCall?.symbol])
 
-  const filteredCalls = calls.filter(call => {
-    if (call.status !== 'ACTIVE' && filter !== 'all') return false
-    if (filter === 'buy') return call.signal.includes('BUY')
-    if (filter === 'sell') return call.signal.includes('SELL')
-    if (filter === 'high_conf') return call.confidence > 80
-    if (filter === 'low_risk') return call.risk_level === 'LOW'
-    return true
-  })
+  const filteredCalls = useMemo(() => {
+    return calls.filter(call => {
+      const status = call.status || 'ACTIVE'
+      if (filter !== 'all' && status !== 'ACTIVE') return false
+      if (filter === 'buy') return (call.signal||'').includes('BUY')
+      if (filter === 'sell') return (call.signal||'').includes('SELL')
+      if (filter === 'high_conf') return (call.confidence||0) > 80
+      if (filter === 'low_risk') return call.risk_level === 'LOW'
+      return true
+    })
+  }, [calls, filter])
 
-  const activeCalls = calls.filter(c => c.status === 'ACTIVE' && c.entry_price > 0)
+  const activeCalls = useMemo(() => calls.filter(c => (c.status||'ACTIVE') === 'ACTIVE' && (c.entry_price??0) > 0), [calls])
+
+  const safeFixed = (v, d=2) => {
+    const n = typeof v === 'number' ? v : parseFloat(v)
+    if (isNaN(n)) return '0.00'
+    return n.toFixed(d)
+  }
 
   return (
     <div className="min-h-screen bg-crypto-bg relative">
@@ -140,7 +157,7 @@ export default function TradingCalls() {
             </p>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-crypto-card border border-emerald-500/20">
               <DollarSign size={14} className="text-emerald-400" />
               <input 
@@ -180,7 +197,7 @@ export default function TradingCalls() {
             <CheckCircle size={20} className="text-black" />
           </div>
           <div className="flex-1">
-            <div className="font-black text-white flex items-center gap-2">
+            <div className="font-black text-white flex items-center gap-2 flex-wrap">
               REAL TRADING CALLS • No Paper Simulation • Live Binance Data
               <span className="px-2 py-1 rounded-full bg-emerald-500 text-black text-[10px] font-black">REAL MONEY</span>
             </div>
@@ -188,7 +205,7 @@ export default function TradingCalls() {
               Entry price = <span className="text-emerald-400 font-bold">live Binance price NOW</span> • 
               These calls are for <span className="text-white font-bold">actual trades with real money</span> on Binance/Bybit. 
               Use strict stop loss. Models train endlessly with real market data every 12h. 
-              Risk: ${accountBalance * riskPerTrade} per trade. 
+              Risk: ${((accountBalance||0) * (riskPerTrade||0)).toFixed(0)} per trade. 
               <span className="text-amber-400"> Not financial advice - high risk!</span>
             </div>
           </div>
@@ -208,22 +225,22 @@ export default function TradingCalls() {
         {summary && <TradingCallSummary summary={summary} />}
 
         {/* Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0">
             <Filter size={14} className="text-emerald-400" />
             <span className="text-xs font-bold tracking-widest text-emerald-400 uppercase">Real Calls:</span>
           </div>
           {[
             { key: 'all', label: 'All Real Calls', count: activeCalls.length },
-            { key: 'buy', label: 'Buy • Long Real', count: activeCalls.filter(c => c.signal.includes('BUY')).length },
-            { key: 'sell', label: 'Sell • Short Real', count: activeCalls.filter(c => c.signal.includes('SELL')).length },
-            { key: 'high_conf', label: 'High Conf >80% Real', count: activeCalls.filter(c => c.confidence > 80).length },
+            { key: 'buy', label: 'Buy • Long Real', count: activeCalls.filter(c => (c.signal||'').includes('BUY')).length },
+            { key: 'sell', label: 'Sell • Short Real', count: activeCalls.filter(c => (c.signal||'').includes('SELL')).length },
+            { key: 'high_conf', label: 'High Conf >80% Real', count: activeCalls.filter(c => (c.confidence||0) > 80).length },
             { key: 'low_risk', label: 'Low Risk Real', count: activeCalls.filter(c => c.risk_level === 'LOW').length },
           ].map(f => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-2 border ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-2 border flex-shrink-0 ${
                 filter === f.key 
                   ? 'bg-emerald-500 text-black border-emerald-500 shadow-lg shadow-emerald-500/20' 
                   : 'bg-crypto-card border-crypto-border text-crypto-muted hover:text-white hover:border-emerald-500/30'
@@ -258,6 +275,7 @@ export default function TradingCalls() {
                 <AlertTriangle size={32} className="mx-auto mb-4 text-crypto-muted" />
                 <div className="text-white font-bold">No real calls match filter</div>
                 <div className="text-crypto-muted text-sm mt-1">Try changing filter or refresh live data</div>
+                <button onClick={() => setFilter('all')} className="mt-3 btn-secondary">Show All</button>
               </GlassCard>
             )}
           </div>
@@ -267,7 +285,7 @@ export default function TradingCalls() {
             {selectedCall ? (
               <>
                 <GlassCard className="p-6 border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-crypto-card to-crypto-bg">
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
                     <h3 className="font-bold text-white flex items-center gap-2">
                       <Target size={18} className="text-emerald-400" />
                       {selectedCall.symbol} • Real Trading Call • Live Binance
@@ -275,15 +293,15 @@ export default function TradingCalls() {
                     </h3>
                     <div className="flex items-center gap-2">
                       <span className="text-xs px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        {selectedCall.model_used} • Real Data
+                        {selectedCall.model_used || 'Ensemble v3'} • Real Data
                       </span>
                       <span className="text-xs px-2 py-1 rounded-full bg-crypto-bg border border-crypto-border text-crypto-muted">
-                        {selectedCall.timeframe} • Live
+                        {selectedCall.timeframe || timeframe} • Live
                       </span>
                     </div>
                   </div>
 
-                  {history && (
+                  {history ? (
                     <PriceChart 
                       data={history} 
                       forecast={forecast} 
@@ -291,6 +309,13 @@ export default function TradingCalls() {
                       symbol={selectedCall.symbol}
                       height={400}
                     />
+                  ) : (
+                    <div className="h-[400px] flex items-center justify-center bg-crypto-bg rounded-xl border border-crypto-border">
+                      <div className="text-center">
+                        <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-crypto-muted" />
+                        <div className="text-sm text-crypto-muted">Loading chart for {selectedCall.symbol}...</div>
+                      </div>
+                    </div>
                   )}
 
                   {/* Real Trading Levels Visualization */}
@@ -313,14 +338,14 @@ export default function TradingCalls() {
                         <div className="absolute left-0 top-0 bottom-0 w-[20%] bg-red-500/10 border-r border-red-500/20 flex items-center justify-center">
                           <div className="text-center">
                             <div className="text-[10px] text-red-400 font-bold">SL • Real</div>
-                            <div className="mono text-xs font-bold text-red-400">${selectedCall.stop_loss.toFixed(2)}</div>
+                            <div className="mono text-xs font-bold text-red-400">${safeFixed(selectedCall.stop_loss, 2)}</div>
                           </div>
                         </div>
                         
                         <div className="absolute left-[20%] top-0 bottom-0 w-[15%] bg-emerald-500/10 border-x border-emerald-500/20 flex items-center justify-center">
                           <div className="text-center">
                             <div className="text-[10px] text-emerald-400 font-bold">ENTRY • Live</div>
-                            <div className="mono text-xs font-bold text-emerald-400">${selectedCall.entry_price.toFixed(2)}</div>
+                            <div className="mono text-xs font-bold text-emerald-400">${safeFixed(selectedCall.entry_price, 2)}</div>
                             <div className="text-[8px] text-emerald-400/70">Binance Real</div>
                           </div>
                         </div>
@@ -328,7 +353,7 @@ export default function TradingCalls() {
                         <div className="absolute left-[35%] top-0 bottom-0 w-[20%] bg-emerald-500/10 border-r border-emerald-500/20 flex items-center justify-center">
                           <div className="text-center">
                             <div className="text-[10px] text-emerald-400 font-bold">TP1 Real</div>
-                            <div className="mono text-xs font-bold text-emerald-400">${selectedCall.take_profits.tp1.toFixed(2)}</div>
+                            <div className="mono text-xs font-bold text-emerald-400">${safeFixed(selectedCall.take_profits?.tp1, 2)}</div>
                             <div className="text-[9px] text-emerald-400/70">1:1 • Real</div>
                           </div>
                         </div>
@@ -336,7 +361,7 @@ export default function TradingCalls() {
                         <div className="absolute left-[55%] top-0 bottom-0 w-[20%] bg-emerald-500/15 border-r border-emerald-500/20 flex items-center justify-center">
                           <div className="text-center">
                             <div className="text-[10px] text-emerald-400 font-bold">TP2 Real</div>
-                            <div className="mono text-xs font-bold text-emerald-400">${selectedCall.take_profits.tp2.toFixed(2)}</div>
+                            <div className="mono text-xs font-bold text-emerald-400">${safeFixed(selectedCall.take_profits?.tp2, 2)}</div>
                             <div className="text-[9px] text-emerald-400/70">1:2 • Real</div>
                           </div>
                         </div>
@@ -344,20 +369,20 @@ export default function TradingCalls() {
                         <div className="absolute left-[75%] top-0 bottom-0 w-[25%] bg-emerald-500/20 flex items-center justify-center">
                           <div className="text-center">
                             <div className="text-[10px] text-emerald-400 font-bold">TP3 Real</div>
-                            <div className="mono text-xs font-bold text-emerald-400">${selectedCall.take_profits.tp3.toFixed(2)}</div>
+                            <div className="mono text-xs font-bold text-emerald-400">${safeFixed(selectedCall.take_profits?.tp3, 2)}</div>
                             <div className="text-[9px] text-emerald-400/70">1:3 • Real</div>
                           </div>
                         </div>
                       </div>
                       
-                      <div className="flex justify-between mt-3 text-[11px]">
+                      <div className="flex justify-between mt-3 text-[11px] flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <Shield size={12} className="text-red-400" />
-                          <span className="text-crypto-muted">Real Risk: <span className="text-red-400 font-bold">${selectedCall.position?.risk_amount?.toFixed(0)} ({selectedCall.position?.risk_pct?.toFixed(0)}%) • Real Money</span></span>
+                          <span className="text-crypto-muted">Real Risk: <span className="text-red-400 font-bold">${safeFixed(selectedCall.position?.risk_amount, 0)} ({safeFixed(selectedCall.position?.risk_pct, 0)}%) • Real Money</span></span>
                         </div>
                         <div className="flex items-center gap-2">
                           <TrendingUp size={12} className="text-emerald-400" />
-                          <span className="text-crypto-muted">Real Reward: <span className="text-emerald-400 font-bold">Up to {(selectedCall.risk_reward?.tp3 || 3).toFixed(1)}x • Actual Profit</span></span>
+                          <span className="text-crypto-muted">Real Reward: <span className="text-emerald-400 font-bold">Up to {safeFixed(selectedCall.risk_reward?.tp3 ?? 3, 1)}x • Actual Profit</span></span>
                         </div>
                       </div>
                     </div>
@@ -373,21 +398,21 @@ export default function TradingCalls() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
                       <div className="p-3 rounded-xl bg-crypto-bg border border-crypto-border">
                         <div className="font-bold text-white mb-1">1. Entry • Real Price</div>
-                        <div className="text-crypto-muted leading-relaxed">Limit order at <span className="text-emerald-400 font-bold">${selectedCall.entry_price.toFixed(2)}</span> (live Binance). Use {selectedCall.position?.size?.toFixed(4)} {selectedCall.symbol.split('-')[0]}.</div>
+                        <div className="text-crypto-muted leading-relaxed">Limit order at <span className="text-emerald-400 font-bold">${safeFixed(selectedCall.entry_price, 2)}</span> (live Binance). Use {safeFixed(selectedCall.position?.size, 4)} {selectedCall.symbol.split('-')[0]}.</div>
                       </div>
                       <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20">
                         <div className="font-bold text-red-400 mb-1">2. Stop Loss • Mandatory</div>
-                        <div className="text-crypto-muted leading-relaxed">Set SL at <span className="text-red-400 font-bold">${selectedCall.stop_loss.toFixed(2)}</span> strictly. Never trade without SL. Risk ${selectedCall.position?.risk_amount?.toFixed(0)} real.</div>
+                        <div className="text-crypto-muted leading-relaxed">Set SL at <span className="text-red-400 font-bold">${safeFixed(selectedCall.stop_loss, 2)}</span> strictly. Never trade without SL. Risk ${safeFixed(selectedCall.position?.risk_amount, 0)} real.</div>
                       </div>
                       <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
                         <div className="font-bold text-emerald-400 mb-1">3. Take Profit • Real</div>
-                        <div className="text-crypto-muted leading-relaxed">TP1 ${selectedCall.take_profits.tp1.toFixed(2)} (50%), TP2 ${selectedCall.take_profits.tp2.toFixed(2)} (30%), TP3 ${selectedCall.take_profits.tp3.toFixed(2)} (20%). Move SL to BE at TP1.</div>
+                        <div className="text-crypto-muted leading-relaxed">TP1 ${safeFixed(selectedCall.take_profits?.tp1, 2)} (50%), TP2 ${safeFixed(selectedCall.take_profits?.tp2, 2)} (30%), TP3 ${safeFixed(selectedCall.take_profits?.tp3, 2)} (20%). Move SL to BE at TP1.</div>
                       </div>
                     </div>
                   </div>
                 </GlassCard>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <GlassCard className="p-5">
                     <h4 className="font-bold text-white text-sm mb-3 flex items-center gap-2">
                       <Zap size={14} className="text-emerald-400" />
@@ -396,24 +421,24 @@ export default function TradingCalls() {
                     <div className="space-y-2.5">
                       <div className="flex justify-between p-2.5 rounded-xl bg-crypto-bg/40 border border-crypto-border/20">
                         <span className="text-xs text-crypto-muted">Live Binance Price</span>
-                        <span className="mono font-bold text-sm text-emerald-400">${selectedCall.current_price.toFixed(2)} • Real</span>
+                        <span className="mono font-bold text-sm text-emerald-400">${safeFixed(selectedCall.current_price, 2)} • Real</span>
                       </div>
                       <div className="flex justify-between p-2.5 rounded-xl bg-crypto-bg/40 border border-crypto-border/20">
                         <span className="text-xs text-crypto-muted">Predicted (Real Model)</span>
-                        <span className="mono font-bold text-sm text-white">${selectedCall.predicted_price.toFixed(2)}</span>
+                        <span className="mono font-bold text-sm text-white">${safeFixed(selectedCall.predicted_price, 2)}</span>
                       </div>
                       <div className="flex justify-between p-2.5 rounded-xl bg-crypto-bg/40 border border-crypto-border/20">
                         <span className="text-xs text-crypto-muted">Change • Real</span>
-                        <span className={`mono font-bold text-sm ${selectedCall.change_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {selectedCall.change_pct >= 0 ? '+' : ''}{selectedCall.change_pct.toFixed(2)}% • Real
+                        <span className={`mono font-bold text-sm ${(selectedCall.change_pct||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {(selectedCall.change_pct||0) >= 0 ? '+' : ''}{safeFixed(selectedCall.change_pct, 2)}% • Real
                         </span>
                       </div>
                       <div className="flex justify-between p-2.5 rounded-xl bg-crypto-bg/40 border border-crypto-border/20">
                         <span className="text-xs text-crypto-muted">Confidence • Real Model</span>
-                        <span className="font-bold text-sm text-white">{selectedCall.confidence.toFixed(0)}% • {selectedCall.model_used}</span>
+                        <span className="font-bold text-sm text-white">{safeFixed(selectedCall.confidence, 0)}% • {selectedCall.model_used || 'Ensemble'}</span>
                       </div>
                       <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-                        <div className="text-[11px] text-crypto-muted leading-relaxed">{selectedCall.reasoning} • Real Binance data • Endless training</div>
+                        <div className="text-[11px] text-crypto-muted leading-relaxed">{selectedCall.reasoning || 'Real Binance data • Continuous training'} • Real Binance data • Endless training</div>
                       </div>
                     </div>
                   </GlassCard>
@@ -426,21 +451,21 @@ export default function TradingCalls() {
                     <div className="space-y-2.5">
                       <div className="flex justify-between p-2.5 rounded-xl bg-crypto-bg/40 border border-crypto-border/20">
                         <span className="text-xs text-crypto-muted">Real Position Size</span>
-                        <span className="mono font-bold text-xs text-white">{selectedCall.position?.size?.toFixed(4)} {selectedCall.symbol.split('-')[0]} • Real</span>
+                        <span className="mono font-bold text-xs text-white">{safeFixed(selectedCall.position?.size, 4)} {selectedCall.symbol.split('-')[0]} • Real</span>
                       </div>
                       <div className="flex justify-between p-2.5 rounded-xl bg-crypto-bg/40 border border-crypto-border/20">
                         <span className="text-xs text-crypto-muted">Real Position Value</span>
-                        <span className="mono font-bold text-xs text-emerald-400">${selectedCall.position?.position_value?.toFixed(0)} • Real Money</span>
+                        <span className="mono font-bold text-xs text-emerald-400">${safeFixed(selectedCall.position?.position_value, 0)} • Real Money</span>
                       </div>
                       <div className="flex justify-between p-2.5 rounded-xl bg-crypto-bg/40 border border-crypto-border/20">
                         <span className="text-xs text-crypto-muted">Leverage • Real</span>
-                        <span className="font-bold text-xs text-white">{selectedCall.leverage} • For Futures</span>
+                        <span className="font-bold text-xs text-white">{selectedCall.leverage || selectedCall.position?.leverage_suggestion || '3x-5x'} • For Futures</span>
                       </div>
                       <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/10">
                         <div className="flex gap-2">
-                          <AlertTriangle size={12} className="text-red-400 mt-0.5" />
+                          <AlertTriangle size={12} className="text-red-400 mt-0.5 flex-shrink-0" />
                           <div className="text-[11px] text-red-400/80 leading-relaxed">
-                            REAL MONEY: Risk {selectedCall.position?.risk_pct}% = ${selectedCall.position?.risk_amount?.toFixed(0)} real per trade. Use SL strictly. High risk - not financial advice. Real Binance data.
+                            REAL MONEY: Risk {safeFixed(selectedCall.position?.risk_pct, 0)}% = ${safeFixed(selectedCall.position?.risk_amount, 0)} real per trade. Use SL strictly. High risk - not financial advice. Real Binance data.
                           </div>
                         </div>
                       </div>
