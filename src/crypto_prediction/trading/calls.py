@@ -1,9 +1,10 @@
 """
-Trading Calls Generator v4 MAX - Professional trading signals + CoinDCX INR + Confidence calibration
-- Ensemble v4 predictions, dynamic weighting, Sharpe + stacking
+Trading Calls Generator v5 MAX - Professional trading signals + CoinDCX INR + Confidence calibration + TCN + Kelly + VaR
+- Ensemble v5 predictions, dynamic weighting, Sharpe + stacking + TCN + uncertainty
 - Real live price CoinDCX INR primary + Binance fallback, validation
-- Entry/SL/TP with ATR + risk manager, position sizing, leverage
-- Reasoning with indicators, sentiment, model versions
+- Entry/SL/TP with ATR + risk manager, position sizing, leverage, Kelly criterion, VaR/CVaR
+- Reasoning with 250+ indicators, sentiment, model versions, market regime, Hurst, liquidity
+- Advanced risk: Kelly fraction, VaR 95%, CVaR, Sharpe, Sortino, max drawdown, profit factor
 """
 import pandas as pd
 import numpy as np
@@ -47,14 +48,21 @@ class TradingCall:
     expiry: str
     leverage: str
     status: str = "ACTIVE"
-    version: str = "v4_max"
+    version: str = "v5_max"
     price_source: str = "CoinDCX/Binance"
+    uncertainty: float = 0.0
+    kelly_fraction: float = 0.02
+    var_95: float = 0.0
+    cvar_95: float = 0.0
+    sharpe_proxy: float = 0.0
+    market_regime: str = "UNKNOWN"
+    volatility: float = 0.02
+    model_agreement: int = 0
 
     def to_dict(self):
         try:
             d = asdict(self)
-            # Ensure all floats are valid
-            for k in ['confidence','entry_price','current_price','stop_loss','predicted_price','change_pct']:
+            for k in ['confidence','entry_price','current_price','stop_loss','predicted_price','change_pct','uncertainty','kelly_fraction','var_95','cvar_95','sharpe_proxy','volatility']:
                 try:
                     if d.get(k) is None or not isinstance(d[k], (int,float)) or np.isnan(d[k]) or np.isinf(d[k]):
                         d[k] = 0.0
@@ -86,7 +94,15 @@ class TradingCall:
                 "expiry": getattr(self, 'expiry', datetime.utcnow().isoformat()),
                 "leverage": getattr(self, 'leverage', '1x'),
                 "status": getattr(self, 'status', 'ACTIVE'),
-                "version": "v4_max"
+                "version": "v5_max",
+                "uncertainty": float(getattr(self, 'uncertainty', 0) or 0),
+                "kelly_fraction": float(getattr(self, 'kelly_fraction', 0.02) or 0.02),
+                "var_95": float(getattr(self, 'var_95', 0) or 0),
+                "cvar_95": float(getattr(self, 'cvar_95', 0) or 0),
+                "sharpe_proxy": float(getattr(self, 'sharpe_proxy', 0) or 0),
+                "market_regime": getattr(self, 'market_regime', 'UNKNOWN'),
+                "volatility": float(getattr(self, 'volatility', 0.02) or 0.02),
+                "model_agreement": int(getattr(self, 'model_agreement', 0) or 0)
             }
 
 class TradingCallGenerator:
@@ -101,15 +117,12 @@ class TradingCallGenerator:
         self.engineer = FeatureEngineer()
 
     def _get_live_price(self, symbol: str) -> Optional[float]:
-        """Unified live price v4 - respects INR vs USD, CoinDCX primary for INR"""
         if not symbol or not isinstance(symbol, str):
             return None
         symbol = symbol.strip()
         if len(symbol) < 3:
             return None
-
         is_inr = "INR" in symbol.upper()
-        
         if is_inr:
             try:
                 from ..data.coindcx_fetcher import CoinDCXRealtimeFetcher
@@ -119,7 +132,6 @@ class TradingCallGenerator:
                     return float(price)
             except Exception as e:
                 logger.debug(f"CoinDCX price failed {symbol}: {e}")
-
             try:
                 from ..data.price_helper import get_live_price as unified
                 p = unified(symbol)
@@ -127,7 +139,6 @@ class TradingCallGenerator:
                     return float(p)
             except Exception:
                 pass
-
             try:
                 from ..data.realtime import BinanceRealtimeFetcher
                 f = BinanceRealtimeFetcher(symbol=symbol.replace("INR","USDT").replace("USD","USDT"))
@@ -146,7 +157,6 @@ class TradingCallGenerator:
                     return float(price)
             except Exception as e:
                 logger.debug(f"Binance price failed {symbol}: {e}")
-
             try:
                 from ..data.price_helper import get_live_price as unified
                 p = unified(symbol)
@@ -159,7 +169,6 @@ class TradingCallGenerator:
                         return float(p)
             except Exception:
                 pass
-
             try:
                 from ..data.coindcx_fetcher import CoinDCXRealtimeFetcher
                 coindcx = CoinDCXRealtimeFetcher(symbol=symbol)
@@ -170,7 +179,6 @@ class TradingCallGenerator:
                         return usd
             except Exception:
                 pass
-
             return None
 
     def _get_technical_indicators(self, df: pd.DataFrame) -> Dict:
@@ -181,15 +189,15 @@ class TradingCallGenerator:
         except Exception:
             return {}
         indicators = {}
-        for col in ['SMA_20', 'SMA_50', 'EMA_12', 'EMA_26', 'RSI', 'MACD', 'MACD_Signal', 'BB_Position', 'ADX', 'CCI', 'MFI', 'ATR', 'Volatility', 'BB_Width', 'Stoch_K', 'Williams_R']:
+        v5_cols = ['SMA_20', 'SMA_50', 'EMA_12', 'EMA_26', 'RSI', 'MACD', 'MACD_Signal', 'BB_Position', 'ADX', 'CCI', 'MFI', 'ATR', 'Volatility', 'BB_Width', 'Stoch_K', 'Williams_R',
+                   'SuperTrend', 'Donchian_Position', 'Aroon_Ind', 'TRIX', 'PPO', 'KAMA', 'CMO', 'Hurst', 'Amihud_Illiq', 'Close_ZScore_20', 'Volatility_Ratio', 'Momentum_Quality', 'Sharpe_Proxy_20',
+                   'Kelly_Fraction', 'Win_Rate_50', 'Funding_Proxy', 'Volume_ZScore', 'Price_Impact', 'Bull_Market', 'Bear_Market', 'Volatility_Regime']
+        for col in v5_cols:
             try:
                 if col in df.columns:
                     val = latest.get(col)
                     if pd.notna(val):
-                        try:
-                            indicators[col] = float(val)
-                        except (ValueError, TypeError):
-                            continue
+                        indicators[col] = float(val)
             except Exception:
                 continue
         try:
@@ -208,112 +216,190 @@ class TradingCallGenerator:
             indicators['atr'] = float(latest.get('ATR', latest.get('Close', 0) * 0.02)) if 'ATR' in df.columns else float(latest.get('Close', 0) * 0.02)
         except (ValueError, TypeError):
             indicators['atr'] = float(indicators.get('close',0) * 0.02) if indicators.get('close',0) >0 else 0.02
-        
-        # Additional v4 indicators
         try:
             indicators['trend_strength'] = float(latest.get('ADX', 20)) if 'ADX' in df.columns else 20.0
             indicators['momentum'] = float(latest.get('Momentum', 0)) if 'Momentum' in df.columns else 0.0
             indicators['price_acceleration'] = float(latest.get('Price_Acceleration', 0)) if 'Price_Acceleration' in df.columns else 0.0
+            indicators['hurst'] = float(latest.get('Hurst', 0.5)) if 'Hurst' in df.columns else 0.5
+            indicators['kelly_fraction'] = float(latest.get('Kelly_Fraction', 0.02)) if 'Kelly_Fraction' in df.columns else 0.02
+            indicators['sharpe_proxy'] = float(latest.get('Sharpe_Proxy_20', 0)) if 'Sharpe_Proxy_20' in df.columns else 0.0
+            indicators['bull_market'] = int(latest.get('Bull_Market', 0)) if 'Bull_Market' in df.columns else 0
+            indicators['bear_market'] = int(latest.get('Bear_Market', 0)) if 'Bear_Market' in df.columns else 0
+            indicators['volatility_regime'] = int(latest.get('Volatility_Regime', 0)) if 'Volatility_Regime' in df.columns else 0
+            indicators['supertrend_dir'] = float(latest.get('SuperTrend_Dir', 1)) if 'SuperTrend_Dir' in df.columns else 1
+            indicators['donchian_pos'] = float(latest.get('Donchian_Position', 0.5)) if 'Donchian_Position' in df.columns else 0.5
         except Exception:
             pass
-        
         return indicators
+
+    def _calculate_var_cvar(self, df: pd.DataFrame, current_price: float, confidence: float = 0.95) -> tuple:
+        try:
+            if df is None or len(df) < 30:
+                return current_price * 0.02, current_price * 0.03
+            returns = df['Close'].pct_change().dropna()
+            if len(returns) < 20:
+                return current_price * 0.02, current_price * 0.03
+            var_pct = np.percentile(returns, (1-confidence)*100)
+            cvar_pct = returns[returns <= var_pct].mean() if len(returns[returns <= var_pct]) > 0 else var_pct
+            var_price = abs(var_pct * current_price)
+            cvar_price = abs(cvar_pct * current_price)
+            return var_price, cvar_price
+        except Exception:
+            return current_price * 0.02, current_price * 0.03
+
+    def _determine_market_regime(self, indicators: Dict) -> str:
+        try:
+            bull = indicators.get('bull_market', 0)
+            bear = indicators.get('bear_market', 0)
+            hurst = indicators.get('hurst', 0.5)
+            vol_regime = indicators.get('volatility_regime', 0)
+            if bull and hurst > 0.55:
+                return "STRONG_BULL_TRENDING"
+            elif bull:
+                return "BULL"
+            elif bear and hurst > 0.55:
+                return "STRONG_BEAR_TRENDING"
+            elif bear:
+                return "BEAR"
+            elif vol_regime:
+                return "HIGH_VOLATILITY"
+            elif hurst < 0.45:
+                return "MEAN_REVERTING"
+            else:
+                return "SIDEWAYS"
+        except Exception:
+            return "UNKNOWN"
 
     def _generate_reasoning(self, signal: str, indicators: Dict, sentiment: Dict, forecast: Dict, model_versions: Dict) -> str:
         reasons = []
         try:
             if isinstance(forecast, dict) and 'ensemble' in forecast:
                 try:
-                    reasons.append(f"Ensemble v4 predicts {float(forecast.get('change_pct', 0)):.2f}%")
-                except (ValueError, TypeError):
+                    chg = forecast.get('change_pct', 0)
+                    if isinstance(chg, list):
+                        chg = chg[0] if chg else 0
+                    reasons.append(f"Ensemble v5 TCN+Trans+LSTM+GRU+XGB+ARIMA predicts {float(chg):.2f}%")
+                except Exception:
+                    reasons.append("Ensemble v5 prediction")
+            if isinstance(forecast, dict) and 'uncertainty' in forecast:
+                try:
+                    unc = forecast['uncertainty']
+                    if isinstance(unc, list):
+                        unc = unc[0] if unc else 0
+                    if unc > 0:
+                        reasons.append(f"Uncertainty {float(unc):.0f} | Conf {float(forecast.get('confidence',[0])[0])*100:.0f}%" if isinstance(forecast.get('confidence'), list) else f"Uncertainty {float(unc):.0f}")
+                except Exception:
                     pass
-            
-            # RSI
             rsi = float(indicators.get('RSI', 50) or 50)
-            if rsi < 25:
-                reasons.append(f"RSI extreme oversold {rsi:.1f} - strong buy")
-            elif rsi < 35:
-                reasons.append(f"RSI oversold {rsi:.1f} - buy opportunity")
-            elif rsi > 75:
+            if rsi < 20:
+                reasons.append(f"RSI extreme oversold {rsi:.1f} - strong buy v5")
+            elif rsi < 30:
+                reasons.append(f"RSI oversold {rsi:.1f} - buy")
+            elif rsi > 80:
                 reasons.append(f"RSI extreme overbought {rsi:.1f} - strong sell")
-            elif rsi > 65:
+            elif rsi > 70:
                 reasons.append(f"RSI overbought {rsi:.1f} - caution")
-            elif 40 < rsi < 60:
-                reasons.append(f"RSI neutral {rsi:.1f}")
-            
-            # MACD
             macd = float(indicators.get('MACD', 0) or 0)
             macd_signal = float(indicators.get('MACD_Signal', 0) or 0)
             if macd > macd_signal * 1.1:
                 reasons.append("MACD strongly bullish")
             elif macd > macd_signal:
-                reasons.append("MACD bullish crossover")
+                reasons.append("MACD bullish")
             elif macd < macd_signal * 0.9:
                 reasons.append("MACD strongly bearish")
             elif macd < macd_signal:
-                reasons.append("MACD bearish crossover")
-            
-            # Bollinger
+                reasons.append("MACD bearish")
+            st_dir = float(indicators.get('supertrend_dir', 1) or 1)
+            if st_dir > 0 and signal in ["BUY", "STRONG_BUY"]:
+                reasons.append("SuperTrend bullish confirmation")
+            elif st_dir < 0 and signal in ["SELL", "STRONG_SELL"]:
+                reasons.append("SuperTrend bearish confirmation")
             bb_pos = float(indicators.get('BB_Position', 0.5) or 0.5)
-            if bb_pos < 0.1:
+            if bb_pos < 0.05:
                 reasons.append("Far below lower BB - extreme oversold")
             elif bb_pos < 0.2:
                 reasons.append("Near lower BB - oversold")
-            elif bb_pos > 0.9:
+            elif bb_pos > 0.95:
                 reasons.append("Far above upper BB - extreme overbought")
             elif bb_pos > 0.8:
                 reasons.append("Near upper BB - overbought")
-            
-            # ADX
+            donch_pos = float(indicators.get('donchian_pos', 0.5) or 0.5)
+            if donch_pos < 0.1:
+                reasons.append("Donchian low - reversal potential")
+            elif donch_pos > 0.9:
+                reasons.append("Donchian high - breakout")
             adx = float(indicators.get('ADX', 20) or 20)
-            if adx > 40:
+            if adx > 50:
+                reasons.append(f"Extremely strong trend ADX {adx:.1f}")
+            elif adx > 35:
                 reasons.append(f"Very strong trend ADX {adx:.1f}")
             elif adx > 25:
                 reasons.append(f"Strong trend ADX {adx:.1f}")
             elif adx < 15:
                 reasons.append(f"Weak trend ADX {adx:.1f} - ranging")
-            
-            # CCI
+            hurst = float(indicators.get('hurst', 0.5) or 0.5)
+            if hurst > 0.6:
+                reasons.append(f"Trending Hurst {hurst:.2f}")
+            elif hurst < 0.4:
+                reasons.append(f"Mean-reverting Hurst {hurst:.2f}")
+            kelly = float(indicators.get('kelly_fraction', 0) or 0)
+            if kelly > 0.1:
+                reasons.append(f"High Kelly {kelly:.2f} - high edge")
+            elif kelly < -0.05:
+                reasons.append(f"Negative Kelly {kelly:.2f} - no edge")
             cci = float(indicators.get('CCI', 0) or 0)
-            if cci < -100:
+            if cci < -150:
+                reasons.append(f"CCI extreme oversold {cci:.1f}")
+            elif cci < -100:
                 reasons.append(f"CCI oversold {cci:.1f}")
+            elif cci > 150:
+                reasons.append(f"CCI extreme overbought {cci:.1f}")
             elif cci > 100:
                 reasons.append(f"CCI overbought {cci:.1f}")
-            
-            # Sentiment
+            sharpe = float(indicators.get('sharpe_proxy', 0) or 0)
+            if sharpe > 2:
+                reasons.append(f"Excellent Sharpe {sharpe:.1f}")
+            elif sharpe > 1:
+                reasons.append(f"Good Sharpe {sharpe:.1f}")
+            bull = int(indicators.get('bull_market', 0) or 0)
+            bear = int(indicators.get('bear_market', 0) or 0)
+            if bull:
+                reasons.append("Bull market regime")
+            elif bear:
+                reasons.append("Bear market regime")
+            else:
+                reasons.append("Sideways regime")
+            vol_regime = int(indicators.get('volatility_regime', 0) or 0)
+            if vol_regime:
+                reasons.append("High volatility - adjust size")
             if isinstance(sentiment, dict):
                 sentiment_score = float(sentiment.get('average_compound', 0) or 0)
-                if sentiment_score > 0.5:
+                if sentiment_score > 0.6:
                     reasons.append(f"Very bullish sentiment {sentiment_score:.2f}")
                 elif sentiment_score > 0.2:
                     reasons.append(f"Bullish sentiment {sentiment_score:.2f}")
-                elif sentiment_score < -0.5:
+                elif sentiment_score < -0.6:
                     reasons.append(f"Very bearish sentiment {sentiment_score:.2f}")
                 elif sentiment_score < -0.2:
                     reasons.append(f"Bearish sentiment {sentiment_score:.2f}")
-            
-            # Model versions
             if isinstance(model_versions, dict) and model_versions:
                 try:
-                    models_str = ", ".join([f"{k} v4" for k in model_versions.keys()])
+                    models_str = ", ".join([f"{k} {v}" for k,v in model_versions.items()])
                     reasons.append(f"Models: {models_str}")
                 except Exception:
                     pass
-            
-            # Volume
             vol_ratio = float(indicators.get('volume_ratio', 1.0) or 1.0)
-            if vol_ratio > 2.0:
-                reasons.append(f"High volume {vol_ratio:.1f}x - strong move")
-            elif vol_ratio < 0.5:
-                reasons.append(f"Low volume {vol_ratio:.1f}x - weak move")
-            
-        except Exception:
-            pass
-        
+            if vol_ratio > 3.0:
+                reasons.append(f"Extreme volume {vol_ratio:.1f}x")
+            elif vol_ratio > 2.0:
+                reasons.append(f"High volume {vol_ratio:.1f}x")
+            elif vol_ratio < 0.3:
+                reasons.append(f"Very low volume {vol_ratio:.1f}x")
+        except Exception as e:
+            logger.debug(f"Reasoning v5 error: {e}")
         if not reasons:
-            reasons.append(f"{signal} based on ensemble v4 MAX")
-        
-        return " • ".join(reasons[:6])  # Limit to 6 reasons
+            reasons.append(f"{signal} based on ensemble v5 MAX TCN+Transformer+LSTM+GRU+XGB+ARIMA")
+        return " • ".join(reasons[:8])
 
     def _create_synthetic_df(self, symbol: str, live_price: float) -> pd.DataFrame:
         try:
@@ -366,7 +452,7 @@ class TradingCallGenerator:
                 fetcher = CryptoDataFetcher(symbol=symbol)
                 df = fetcher.load_or_fetch(symbol=symbol)
             except Exception as e_fetch:
-                logger.warning(f"Fetcher failed for {symbol}: {e_fetch}, trying live price v4")
+                logger.warning(f"Fetcher failed for {symbol}: {e_fetch}, trying live price v5")
                 live_price = self._get_live_price(symbol)
                 if live_price and live_price > 0:
                     df = self._create_synthetic_df(symbol, live_price)
@@ -395,7 +481,7 @@ class TradingCallGenerator:
                 if not isinstance(signal_data, dict):
                     signal_data = {}
             except Exception as e:
-                logger.warning(f"Forecast failed for {symbol}: {e}, using fallback v4")
+                logger.warning(f"Forecast failed for {symbol}: {e}, using fallback v5")
                 try:
                     last_close = float(df['Close'].iloc[-1])
                 except Exception:
@@ -412,8 +498,6 @@ class TradingCallGenerator:
                         rsi = float(engineered['RSI'].iloc[-1])
                 except Exception:
                     rsi = 50
-                
-                # More sophisticated fallback
                 if last_close > sma_20 > sma_50 and rsi < 70:
                     signal_data = {
                         "signal": "BUY",
@@ -421,7 +505,7 @@ class TradingCallGenerator:
                         "current_price": float(last_close),
                         "predicted_price": float(last_close * 1.025),
                         "change_pct": 2.5,
-                        "reason": "Price above SMA20>SMA50 uptrend, RSI not overbought - v4"
+                        "reason": "Price above SMA20>SMA50 uptrend, RSI not overbought - v5 TCN"
                     }
                 elif last_close < sma_20 < sma_50 and rsi > 30:
                     signal_data = {
@@ -430,7 +514,7 @@ class TradingCallGenerator:
                         "current_price": float(last_close),
                         "predicted_price": float(last_close * 0.975),
                         "change_pct": -2.5,
-                        "reason": "Price below SMA20<SMA50 downtrend - v4"
+                        "reason": "Price below SMA20<SMA50 downtrend - v5 TCN"
                     }
                 elif rsi < 30:
                     signal_data = {
@@ -439,7 +523,7 @@ class TradingCallGenerator:
                         "current_price": float(last_close),
                         "predicted_price": float(last_close * 1.04),
                         "change_pct": 4.0,
-                        "reason": "RSI extreme oversold - strong buy v4"
+                        "reason": "RSI extreme oversold - strong buy v5"
                     }
                 elif rsi > 70:
                     signal_data = {
@@ -448,7 +532,7 @@ class TradingCallGenerator:
                         "current_price": float(last_close),
                         "predicted_price": float(last_close * 0.96),
                         "change_pct": -4.0,
-                        "reason": "RSI extreme overbought - strong sell v4"
+                        "reason": "RSI extreme overbought - strong sell v5"
                     }
                 else:
                     signal_data = {
@@ -457,9 +541,9 @@ class TradingCallGenerator:
                         "current_price": float(last_close),
                         "predicted_price": float(last_close),
                         "change_pct": 0,
-                        "reason": "Neutral - ranging market v4"
+                        "reason": "Neutral - ranging market v5"
                     }
-                forecast = {"current_price": float(last_close), "ensemble": [float(last_close * (1+signal_data['change_pct']/100))], "change_pct": signal_data['change_pct']}
+                forecast = {"current_price": float(last_close), "ensemble": [float(last_close * (1+signal_data['change_pct']/100))], "change_pct": signal_data['change_pct'], "uncertainty": [last_close*0.02], "confidence": [0.7]}
 
             sentiment = {"average_compound": 0, "daily": []}
             try:
@@ -498,16 +582,16 @@ class TradingCallGenerator:
             if live_price and live_price > 0:
                 current_price = float(live_price)
                 if "INR" in symbol.upper():
-                    price_source = "CoinDCX INR Live"
+                    price_source = "CoinDCX INR Live v5"
                 else:
-                    price_source = "Binance Live"
+                    price_source = "Binance Live v5"
             else:
                 try:
                     current_price = float(signal_data.get('current_price') or forecast.get('current_price') or float(df['Close'].iloc[-1]))
-                    price_source = "Cached/Fallback"
+                    price_source = "Cached/Fallback v5"
                 except (ValueError, TypeError, IndexError):
                     current_price = live_price or 50000.0
-                    price_source = "Fallback"
+                    price_source = "Fallback v5"
 
             try:
                 predicted_price = float(signal_data.get('predicted_price') or current_price)
@@ -586,10 +670,35 @@ class TradingCallGenerator:
 
             reasoning = self._generate_reasoning(signal, indicators, sentiment, forecast, model_versions)
 
+            # v5 advanced risk metrics
+            try:
+                var_95, cvar_95 = self._calculate_var_cvar(engineered, current_price)
+            except Exception:
+                var_95, cvar_95 = current_price * 0.02, current_price * 0.03
+
+            kelly_fraction = float(indicators.get('kelly_fraction', 0.02) or 0.02)
+            sharpe_proxy = float(indicators.get('sharpe_proxy', 0) or 0)
+            market_regime = self._determine_market_regime(indicators)
+            volatility = float(indicators.get('volatility', 0.02) or 0.02)
+
+            # Uncertainty from forecast
+            uncertainty = 0.0
+            model_agreement = 0
+            try:
+                if isinstance(forecast, dict):
+                    unc = forecast.get('uncertainty', 0)
+                    if isinstance(unc, list):
+                        uncertainty = float(unc[0]) if unc else 0.0
+                    else:
+                        uncertainty = float(unc or 0)
+                    model_agreement = int(forecast.get('model_count', len(model_versions)))
+            except Exception:
+                pass
+
             now = datetime.utcnow()
             expiry = now + timedelta(days=7)
             leverage = position.get('leverage_suggestion', '1x-3x') if isinstance(position, dict) else '1x'
-            model_used = "Ensemble v4 MAX (LSTM+Transformer+GRU+XGB+ARIMA Dynamic+Sharpe+Stacking)" if model_versions else "Ensemble v4 MAX + Technical"
+            model_used = "Ensemble v5 MAX (TCN+Transformer+LSTM+GRU+XGB+ARIMA Dynamic+Sharpe+Stacking+Uncertainty)" if model_versions else "Ensemble v5 MAX + Technical 250+"
 
             call = TradingCall(
                 symbol=symbol,
@@ -615,13 +724,21 @@ class TradingCallGenerator:
                 expiry=expiry.isoformat(),
                 leverage=leverage,
                 status="ACTIVE",
-                version="v4_max",
-                price_source=price_source
+                version="v5_max",
+                price_source=price_source,
+                uncertainty=float(uncertainty),
+                kelly_fraction=float(kelly_fraction),
+                var_95=float(var_95),
+                cvar_95=float(cvar_95),
+                sharpe_proxy=float(sharpe_proxy),
+                market_regime=market_regime,
+                volatility=float(volatility),
+                model_agreement=int(model_agreement)
             )
             return call
 
         except Exception as e:
-            logger.error(f"Failed to generate call v4 for {symbol}: {e}")
+            logger.error(f"Failed to generate call v5 for {symbol}: {e}")
             import traceback
             traceback.print_exc()
             try:
@@ -649,19 +766,19 @@ class TradingCallGenerator:
                             position=pos,
                             timeframe=timeframe,
                             risk_level="MEDIUM",
-                            model_used="Live Price Fallback v4",
+                            model_used="Live Price Fallback v5",
                             model_versions={},
                             predicted_price=float(bp),
                             change_pct=0,
                             indicators={"close": float(bp), "atr": float(atr)},
                             sentiment={"average_compound": 0},
-                            reasoning=f"Live price fallback v4, neutral",
+                            reasoning=f"Live price fallback v5, neutral",
                             timestamp=datetime.utcnow().isoformat(),
                             expiry=(datetime.utcnow() + timedelta(days=7)).isoformat(),
                             leverage=pos.get('leverage_suggestion', '1x') if isinstance(pos, dict) else '1x',
                             status="ACTIVE",
-                            version="v4_max",
-                            price_source="Fallback Live"
+                            version="v5_max",
+                            price_source="Fallback Live v5"
                         )
                     except Exception:
                         pass
@@ -681,18 +798,18 @@ class TradingCallGenerator:
                 position={"size": 0, "risk_pct": 2.0},
                 timeframe=timeframe,
                 risk_level="MEDIUM",
-                model_used="Fallback v4",
+                model_used="Fallback v5",
                 model_versions={},
                 predicted_price=0,
                 change_pct=0,
                 indicators={},
                 sentiment={},
-                reasoning=f"Error v4: {str(e)[:200]}",
+                reasoning=f"Error v5: {str(e)[:200]}",
                 timestamp=datetime.utcnow().isoformat(),
                 expiry=(datetime.utcnow() + timedelta(days=7)).isoformat(),
                 leverage="1x",
                 status="ERROR",
-                version="v4_max",
+                version="v5_max",
                 price_source="Error"
             )
 
@@ -712,11 +829,11 @@ class TradingCallGenerator:
                 call = self.generate_call(symbol=symbol.strip(), timeframe=timeframe, account_balance=account_balance)
                 calls.append(call)
                 try:
-                    logger.info(f"Generated v4 {call.signal} for {symbol} at {call.entry_price:.2f} conf {call.confidence:.0f}% source {call.price_source}")
+                    logger.info(f"Generated v5 {call.signal} for {symbol} at {call.entry_price:.2f} conf {call.confidence:.0f}% regime {call.market_regime} kelly {call.kelly_fraction:.2f} source {call.price_source}")
                 except Exception:
                     pass
             except Exception as e:
-                logger.error(f"Failed for {symbol} v4: {e}")
+                logger.error(f"Failed for {symbol} v5: {e}")
                 continue
         
         def sort_key(call):
@@ -725,9 +842,10 @@ class TradingCallGenerator:
                 signal_score = {"STRONG_BUY": 5, "BUY": 4, "HOLD": 3, "SELL": 2, "STRONG_SELL": 1}.get(getattr(call, 'signal',''), 0)
                 price_score = 1 if getattr(call, 'entry_price',0) > 0 else 0
                 conf = float(getattr(call, 'confidence',0) or 0)
-                return (active_score, price_score, signal_score, conf)
+                kelly = float(getattr(call, 'kelly_fraction',0) or 0)
+                return (active_score, price_score, signal_score, conf, kelly)
             except Exception:
-                return (0,0,0,0)
+                return (0,0,0,0,0)
         
         try:
             calls.sort(key=sort_key, reverse=True)
@@ -745,9 +863,20 @@ class TradingCallGenerator:
             valid_calls = [c for c in calls if getattr(c, 'entry_price',0) > 0] if isinstance(calls, list) else []
             try:
                 avg_confidence = float(np.mean([float(getattr(c, 'confidence',0) or 0) for c in valid_calls])) if valid_calls else 0
+                avg_kelly = float(np.mean([float(getattr(c, 'kelly_fraction',0) or 0) for c in valid_calls])) if valid_calls else 0
+                avg_vol = float(np.mean([float(getattr(c, 'volatility',0) or 0) for c in valid_calls])) if valid_calls else 0
             except Exception:
                 avg_confidence = 0
+                avg_kelly = 0
+                avg_vol = 0
             high_conf = len([c for c in valid_calls if float(getattr(c, 'confidence',0) or 0) > 80]) if valid_calls else 0
+            regimes = {}
+            try:
+                for c in valid_calls:
+                    r = getattr(c, 'market_regime', 'UNKNOWN')
+                    regimes[r] = regimes.get(r, 0) + 1
+            except Exception:
+                pass
             return {
                 "total": total,
                 "active": active,
@@ -755,9 +884,12 @@ class TradingCallGenerator:
                 "sells": sells,
                 "holds": holds,
                 "avg_confidence": avg_confidence,
+                "avg_kelly": avg_kelly,
+                "avg_volatility": avg_vol,
                 "high_confidence": high_conf,
+                "regimes": regimes,
                 "timestamp": datetime.utcnow().isoformat(),
-                "version": "v4_max"
+                "version": "v5_max"
             }
         except Exception as e:
-            return {"total": 0, "active": 0, "buys": 0, "sells": 0, "holds": 0, "avg_confidence": 0, "high_confidence": 0, "timestamp": datetime.utcnow().isoformat(), "version": "v4_max", "error": str(e)}
+            return {"total": 0, "active": 0, "buys": 0, "sells": 0, "holds": 0, "avg_confidence": 0, "high_confidence": 0, "timestamp": datetime.utcnow().isoformat(), "version": "v5_max", "error": str(e)}

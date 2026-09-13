@@ -1,9 +1,10 @@
 """
-Continuous Training Engine v4 MAX - Endless self-training with live data + Model Registry + Drift Detection
+Continuous Training Engine v5 MAX - Endless self-training with live data + Model Registry + Drift Detection + TCN
 - CoinDCX INR primary + Binance fallback
 - Model versioning, performance tracking, auto rollback on degradation
 - Drift detection, auto-retrain every 8h, live Binance data
 - Real money execution ready, no simulation
+- New v5: TCN model, 250+ features, advanced preprocessor, Kelly, VaR
 """
 import time
 import threading
@@ -23,6 +24,12 @@ from ..models.transformer_model import TransformerModel
 from ..models.xgboost_model import XGBoostModel
 from ..models.arima_model import ARIMAModel
 from ..models.gru_model import GRUModel
+try:
+    from ..models.tcn_model import TCNModel
+    HAS_TCN = True
+except Exception:
+    HAS_TCN = False
+    TCNModel = None
 from ..evaluation.metrics import compute_regression_metrics
 from ..utils.logger import get_logger
 

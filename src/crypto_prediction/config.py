@@ -179,23 +179,27 @@ class ModelConfig:
     gru_epochs: int = 150
     gru_bidirectional: bool = True
 
-    # TCN v4 - New model for temporal patterns
-    tcn_channels: List[int] = field(default_factory=lambda: [64, 128, 128])
+    # TCN v5 - Temporal Convolutional Network for temporal patterns
+    tcn_channels: List[int] = field(default_factory=lambda: [64, 128, 256])
     tcn_kernel_size: int = 3
     tcn_dropout: float = 0.2
     tcn_learning_rate: float = 0.0003
+    tcn_epochs: int = 120
+    tcn_batch_size: int = 32
+    tcn_patience: int = 20
 
     # ARIMA v4 - Auto order + SARIMAX
     arima_order: tuple = (5, 1, 3)
     arima_seasonal_order: tuple = (2, 1, 2, 7)
     arima_use_auto: bool = True
 
-    # Ensemble v4 - Advanced weighting + stacking + calibration
+    # Ensemble v5 - Advanced weighting + stacking + calibration + TCN
     ensemble_weights: dict = field(default_factory=lambda: {
-        "lstm": 0.28,
-        "transformer": 0.32,
-        "xgboost": 0.22,
+        "lstm": 0.24,
+        "transformer": 0.28,
+        "xgboost": 0.18,
         "gru": 0.10,
+        "tcn": 0.12,
         "arima": 0.08
     })
     ensemble_use_stacking: bool = True
@@ -203,7 +207,9 @@ class ModelConfig:
     ensemble_use_sharpe_weighting: bool = True
     ensemble_meta_learner: str = "ridge"  # ridge, lgbm, xgboost
     ensemble_calibrate_confidence: bool = True
-    ensemble_version: str = "v4_max_perf"
+    ensemble_version: str = "v5_max_perf"
+    ensemble_use_uncertainty: bool = True
+    ensemble_confidence_threshold: float = 0.65
 
 @dataclass
 class BacktestConfig:
@@ -263,7 +269,7 @@ class Config:
     automation: AutomationConfig = field(default_factory=AutomationConfig)
     api: APIConfig = field(default_factory=APIConfig)
     project_root: Path = PROJECT_ROOT
-    version: str = "v4_max_perf_coindcx"
+    version: str = "v5_max_perf_coindcx_tcn"
 
 _config: Optional[Config] = None
 

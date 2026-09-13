@@ -10,4 +10,10 @@ except Exception:
     GRUModel = None
     GRUNetworkV4 = None
 
-__all__ = ["BaseModel", "LSTMModel", "LSTMNetwork", "LSTMNetworkV4", "XGBoostModel", "ARIMAModel", "EnsembleModel", "TransformerModel", "TransformerNetwork", "TransformerNetworkV4", "GRUModel", "GRUNetworkV4"]
+try:
+    from .tcn_model import TCNModel, TCNNetworkV5
+except Exception:
+    TCNModel = None
+    TCNNetworkV5 = None
+
+__all__ = ["BaseModel", "LSTMModel", "LSTMNetwork", "LSTMNetworkV4", "XGBoostModel", "ARIMAModel", "EnsembleModel", "TransformerModel", "TransformerNetwork", "TransformerNetworkV4", "GRUModel", "GRUNetworkV4", "TCNModel", "TCNNetworkV5"]

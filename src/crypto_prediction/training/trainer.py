@@ -26,6 +26,13 @@ except Exception:
     HAS_GRU = False
     GRUModel = None
 
+try:
+    from ..models.tcn_model import TCNModel
+    HAS_TCN = True
+except Exception:
+    HAS_TCN = False
+    TCNModel = None
+
 logger = get_logger(__name__)
 config = get_config()
 
@@ -207,6 +214,46 @@ class Trainer:
         model.save_torch(str(torch_path))
         return model, metrics
 
+    def train_tcn(self, data_dict: Dict, epochs: int = None, batch_size: int = None):
+        if not HAS_TCN:
+            logger.warning("TCN not available, skipping")
+            return None, {}
+        
+        start = time.time()
+        logger.info(f"Training TCN v5 for {self.symbol}...")
+        input_size = data_dict['X_train_seq'].shape[2]
+        model = TCNModel(
+            input_size=input_size,
+            num_channels=config.model.tcn_channels,
+            kernel_size=config.model.tcn_kernel_size,
+            dropout=config.model.tcn_dropout,
+            learning_rate=config.model.tcn_learning_rate
+        )
+        history = model.fit(
+            data_dict['X_train_seq'], data_dict['y_train_seq'],
+            data_dict['X_val_seq'], data_dict['y_val_seq'],
+            epochs=epochs or 120, 
+            batch_size=batch_size or 32
+        )
+        y_pred_scaled = model.predict(data_dict['X_test_seq'])
+        y_pred = self.dataset.preprocessor.inverse_transform_target(y_pred_scaled)
+        y_true = self.dataset.preprocessor.inverse_transform_target(data_dict['y_test_seq'])
+        metrics = compute_regression_metrics(y_true, y_pred)
+
+        self.models['tcn'] = model
+        self.results['tcn'] = {"metrics": metrics, "history": history, "version": "v5_tcn"}
+        
+        elapsed = time.time() - start
+        self._metrics["training_time"]["tcn"] = elapsed
+        logger.info(generate_report(y_true, y_pred, f"{self.symbol} TCN v5") + f"\nTraining time: {elapsed:.1f}s")
+
+        safe_sym = self.symbol.replace('-','_').replace('/','_')
+        torch_path_v5 = config.project_root / "models" / f"{safe_sym}_tcn_v5.pt"
+        torch_path = config.project_root / "models" / f"{safe_sym}_tcn.pt"
+        model.save_torch(str(torch_path_v5))
+        model.save_torch(str(torch_path))
+        return model, metrics
+
     def train_xgboost(self, data_dict: Dict):
         start = time.time()
         logger.info(f"Training XGBoost v4 MAX for {self.symbol}...")
@@ -291,6 +338,8 @@ class Trainer:
             self.train_transformer(data_dict)
         if HAS_GRU and 'gru' not in self.models:
             self.train_gru(data_dict)
+        if HAS_TCN and 'tcn' not in self.models:
+            self.train_tcn(data_dict)
         if 'xgboost' not in self.models:
             self.train_xgboost(data_dict)
         if 'arima' not in self.models:
@@ -316,6 +365,13 @@ class Trainer:
                 preds['gru'] = self.dataset.preprocessor.inverse_transform_target(gru_pred_scaled)
             except Exception as e:
                 logger.warning(f"GRU pred for ensemble v5 failed: {e}")
+
+        if HAS_TCN and 'tcn' in self.models:
+            try:
+                tcn_pred_scaled = self.models['tcn'].predict(data_dict['X_test_seq'])
+                preds['tcn'] = self.dataset.preprocessor.inverse_transform_target(tcn_pred_scaled)
+            except Exception as e:
+                logger.warning(f"TCN pred for ensemble v5 failed: {e}")
 
         try:
             xgb_pred_scaled = self.models['xgboost'].predict(data_dict['X_test'])
@@ -393,11 +449,13 @@ class Trainer:
         total_start = time.time()
         data_dict = self.prepare_data(period=period, interval=interval, force_refresh=force_refresh)
         
-        # Train all models
+        # Train all models v5 MAX with TCN
         self.train_lstm(data_dict, epochs=epochs)
         self.train_transformer(data_dict, epochs=epochs)
         if HAS_GRU:
             self.train_gru(data_dict, epochs=epochs)
+        if HAS_TCN:
+            self.train_tcn(data_dict, epochs=epochs)
         self.train_xgboost(data_dict)
         self.train_arima(data_dict)
         self.train_ensemble(data_dict)

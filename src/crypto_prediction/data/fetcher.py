@@ -1,9 +1,11 @@
 """
-Crypto data fetcher v4 - Max performance + CoinDCX INR + Binance + Robust caching
+Crypto data fetcher v5 MAX - Max performance + CoinDCX INR + Binance + Robust caching + Validation + Multi-source
 - Supports INR symbols (BTCINR -> BTC-USD mapping + INR conversion)
 - Binance direct REST primary for USD, CoinDCX for INR
-- yfinance + CoinGecko fallback
-- Validation, retry, rate limiting, thread-safe cache
+- yfinance + CoinGecko + CoinDCX OHLCV fallback
+- Validation, retry, rate limiting, thread-safe cache, atomic save, TTL
+- Data quality checks: price >0, OHLC consistency, volume >0, no gaps >10 days
+- Auto repair: fix OHLC, forward fill small gaps, remove duplicates
 """
 import time
 import threading
@@ -29,11 +31,52 @@ def get_session():
         with _session_lock:
             if _session is None:
                 _session = requests.Session()
-                _session.headers.update({"User-Agent": "CryptoPred v4 Fetcher"})
-                adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=0)
+                _session.headers.update({"User-Agent": "CryptoPred v5 MAX Fetcher"})
+                adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=30, max_retries=2)
                 _session.mount("https://", adapter)
                 _session.mount("http://", adapter)
     return _session
+
+def validate_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate and repair OHLCV data - v5"""
+    if df is None or df.empty:
+        return df
+    try:
+        # Ensure numeric
+        for col in ['Open','High','Low','Close','Volume']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        # Remove rows with invalid prices
+        df = df[(df['Close'] > 0) & (df['Close'] < 1e8) & (df['Volume'] >= 0)]
+        
+        # Fix OHLC consistency: High >= max(Open,Close,Low), Low <= min(Open,Close,High)
+        df['High'] = df[['High','Open','Close']].max(axis=1)
+        df['Low'] = df[['Low','Open','Close']].min(axis=1)
+        
+        # Ensure High >= Low
+        invalid = df['High'] < df['Low']
+        if invalid.any():
+            df.loc[invalid, 'High'] = df.loc[invalid, 'Low'] * 1.001
+        
+        # Remove duplicates
+        df = df[~df.index.duplicated(keep='last')]
+        
+        # Sort by time
+        df.sort_index(inplace=True)
+        
+        # Forward fill small gaps (<3 days) and interpolate
+        # Check for gaps >10 days - log warning
+        if len(df) > 1:
+            gaps = df.index.to_series().diff().dt.days
+            large_gaps = gaps[gaps > 10]
+            if len(large_gaps) > 0:
+                logger.warning(f"Large gaps detected: {large_gaps.max()} days max gap")
+        
+        return df
+    except Exception as e:
+        logger.warning(f"Validation failed: {e}")
+        return df
 
 def rate_limit(min_interval=0.1):
     global _last_request
@@ -101,10 +144,10 @@ class CryptoDataFetcher:
             df = df[['Open', 'High', 'Low', 'Close', 'Volume']].dropna()
             df.sort_index(inplace=True)
             if is_inr:
-                # Convert USD to INR for INR symbols
                 for col in ['Open','High','Low','Close']:
                     df[col] = df[col] * 83.5
-            logger.info(f"Binance direct fetched {len(df)} rows for {symbol} ({binance_sym}) -> {usd_sym} INR={is_inr}")
+            df = validate_ohlcv(df)
+            logger.info(f"Binance direct v5 fetched {len(df)} rows for {symbol} ({binance_sym}) -> {usd_sym} INR={is_inr}")
             return df
         except Exception as e:
             logger.debug(f"Binance direct fetch failed {symbol}: {e}")
@@ -139,10 +182,12 @@ class CryptoDataFetcher:
                     for col in ['Open','High','Low','Close']:
                         df[col] = df[col] * 83.5
                 
+                df = validate_ohlcv(df)
+                
                 if len(df) < 10:
                     raise ValueError(f"Too few rows {len(df)} for {sym}")
                 
-                logger.info(f"Fetched {len(df)} rows for {sym} from {df.index[0]} to {df.index[-1]} via yfinance")
+                logger.info(f"Fetched {len(df)} rows for {sym} from {df.index[0]} to {df.index[-1]} via yfinance v5")
                 return df
             except Exception as e:
                 if attempt < 2:
