@@ -8,6 +8,9 @@ import { BarChart3, TrendingUp, TrendingDown, Zap, Target, Shield, DollarSign, A
 const safeFixed = (v,d=2)=>{ const n=typeof v==="number"?v:parseFloat(v); return isNaN(n)? (0).toFixed(d) : n.toFixed(d) }
 
 export default function Backtest() {
+  const theme = useSettingsStore(s => s.theme)
+  const isDark = theme === 'dark'
+
   const { selectedSymbol, setSelectedSymbol } = useMarketStore()
   const [strategy, setStrategy] = useState('ma')
   const [result, setResult] = useState(null)
@@ -41,10 +44,11 @@ export default function Backtest() {
   }
 
   return (
-    <div className="min-h-screen relative font-poppins">
-      <div className="absolute inset-0 bg-gradient-mesh opacity-20 pointer-events-none"></div>
+    <div className={`min-h-screen relative font-poppins ${isDark ? 'bg-black' : 'bg-[#E3EDF7]'}`}>
+
       
-      <div className="relative max-w-[1600px] mx-auto p-6 space-y-6">
+      
+      <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">
@@ -52,23 +56,23 @@ export default function Backtest() {
                 <BarChart3 size={20} className="text-white" />
               </span>
               <span className="text-white">Backtesting Engine</span>
-              <span className="px-3 py-1 rounded-full bg-crypto-accent/10 border border-crypto-accent/20 text-crypto-accent text-xs font-bold tracking-widest">PORTFOLIO SIM</span>
+              <span className="px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/5 text-zinc-900 dark:text-white text-xs font-bold tracking-widest">PORTFOLIO SIM</span>
             </h1>
-            <p className="text-crypto-muted text-sm mt-2">Long-only simulation • $10k initial • 0.1% commission • 0.05% slippage • Sharpe, DD, Win Rate</p>
+            <p className="text-zinc-500 text-sm mt-2">Long-only simulation • $10k initial • 0.1% commission • 0.05% slippage • Sharpe, DD, Win Rate</p>
           </div>
         </div>
 
         <GlassCard className="p-6">
           <div className="flex flex-wrap gap-4 items-end">
             <div>
-              <label className="text-[11px] font-bold tracking-widest text-crypto-muted uppercase">Asset</label>
-              <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="block mt-1 bg-crypto-bg border border-crypto-border rounded-xl px-4 py-2.5 text-sm font-medium text-white min-w-[140px]">
+              <label className="text-[11px] font-bold tracking-widest text-zinc-500 uppercase">Asset</label>
+              <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="block mt-1 bg-transparent border border-black/5 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-medium text-white min-w-[140px]">
                 {['BTC-USD','ETH-USD','BNB-USD','SOL-USD','XRP-USD','ADA-USD'].map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[11px] font-bold tracking-widest text-crypto-muted uppercase">Strategy</label>
-              <select value={strategy} onChange={e => setStrategy(e.target.value)} className="block mt-1 bg-crypto-bg border border-crypto-border rounded-xl px-4 py-2.5 text-sm font-medium text-white min-w-[200px]">
+              <label className="text-[11px] font-bold tracking-widest text-zinc-500 uppercase">Strategy</label>
+              <select value={strategy} onChange={e => setStrategy(e.target.value)} className="block mt-1 bg-transparent border border-black/5 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-medium text-white min-w-[200px]">
                 <option value="ma">Moving Average (20/50)</option>
                 <option value="rsi">RSI (30/70)</option>
                 <option value="ensemble">Ensemble (Pred+Sentiment+RSI)</option>
@@ -82,7 +86,7 @@ export default function Backtest() {
               <Target size={14} /> Compare All
             </button>
             
-            <div className="ml-auto hidden md:flex items-center gap-2 text-xs text-crypto-muted">
+            <div className="ml-auto hidden md:flex items-center gap-2 text-xs text-zinc-500">
               <Shield size={12} />
               <span>Risk-free 2% • Annualized metrics</span>
             </div>
@@ -102,7 +106,7 @@ export default function Backtest() {
               <div className="lg:col-span-8">
                 <GlassCard className="p-6">
                   <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-                    <Activity size={18} className="text-crypto-accent" />
+                    <Activity size={18} className="text-zinc-900 dark:text-white" />
                     Equity Curve • {result.strategy} • {selectedSymbol}
                   </h3>
                   <ResponsiveContainer width="100%" height={380}>
@@ -127,8 +131,8 @@ export default function Backtest() {
                   <h3 className="font-bold text-white mb-4">Detailed Metrics</h3>
                   <div className="space-y-2.5">
                     {Object.entries(result.metrics).map(([k, v]) => (
-                      <div key={k} className="flex justify-between items-center p-2.5 rounded-xl bg-crypto-bg/40 border border-crypto-border/20 hover:border-crypto-border/40 transition">
-                        <span className="text-xs text-crypto-muted font-medium">{k.replace(/_/g, ' ')}</span>
+                      <div key={k} className="flex justify-between items-center p-2.5 rounded-xl bg-transparent/40 border border-black/5 dark:border-white/5/20 hover:border-black/5 dark:border-white/5/40 transition">
+                        <span className="text-xs text-zinc-500 font-medium">{k.replace(/_/g, ' ')}</span>
                         <span className="mono text-xs font-bold text-white">{typeof v === 'number' ? v.toFixed(2) : v}</span>
                       </div>
                     ))}
@@ -139,12 +143,12 @@ export default function Backtest() {
                   <h3 className="font-bold text-white mb-4">Recent Trades ({result.trades.length})</h3>
                   <div className="space-y-2 max-h-[300px] overflow-y-auto">
                     {result.trades.slice(-10).reverse().map((t, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-crypto-bg/40 border border-crypto-border/20">
+                      <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-transparent/40 border border-black/5 dark:border-white/5/20">
                         <div>
                           <div className="text-xs font-bold text-white">{t.entry_date?.slice(0,10)} → {t.exit_date?.slice(0,10)}</div>
-                          <div className="text-[11px] text-crypto-muted">{safeFixed(t.entry_price,2)} → {safeFixed(t.exit_price,2)}</div>
+                          <div className="text-[11px] text-zinc-500">{safeFixed(t.entry_price,2)} → {safeFixed(t.exit_price,2)}</div>
                         </div>
-                        <div className={`px-2.5 py-1 rounded-full text-xs font-bold mono ${t.pnl >= 0 ? 'bg-crypto-bull/10 text-crypto-bull border border-crypto-bull/20' : 'bg-crypto-bear/10 text-crypto-bear border border-crypto-bear/20'}`}>
+                        <div className={`px-2.5 py-1 rounded-full text-xs font-bold mono ${t.pnl >= 0 ? 'bg-emerald-500/10 text-emerald-600 border border-black/5 dark:border-white/5' : 'bg-red-500/10 text-red-500 border border-red-500/10'}`}>
                           {t.pnl >= 0 ? '+' : ''}${safeFixed(t.pnl,2)}
                         </div>
                       </div>
@@ -159,13 +163,13 @@ export default function Backtest() {
         {compare && (
           <GlassCard className="p-6">
             <h3 className="font-bold text-white mb-6 flex items-center gap-2">
-              <BarChart3 size={18} className="text-crypto-accent2" />
+              <BarChart3 size={18} className="text-zinc-900 dark:text-white" />
               Strategy Comparison • {selectedSymbol}
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[11px] font-bold tracking-widest text-crypto-muted uppercase border-b border-crypto-border/30">
+                  <tr className="text-[11px] font-bold tracking-widest text-zinc-500 uppercase border-b border-black/5 dark:border-white/5/30">
                     <th className="text-left p-3">Strategy</th>
                     <th className="text-right p-3">Return</th>
                     <th className="text-right p-3">Sharpe</th>
@@ -177,13 +181,13 @@ export default function Backtest() {
                 </thead>
                 <tbody>
                   {Object.entries(compare).map(([name, m]) => (
-                    <tr key={name} className="border-b border-crypto-border/20 hover:bg-crypto-card/30 transition">
+                    <tr key={name} className="border-b border-black/5 dark:border-white/5/20 hover:clay-card/30 transition">
                       <td className="p-3 font-bold text-white">{name}</td>
-                      <td className={`p-3 text-right mono font-bold ${m.total_return_pct >= 0 ? 'text-crypto-bull' : 'text-crypto-bear'}`}>{safeFixed(m.total_return_pct,2)}%</td>
+                      <td className={`p-3 text-right mono font-bold ${m.total_return_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{safeFixed(m.total_return_pct,2)}%</td>
                       <td className="p-3 text-right mono text-white">{safeFixed(m.sharpe_ratio,2)}</td>
-                      <td className="p-3 text-right mono text-crypto-bear">{safeFixed(m.max_drawdown_pct,2)}%</td>
+                      <td className="p-3 text-right mono text-red-500">{safeFixed(m.max_drawdown_pct,2)}%</td>
                       <td className="p-3 text-right mono text-white">{safeFixed(m.win_rate_pct,1)}%</td>
-                      <td className="p-3 text-right mono text-crypto-muted">{m.num_trades}</td>
+                      <td className="p-3 text-right mono text-zinc-500">{m.num_trades}</td>
                       <td className="p-3 text-right mono text-white">{m.profit_factor ? safeFixed(m.profit_factor,2) : "—" || '—'}</td>
                     </tr>
                   ))}
@@ -196,14 +200,14 @@ export default function Backtest() {
         {!result && !compare && (
           <GlassCard className="p-12 text-center">
             <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-crypto-accent2/20 to-purple-500/20 border border-crypto-accent2/20 flex items-center justify-center">
-              <BarChart3 size={32} className="text-crypto-accent2" />
+              <BarChart3 size={32} className="text-zinc-900 dark:text-white" />
             </div>
             <h3 className="font-bold text-white text-lg mb-2">Backtesting Engine Ready</h3>
-            <p className="text-crypto-muted text-sm max-w-md mx-auto">Select a symbol and strategy, then run backtest. Compares MA crossover, RSI, Ensemble (prediction + sentiment + RSI), and Prediction-based strategies with full portfolio simulation.</p>
+            <p className="text-zinc-500 text-sm max-w-md mx-auto">Select a symbol and strategy, then run backtest. Compares MA crossover, RSI, Ensemble (prediction + sentiment + RSI), and Prediction-based strategies with full portfolio simulation.</p>
             <div className="mt-6 flex justify-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-crypto-card border border-crypto-border text-xs text-crypto-muted">Commission 0.1%</span>
-              <span className="px-3 py-1 rounded-full bg-crypto-card border border-crypto-border text-xs text-crypto-muted">Slippage 0.05%</span>
-              <span className="px-3 py-1 rounded-full bg-crypto-card border border-crypto-border text-xs text-crypto-muted">Long-only</span>
+              <span className="px-3 py-1 rounded-full clay-card border border-black/5 dark:border-white/5 text-xs text-zinc-500">Commission 0.1%</span>
+              <span className="px-3 py-1 rounded-full clay-card border border-black/5 dark:border-white/5 text-xs text-zinc-500">Slippage 0.05%</span>
+              <span className="px-3 py-1 rounded-full clay-card border border-black/5 dark:border-white/5 text-xs text-zinc-500">Long-only</span>
             </div>
           </GlassCard>
         )}

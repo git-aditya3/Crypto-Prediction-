@@ -9,6 +9,9 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Ar
 import { TrendingUp, Brain, Zap, Target, Clock, BarChart3 } from 'lucide-react'
 
 export default function Forecast() {
+  const theme = useSettingsStore(s => s.theme)
+  const isDark = theme === 'dark'
+
   const { selectedSymbol, setSelectedSymbol, prices } = useMarketStore()
   const [steps, setSteps] = useState(7)
   const [forecast, setForecast] = useState(null)
@@ -59,27 +62,28 @@ export default function Forecast() {
   const livePrice = prices[selectedSymbol] || forecast?.current_price || 0
 
   return (
-    <div className="min-h-screen relative font-poppins">
-      <div className="absolute inset-0 bg-gradient-mesh opacity-20 pointer-events-none"></div>
+    <div className={`min-h-screen relative font-poppins ${isDark ? 'bg-black' : 'bg-[#E3EDF7]'}`}>
+
       
-      <div className="relative max-w-[1600px] mx-auto p-6 space-y-6">
+      
+      <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">
-              <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-crypto-accent to-crypto-accent3 flex items-center justify-center shadow-lg">
+              <span className="w-10 h-10 rounded-xl bg-black dark:bg-white flex items-center justify-center shadow-lg">
                 <TrendingUp size={20} className="text-black" />
               </span>
               <span className="text-white">AI Forecast</span>
-              <span className="px-3 py-1 rounded-full bg-crypto-accent2/10 border border-crypto-accent2/20 text-crypto-accent2 text-xs font-bold tracking-widest">ENSEMBLE</span>
+              <span className="px-3 py-1 rounded-full bg-crypto-accent2/10 border border-crypto-accent2/20 text-zinc-900 dark:text-white text-xs font-bold tracking-widest">ENSEMBLE</span>
             </h1>
-            <p className="text-crypto-muted text-sm mt-2">Multi-model predictions • LSTM + Transformer TFT + XGBoost + ARIMA • Weighted ensemble</p>
+            <p className="text-zinc-500 text-sm mt-2">Multi-model predictions • LSTM + Transformer TFT + XGBoost + ARIMA • Weighted ensemble</p>
           </div>
           
           <div className="flex items-center gap-2">
-            <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="bg-crypto-card border border-crypto-border rounded-xl px-4 py-2.5 text-sm font-medium text-white">
+            <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="clay-card border border-black/5 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-medium text-white">
               {['BTC-USD','ETH-USD','BNB-USD','SOL-USD','XRP-USD','ADA-USD','DOGE-USD','AVAX-USD'].map(s => <option key={s}>{s}</option>)}
             </select>
-            <select value={steps} onChange={e => setSteps(parseInt(e.target.value))} className="bg-crypto-card border border-crypto-border rounded-xl px-4 py-2.5 text-sm font-medium text-white">
+            <select value={steps} onChange={e => setSteps(parseInt(e.target.value))} className="clay-card border border-black/5 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-medium text-white">
               {[7,14,21,30].map(n => <option key={n} value={n}>{n} days</option>)}
             </select>
             <button onClick={load} className="btn-primary flex items-center gap-2">
@@ -97,15 +101,15 @@ export default function Forecast() {
             <GlassCard className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-white flex items-center gap-2">
-                  <BarChart3 size={18} className="text-crypto-accent" />
+                  <BarChart3 size={18} className="text-zinc-900 dark:text-white" />
                   Forecast Comparison ({steps} days) • Current: ${(forecast?.current_price ?? livePrice ?? 0).toFixed(2)}
                 </h3>
-                <div className="flex gap-1 p-1 rounded-xl bg-crypto-bg border border-crypto-border">
+                <div className="flex gap-1 p-1 rounded-xl bg-transparent border border-black/5 dark:border-white/5">
                   {['ensemble','transformer','lstm','xgboost','arima'].map(m => (
                     <button
                       key={m}
                       onClick={() => setActiveModel(m)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold uppercase transition ${activeModel === m ? 'bg-white text-black' : 'text-crypto-muted hover:text-white'}`}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold uppercase transition ${activeModel === m ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'}`}
                     >
                       {m}
                     </button>
@@ -115,7 +119,7 @@ export default function Forecast() {
               
               {loading ? (
                 <div className="h-[400px] flex items-center justify-center">
-                  <div className="text-crypto-muted">Loading forecast...</div>
+                  <div className="text-zinc-500">Loading forecast...</div>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={400}>
@@ -147,20 +151,20 @@ export default function Forecast() {
           <div className="space-y-6">
             <GlassCard className="p-6">
               <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-                <Target size={16} className="text-crypto-accent" />
+                <Target size={16} className="text-zinc-900 dark:text-white" />
                 Prediction Details
               </h3>
               {forecast ? (
                 <div className="space-y-3">
                   {chartData.slice(0, 7).map((row, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-crypto-bg/40 border border-crypto-border/20 hover:border-crypto-border/40 transition">
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-transparent/40 border border-black/5 dark:border-white/5/20 hover:border-black/5 dark:border-white/5/40 transition">
                       <div>
                         <div className="text-xs font-bold text-white">{row.fullDate}</div>
-                        <div className="text-[11px] text-crypto-muted">Day {i+1}</div>
+                        <div className="text-[11px] text-zinc-500">Day {i+1}</div>
                       </div>
                       <div className="text-right">
                         <div className="mono font-bold text-sm text-white">${(row[activeModel] ?? row.ensemble ?? 0).toFixed(2)}</div>
-                        <div className={`text-xs font-bold ${row.ensemble > livePrice ? 'text-crypto-bull' : 'text-crypto-bear'}`}>
+                        <div className={`text-xs font-bold ${row.ensemble > livePrice ? 'text-emerald-600' : 'text-red-500'}`}>
                           {(((row.ensemble ?? 0) - (livePrice||1)) / (livePrice||1) * 100).toFixed(2)}%
                         </div>
                       </div>
@@ -168,21 +172,21 @@ export default function Forecast() {
                   ))}
                 </div>
               ) : (
-                <div className="text-crypto-muted text-sm">No forecast data</div>
+                <div className="text-zinc-500 text-sm">No forecast data</div>
               )}
             </GlassCard>
 
             <GlassCard className="p-6">
               <h3 className="font-bold text-white mb-3 flex items-center gap-2">
-                <Brain size={16} className="text-crypto-accent2" />
+                <Brain size={16} className="text-zinc-900 dark:text-white" />
                 Model Weights
               </h3>
               <div className="space-y-3">
                 {[
-                  { name: 'Transformer TFT', weight: 35, color: 'from-crypto-accent2 to-purple-500' },
-                  { name: 'LSTM', weight: 35, color: 'from-cyan-500 to-blue-500' },
-                  { name: 'XGBoost', weight: 20, color: 'from-violet-500 to-purple-500' },
-                  { name: 'ARIMA', weight: 10, color: 'from-gray-500 to-gray-600' },
+                  { name: 'Transformer TFT', weight: 35, color: 'from-black to-black' },
+                  { name: 'LSTM', weight: 35, color: 'from-zinc-700 to-zinc-900' },
+                  { name: 'XGBoost', weight: 20, color: 'from-zinc-600 to-zinc-800' },
+                  { name: 'ARIMA', weight: 10, color: 'from-zinc-400 to-zinc-600' },
                 ].map(m => (
                   <div key={m.name} className="flex items-center gap-3">
                     <div className="flex-1">
@@ -190,7 +194,7 @@ export default function Forecast() {
                         <span className="font-medium text-white">{m.name}</span>
                         <span className="font-bold text-white">{m.weight}%</span>
                       </div>
-                      <div className="h-1.5 bg-crypto-bg rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-transparent rounded-full overflow-hidden">
                         <div className={`h-full bg-gradient-to-r ${m.color} rounded-full`} style={{ width: `${m.weight}%` }}></div>
                       </div>
                     </div>
@@ -198,7 +202,7 @@ export default function Forecast() {
                 ))}
               </div>
               <div className="mt-4 p-3 rounded-xl bg-crypto-accent/5 border border-crypto-accent/10">
-                <div className="text-xs text-crypto-muted leading-relaxed">
+                <div className="text-xs text-zinc-500 leading-relaxed">
                   <span className="text-white font-medium">Ensemble:</span> Weighted average of all models. Transformer excels at long-range dependencies, LSTM at sequential patterns, XGBoost at feature importance, ARIMA as statistical baseline.
                 </div>
               </div>
@@ -212,7 +216,7 @@ export default function Forecast() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[11px] font-bold tracking-widest text-crypto-muted uppercase border-b border-crypto-border/30">
+                  <tr className="text-[11px] font-bold tracking-widest text-zinc-500 uppercase border-b border-black/5 dark:border-white/5/30">
                     <th className="text-left p-3">Date</th>
                     <th className="text-right p-3">LSTM</th>
                     <th className="text-right p-3">Transformer</th>
@@ -226,14 +230,14 @@ export default function Forecast() {
                   {chartData.map((row, i) => {
                     const change = (((row.ensemble ?? 0) - (livePrice||1)) / (livePrice||1) * 100)
                     return (
-                      <tr key={i} className="border-b border-crypto-border/20 hover:bg-crypto-card/30 transition">
+                      <tr key={i} className="border-b border-black/5 dark:border-white/5/20 hover:clay-card/30 transition">
                         <td className="p-3 font-medium text-white">{row.fullDate}</td>
-                        <td className="p-3 text-right mono text-crypto-muted">${row.lstm != null ? row.lstm.toFixed(2) : '-'}</td>
-                        <td className="p-3 text-right mono text-crypto-accent2">${row.transformer != null ? row.transformer.toFixed(2) : '-'}</td>
-                        <td className="p-3 text-right mono text-violet-400">${row.xgboost != null ? row.xgboost.toFixed(2) : '-'}</td>
+                        <td className="p-3 text-right mono text-zinc-500">${row.lstm != null ? row.lstm.toFixed(2) : '-'}</td>
+                        <td className="p-3 text-right mono text-zinc-900 dark:text-white">${row.transformer != null ? row.transformer.toFixed(2) : '-'}</td>
+                        <td className="p-3 text-right mono text-zinc-500">${row.xgboost != null ? row.xgboost.toFixed(2) : '-'}</td>
                         <td className="p-3 text-right mono text-gray-400">${row.arima != null ? row.arima.toFixed(2) : '-'}</td>
-                        <td className="p-3 text-right mono font-bold text-crypto-accent">${row.ensemble != null ? row.ensemble.toFixed(2) : '-'}</td>
-                        <td className={`p-3 text-right mono font-bold ${change >= 0 ? 'text-crypto-bull' : 'text-crypto-bear'}`}>
+                        <td className="p-3 text-right mono font-bold text-zinc-900 dark:text-white">${row.ensemble != null ? row.ensemble.toFixed(2) : '-'}</td>
+                        <td className={`p-3 text-right mono font-bold ${change >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                           {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                         </td>
                       </tr>

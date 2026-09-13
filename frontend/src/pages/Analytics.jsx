@@ -46,58 +46,58 @@ export default function Analytics() {
   return (
     <div className="max-w-[1600px] mx-auto px-6 py-6 font-poppins space-y-6">
       <div>
-        <h1 className="text-3xl font-black flex items-center gap-3"><BarChart3 className="text-violet-400" /> Performance Analytics - Real Trading</h1>
-        <p className="text-crypto-muted mt-1">Real P&L tracking - win rate, profit factor, Sharpe, equity curve - no fake simulation</p>
+        <h1 className="text-3xl font-black flex items-center gap-3"><BarChart3 className="text-zinc-500" /> Performance Analytics - Real Trading</h1>
+        <p className="text-zinc-500 mt-1">Real P&L tracking - win rate, profit factor, Sharpe, equity curve - no fake simulation</p>
       </div>
 
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-        <div className="p-4 rounded-xl bg-crypto-card border border-crypto-border">
-          <div className="text-[10px] text-crypto-muted uppercase">Total Trades</div>
+        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="text-[10px] text-zinc-500 uppercase">Total Trades</div>
           <div className="text-xl font-black">{metrics.total_trades ?? 0}</div>
         </div>
-        <div className="p-4 rounded-xl bg-crypto-card border border-crypto-border">
-          <div className="text-[10px] text-crypto-muted uppercase">Win Rate</div>
-          <div className="text-xl font-black text-emerald-400">{safeFixed(metrics.win_rate,1)}%</div>
+        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="text-[10px] text-zinc-500 uppercase">Win Rate</div>
+          <div className="text-xl font-black text-emerald-600">{safeFixed(metrics.win_rate,1)}%</div>
         </div>
-        <div className="p-4 rounded-xl bg-crypto-card border border-crypto-border">
-          <div className="text-[10px] text-crypto-muted uppercase">Profit Factor</div>
+        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="text-[10px] text-zinc-500 uppercase">Profit Factor</div>
           <div className="text-xl font-black">{safeFixed(metrics.profit_factor,2)}</div>
         </div>
-        <div className="p-4 rounded-xl bg-crypto-card border border-crypto-border">
-          <div className="text-[10px] text-crypto-muted uppercase">Total P&L</div>
-          <div className={`text-xl font-black ${(metrics.total_pnl??0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${safeFixed(metrics.total_pnl,2)}</div>
+        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="text-[10px] text-zinc-500 uppercase">Total P&L</div>
+          <div className={`text-xl font-black ${(metrics.total_pnl??0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>${safeFixed(metrics.total_pnl,2)}</div>
         </div>
-        <div className="p-4 rounded-xl bg-crypto-card border border-crypto-border">
-          <div className="text-[10px] text-crypto-muted uppercase">Sharpe</div>
+        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="text-[10px] text-zinc-500 uppercase">Sharpe</div>
           <div className="text-xl font-black">{safeFixed(metrics.sharpe,2)}</div>
         </div>
-        <div className="p-4 rounded-xl bg-crypto-card border border-crypto-border">
-          <div className="text-[10px] text-crypto-muted uppercase">Sortino</div>
+        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="text-[10px] text-zinc-500 uppercase">Sortino</div>
           <div className="text-xl font-black">{safeFixed(metrics.sortino,2)}</div>
         </div>
-        <div className="p-4 rounded-xl bg-crypto-card border border-crypto-border">
-          <div className="text-[10px] text-crypto-muted uppercase">Max DD</div>
-          <div className="text-xl font-black text-red-400">{safeFixed(metrics.max_drawdown,1)}%</div>
+        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="text-[10px] text-zinc-500 uppercase">Max DD</div>
+          <div className="text-xl font-black text-red-500">{safeFixed(metrics.max_drawdown,1)}%</div>
         </div>
-        <div className="p-4 rounded-xl bg-crypto-card border border-crypto-border">
-          <div className="text-[10px] text-crypto-muted uppercase">Best Trade</div>
-          <div className="text-xl font-black text-emerald-400">${safeFixed(metrics.best_trade,2)}</div>
+        <div className="p-4 rounded-xl clay-card border border-black/5 dark:border-white/5">
+          <div className="text-[10px] text-zinc-500 uppercase">Best Trade</div>
+          <div className="text-xl font-black text-emerald-600">${safeFixed(metrics.best_trade,2)}</div>
         </div>
       </div>
 
       {/* Equity Curve */}
-      <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border">
+      <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
         <h3 className="font-bold flex items-center gap-2 mb-4"><TrendingUp size={16} /> Equity Curve - Real P&L Growth</h3>
         {equity.length === 0 ? (
-          <div className="text-center py-8 text-crypto-muted">No equity curve - start trading to see real P&L growth</div>
+          <div className="text-center py-8 text-zinc-500">No equity curve - start trading to see real P&L growth</div>
         ) : (
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs text-crypto-muted flex-wrap">
+            <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
               <span>Initial: ${safeFixed(equityStats.initial,2)}</span>
               <span>→</span>
               <span>Current: ${safeFixed(equityStats.current,2)}</span>
-              <span className={`ml-auto font-bold ${equityStats.pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              <span className={`ml-auto font-bold ${equityStats.pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                 {safeFixed(equityStats.pct,2)}%
               </span>
             </div>
@@ -107,7 +107,7 @@ export default function Analytics() {
                 return <div key={i} className="flex-1 bg-gradient-to-t from-emerald-500 to-violet-500 rounded-t" style={{ height: `${Math.max(2, Math.min(100, height))}%` }} title={`$${safeFixed(e.equity,2)} ${e.symbol || ''} ${e.pnl ? `P&L $${safeFixed(e.pnl,2)}` : ''}`} />
               })}
             </div>
-            <div className="flex justify-between text-[10px] text-crypto-muted">
+            <div className="flex justify-between text-[10px] text-zinc-500">
               <span>{equity.length} trades</span>
               <span>Real trading - no fake simulation</span>
             </div>
@@ -117,21 +117,21 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Symbol Performance */}
-        <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border">
+        <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
           <h3 className="font-bold flex items-center gap-2 mb-4"><PieChart size={16} /> Symbol Performance - Real Trading</h3>
           {Object.keys(symbols).length === 0 ? (
-            <div className="text-center py-8 text-crypto-muted">No symbol performance - trade to see real stats</div>
+            <div className="text-center py-8 text-zinc-500">No symbol performance - trade to see real stats</div>
           ) : (
             <div className="space-y-3">
               {Object.entries(symbols).map(([sym, perf]) => (
-                <div key={sym} className="p-3 rounded-xl bg-crypto-bg border border-crypto-border/50 flex items-center justify-between">
+                <div key={sym} className="p-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5/50 flex items-center justify-between">
                   <div>
                     <div className="font-bold">{sym}</div>
-                    <div className="text-xs text-crypto-muted">{perf.total_trades ?? 0} trades • {perf.wins ?? 0}W / {perf.losses ?? 0}L</div>
+                    <div className="text-xs text-zinc-500">{perf.total_trades ?? 0} trades • {perf.wins ?? 0}W / {perf.losses ?? 0}L</div>
                   </div>
                   <div className="text-right">
-                    <div className={`font-bold ${(perf.total_pnl??0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${safeFixed(perf.total_pnl,2)}</div>
-                    <div className="text-xs text-crypto-muted">{safeFixed(perf.win_rate,1)}% win rate</div>
+                    <div className={`font-bold ${(perf.total_pnl??0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>${safeFixed(perf.total_pnl,2)}</div>
+                    <div className="text-xs text-zinc-500">{safeFixed(perf.win_rate,1)}% win rate</div>
                   </div>
                 </div>
               ))}
@@ -140,37 +140,37 @@ export default function Analytics() {
         </div>
 
         {/* Portfolio */}
-        <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border">
+        <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
           <h3 className="font-bold flex items-center gap-2 mb-4"><Activity size={16} /> Portfolio Summary - Live Binance</h3>
           {data?.portfolio ? (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-crypto-bg border border-crypto-border/50">
-                  <div className="text-xs text-crypto-muted">Total Value</div>
+                <div className="p-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5/50">
+                  <div className="text-xs text-zinc-500">Total Value</div>
                   <div className="text-lg font-bold">${safeFixed(data.portfolio.total_value,2)}</div>
                 </div>
-                <div className="p-3 rounded-xl bg-crypto-bg border border-crypto-border/50">
-                  <div className="text-xs text-crypto-muted">Total P&L</div>
-                  <div className={`text-lg font-bold ${(data.portfolio.total_pnl??0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${safeFixed(data.portfolio.total_pnl,2)}</div>
+                <div className="p-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5/50">
+                  <div className="text-xs text-zinc-500">Total P&L</div>
+                  <div className={`text-lg font-bold ${(data.portfolio.total_pnl??0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>${safeFixed(data.portfolio.total_pnl,2)}</div>
                 </div>
               </div>
-              <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                <div className="text-xs font-bold text-emerald-400">Real Trading - No Fake</div>
-                <div className="text-xs text-crypto-muted mt-1">{data.no_fake || 'Real trading'} • {data.data_source || 'Live Binance'}</div>
+              <div className="p-3 rounded-xl bg-emerald-500/5 border border-black/5 dark:border-white/5">
+                <div className="text-xs font-bold text-emerald-600">Real Trading - No Fake</div>
+                <div className="text-xs text-zinc-500 mt-1">{data.no_fake || 'Real trading'} • {data.data_source || 'Live Binance'}</div>
               </div>
               {data.portfolio.allocation && Object.keys(data.portfolio.allocation).length>0 && (
                 <div>
-                  <div className="text-xs text-crypto-muted uppercase mb-2">Allocation</div>
+                  <div className="text-xs text-zinc-500 uppercase mb-2">Allocation</div>
                   <div className="space-y-2">
                     {Object.entries(data.portfolio.allocation).map(([sym, pct]) => {
                       const pctNum = typeof pct === 'number' ? pct : parseFloat(pct) || 0
                       return (
                         <div key={sym} className="flex items-center gap-2">
                           <span className="w-16 text-xs font-medium">{sym}</span>
-                          <div className="flex-1 h-1.5 bg-crypto-bg rounded-full overflow-hidden">
+                          <div className="flex-1 h-1.5 bg-transparent rounded-full overflow-hidden">
                             <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, Math.max(0, pctNum))}%` }}></div>
                           </div>
-                          <span className="text-xs text-crypto-muted w-8">{safeFixed(pctNum,0)}%</span>
+                          <span className="text-xs text-zinc-500 w-8">{safeFixed(pctNum,0)}%</span>
                         </div>
                       )
                     })}
@@ -179,30 +179,30 @@ export default function Analytics() {
               )}
             </div>
           ) : (
-            <div className="text-center py-8 text-crypto-muted">No portfolio data</div>
+            <div className="text-center py-8 text-zinc-500">No portfolio data</div>
           )}
         </div>
       </div>
 
       {/* Additional Metrics */}
-      <div className="p-5 rounded-2xl bg-crypto-card border border-crypto-border">
+      <div className="p-5 rounded-2xl clay-card border border-black/5 dark:border-white/5">
         <h3 className="font-bold flex items-center gap-2 mb-4"><Award size={16} /> Advanced Metrics - Real Performance</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className="p-3 rounded-xl bg-crypto-bg border border-crypto-border/50">
-            <div className="text-xs text-crypto-muted">Avg Win</div>
-            <div className="font-bold text-emerald-400">${safeFixed(metrics.avg_win,2)}</div>
+          <div className="p-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5/50">
+            <div className="text-xs text-zinc-500">Avg Win</div>
+            <div className="font-bold text-emerald-600">${safeFixed(metrics.avg_win,2)}</div>
           </div>
-          <div className="p-3 rounded-xl bg-crypto-bg border border-crypto-border/50">
-            <div className="text-xs text-crypto-muted">Avg Loss</div>
-            <div className="font-bold text-red-400">${safeFixed(metrics.avg_loss,2)}</div>
+          <div className="p-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5/50">
+            <div className="text-xs text-zinc-500">Avg Loss</div>
+            <div className="font-bold text-red-500">${safeFixed(metrics.avg_loss,2)}</div>
           </div>
-          <div className="p-3 rounded-xl bg-crypto-bg border border-crypto-border/50">
-            <div className="text-xs text-crypto-muted">Total Wins</div>
-            <div className="font-bold text-emerald-400">${safeFixed(metrics.total_wins,2)}</div>
+          <div className="p-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5/50">
+            <div className="text-xs text-zinc-500">Total Wins</div>
+            <div className="font-bold text-emerald-600">${safeFixed(metrics.total_wins,2)}</div>
           </div>
-          <div className="p-3 rounded-xl bg-crypto-bg border border-crypto-border/50">
-            <div className="text-xs text-crypto-muted">Total Losses</div>
-            <div className="font-bold text-red-400">${safeFixed(metrics.total_losses,2)}</div>
+          <div className="p-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5/50">
+            <div className="text-xs text-zinc-500">Total Losses</div>
+            <div className="font-bold text-red-500">${safeFixed(metrics.total_losses,2)}</div>
           </div>
         </div>
       </div>
