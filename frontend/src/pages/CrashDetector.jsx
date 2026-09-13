@@ -65,7 +65,7 @@ export default function CrashDetector() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <h1 className={`text-2xl font-bold flex items-center gap-3 ${isDark ? 'text-white' : 'text-black'}`}><AlertTriangle className="text-red-500" /> Crash Detector • Early Warning</h1>
-            <p className="text-[11px] text-zinc-500 mt-1">Local processing • Fast scraper • Detects crashes BEFORE market impact • Binance + Funding + OI + Liquidations + Orderbook + Whales + Fear&Greed + Reddit + News • Fixed: data quality handling, retry, validation</p>
+            <p className="text-[11px] text-zinc-500 mt-1">Local processing • Fast scraper • Detects crashes BEFORE market impact • CoinDCX INR primary + Binance fallback + Funding + OI + Liquidations + Orderbook + Whales + Fear&Greed + Reddit + News • CoinDCX integrated</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-[10px] px-2 py-1 rounded-full border ${isDark ? 'bg-zinc-900 border-white/10 text-zinc-400' : 'bg-white border-black/5 text-zinc-500'}`}>LOCAL • {safeFixed(data?.total_time_ms,0)}ms total • {safeFixed(data?.processing_time_ms,0)}ms proc • Quality {((data?.data_quality||0)*100).toFixed(0)}%</span>
@@ -132,7 +132,7 @@ export default function CrashDetector() {
             <h3 className={`font-bold text-[13px] mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-black'}`}><Activity size={14} /> Live Sources • Local Fast Scraper • Fixed</h3>
             {raw ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-[11px]">
-                <div className={`p-2 rounded-lg ${isDark ? 'bg-zinc-900' : 'bg-zinc-50'}`}><div className="text-zinc-500">Spot Tickers</div><div className="font-bold">{raw.spot_tickers_count||0}</div><div className="text-[10px] text-zinc-400">BTC ${raw.btc?.price?.toLocaleString?.() || 'N/A'} {safeFixed(raw.btc?.change_pct,1)}%</div></div>
+                <div className={`p-2 rounded-lg ${isDark ? 'bg-zinc-900' : 'bg-zinc-50'}`}><div className="text-zinc-500">Spot Tickers</div><div className="font-bold">{raw.spot_tickers_count||0} + {raw.coindcx_tickers_count||0} CoinDCX</div><div className="text-[10px] text-zinc-400">BTC ${raw.btc?.price?.toLocaleString?.() || 'N/A'} {safeFixed(raw.btc?.change_pct,1)}% | CoinDCX ₹{raw.coindcx_btc?.price_inr?.toLocaleString?.() || raw.coindcx_btc?.price?.toLocaleString?.() || 'N/A'}</div></div>
                 <div className={`p-2 rounded-lg ${isDark ? 'bg-zinc-900' : 'bg-zinc-50'}`}><div className="text-zinc-500">Futures</div><div className="font-bold">{raw.futures_count||0}</div></div>
                 <div className={`p-2 rounded-lg ${isDark ? 'bg-zinc-900' : 'bg-zinc-50'}`}><div className="text-zinc-500">Funding Rates</div><div className="font-bold">{raw.funding_count||0}</div></div>
                 <div className={`p-2 rounded-lg ${isDark ? 'bg-zinc-900' : 'bg-zinc-50'}`}><div className="text-zinc-500">Fear & Greed</div><div className={`font-bold ${raw.fear_greed?.value<25 ? 'text-red-500' : raw.fear_greed?.value<50 ? 'text-amber-500' : 'text-emerald-500'}`}>{raw.fear_greed?.value||50} {raw.fear_greed?.classification||'Neutral'}</div></div>

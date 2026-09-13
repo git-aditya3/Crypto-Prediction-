@@ -46,8 +46,18 @@ export default function Analytics() {
   return (
     <div className="max-w-[1600px] mx-auto px-6 py-6 font-poppins space-y-6">
       <div>
-        <h1 className="text-3xl font-black flex items-center gap-3"><BarChart3 className="text-zinc-500" /> Performance Analytics - Real Trading</h1>
-        <p className="text-zinc-500 mt-1">Real P&L tracking - win rate, profit factor, Sharpe, equity curve - no fake simulation</p>
+        <h1 className="text-3xl font-black flex items-center gap-3"><BarChart3 className="text-zinc-500" /> Performance Analytics - CoinDCX Real Money</h1>
+        <p className="text-zinc-500 mt-1">Real P&L tracking - CoinDCX INR + Binance - win rate, profit factor, Sharpe, equity curve - actual money</p>
+        {data?.coindcx && (
+          <div className="mt-3 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex flex-wrap gap-4 text-xs">
+            <span className="font-bold text-emerald-600">CoinDCX {data.coindcx.connected ? 'Connected' : 'Not Connected'} - {data.coindcx.real_trading ? 'REAL MONEY' : 'Paper'}</span>
+            <span>Total INR: ₹{safeFixed(data.coindcx.total_inr,2)}</span>
+            <span>Crypto Value INR: ₹{safeFixed(data.coindcx.crypto_value_inr,2)}</span>
+            <span className="font-bold">Total Value INR: ₹{safeFixed(data.coindcx.total_value_inr,2)}</span>
+            <span>Balances: {data.coindcx.balances_count}</span>
+            <span>Open Orders: {data.coindcx.open_orders_count}</span>
+          </div>
+        )}
       </div>
 
       {/* Metrics */}
@@ -141,7 +151,7 @@ export default function Analytics() {
 
         {/* Portfolio */}
         <div className="p-5 rounded-2xl ui-card border border-black/5 dark:border-white/5">
-          <h3 className="font-bold flex items-center gap-2 mb-4"><Activity size={16} /> Portfolio Summary - Live Binance</h3>
+          <h3 className="font-bold flex items-center gap-2 mb-4"><Activity size={16} /> Portfolio Summary - CoinDCX INR + Binance</h3>
           {data?.portfolio ? (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
