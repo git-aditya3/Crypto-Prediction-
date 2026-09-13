@@ -46,7 +46,7 @@ export default function CrashDetector() {
   },[auto, fetchAll])
 
   const levelColor = (lvl) => {
-    if(lvl==='CRITICAL') return 'bg-gradient-to-br from-red-500 to-red-700 text-white border-red-500 shadow-lg shadow-red-500/20'
+    if(lvl==='CRITICAL') return 'bg-gradient-to-br from-red-500 to-red-700 text-[var(--text)] border-red-500 shadow-lg shadow-red-500/20'
     if(lvl==='HIGH') return 'bg-gradient-to-br from-orange-400 to-orange-600 text-black border-orange-500 shadow-lg shadow-orange-500/20'
     if(lvl==='MEDIUM') return 'bg-gradient-to-br from-amber-300 to-amber-500 text-black border-amber-400 shadow-lg shadow-amber-500/20'
     return 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-black border-emerald-500 shadow-lg shadow-emerald-500/20'
@@ -63,7 +63,7 @@ export default function CrashDetector() {
     <div className="min-h-screen theme-bg p-6 flex items-center justify-center">
       <div className="text-center space-y-4">
         <div className="w-12 h-12 rounded-xl bg-[var(--accent)] animate-pulse mx-auto" />
-        <div className={`font-bold ${isLight ? 'text-black' : 'text-white'}`}>Loading crash detector</div>
+        <div className={`font-bold ${isLight ? 'text-black' : 'text-[var(--text)]'}`}>Loading crash detector</div>
         <div className="text-zinc-500 text-[12px]">Local fast scraper • {currentTheme.icon} {currentTheme.name} theme</div>
         <div className="flex justify-center gap-1">
           <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" />
@@ -81,8 +81,8 @@ export default function CrashDetector() {
         <div className="ui-card p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-orange-500/5 to-transparent opacity-60 group-hover:opacity-100 transition-opacity" />
           <div className="relative z-10">
-            <h1 className={`text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 flex-wrap ${isLight ? 'text-black' : 'text-white'}`}>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 text-white flex items-center justify-center shadow-lg animate-pulse">
+            <h1 className={`text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 flex-wrap ${isLight ? 'text-black' : 'text-[var(--text)]'}`}>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 text-[var(--text)] flex items-center justify-center shadow-lg animate-pulse">
                 <AlertTriangle size={20} />
               </div>
               Crash Detector
@@ -109,7 +109,7 @@ export default function CrashDetector() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap relative z-10">
-            <span className={`text-[10px] px-3 py-2 rounded-xl border font-bold flex items-center gap-2 ${isLight ? 'bg-white border-black/5 text-zinc-700 shadow-sm' : 'bg-black/40 border-white/10 text-zinc-300'}`}>
+            <span className={`text-[10px] px-3 py-2 rounded-xl border font-bold flex items-center gap-2 ${isLight ? 'bg-white border-black/5 text-zinc-700 shadow-sm' : 'theme-bg/40 border-white/10 text-zinc-300'}`}>
               <Gauge size={12} className="text-[var(--accent)]" />
               {safeFixed(data?.total_time_ms,0)}ms total • {safeFixed(data?.processing_time_ms,0)}ms proc • Q {((data?.data_quality||0)*100).toFixed(0)}%
             </span>
@@ -146,19 +146,19 @@ export default function CrashDetector() {
                   <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
                   <span className="text-3xl relative z-10">{safeFixed(data.crash_risk,0)}%</span>
                   <span className="text-[10px] font-black tracking-wide relative z-10">{data.level}</span>
-                  <div className="absolute bottom-1 left-1 right-1 h-1 bg-black/20 rounded-full overflow-hidden">
+                  <div className="absolute bottom-1 left-1 right-1 h-1 theme-bg/20 rounded-full overflow-hidden">
                     <div className="h-full bg-white/60 rounded-full" style={{ width: `${data.crash_risk}%` }} />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className={`font-black text-[18px] flex items-center gap-2 flex-wrap ${isLight ? 'text-black' : 'text-white'}`}>
+                  <div className={`font-black text-[18px] flex items-center gap-2 flex-wrap ${isLight ? 'text-black' : 'text-[var(--text)]'}`}>
                     BTC ${data.btc_price ? data.btc_price.toLocaleString() : 'N/A'} 
                     <span className={`px-2.5 py-1 rounded-full text-[12px] font-black ${data.btc_change>=0 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
                       {data.btc_change>0?'+':''}{safeFixed(data.btc_change,2)}% 24h
                     </span>
                   </div>
                   <div className={`text-[13px] mt-2 leading-relaxed max-w-[600px] ${isLight ? 'text-zinc-700' : 'text-zinc-300'}`}>{data.summary || 'No summary'}</div>
-                  <div className={`text-[12px] mt-3 p-3 rounded-xl border font-medium ${isLight ? 'bg-zinc-50 border-black/5 text-zinc-700' : 'bg-black/40 border-white/5 text-zinc-300'} ${data.level==='CRITICAL' ? '!border-red-500/30 !text-red-400 !bg-red-500/10' : data.level==='HIGH' ? '!border-orange-500/30 !text-orange-400 !bg-orange-500/10' : ''}`}>
+                  <div className={`text-[12px] mt-3 p-3 rounded-xl border font-medium ${isLight ? 'bg-zinc-50 border-black/5 text-zinc-700' : 'theme-bg/40 border-white/5 text-zinc-300'} ${data.level==='CRITICAL' ? '!border-red-500/30 !text-red-400 !bg-red-500/10' : data.level==='HIGH' ? '!border-orange-500/30 !text-orange-400 !bg-orange-500/10' : ''}`}>
                     <span className="flex items-start gap-2">
                       <Zap size={14} className="mt-0.5 shrink-0" />
                       {data.action || 'No action'}
@@ -166,7 +166,7 @@ export default function CrashDetector() {
                   </div>
                 </div>
               </div>
-              <div className={`p-4 rounded-xl border space-y-2.5 min-w-[200px] ${isLight ? 'bg-white border-black/5 shadow-sm' : 'bg-black/40 border-white/5'}`}>
+              <div className={`p-4 rounded-xl border space-y-2.5 min-w-[200px] ${isLight ? 'bg-white border-black/5 shadow-sm' : 'theme-bg/40 border-white/5'}`}>
                 {[
                   { label: 'Confidence', value: `${safeFixed(data.confidence,0)}%`, icon: Brain },
                   { label: 'Fetch', value: `${safeFixed(data.fetch_time_ms,0)}ms`, icon: Activity },
@@ -179,7 +179,7 @@ export default function CrashDetector() {
                     <span className={`flex items-center gap-1.5 ${isLight ? 'text-zinc-500' : 'text-zinc-500'} group-hover:text-[var(--text-sec)]`}>
                       <item.icon size={10} /> {item.label}
                     </span>
-                    <span className={`font-bold ${item.color || (isLight ? 'text-black' : 'text-white')}`}>{item.value}</span>
+                    <span className={`font-bold ${item.color || (isLight ? 'text-black' : 'text-[var(--text)]')}`}>{item.value}</span>
                   </div>
                 ))}
               </div>
@@ -192,7 +192,7 @@ export default function CrashDetector() {
             {data.signals.map((s,i)=>(
               <GlassCard key={i} className={`p-4 border hover:scale-[1.02] hover:shadow-xl transition-all group ${s.score>=60 ? 'border-orange-500/20 hover:border-orange-500/40 hover:shadow-orange-500/10' : 'border-[var(--border)] hover:border-[var(--accent)]/20'}`}>
                 <div className="flex items-center justify-between">
-                  <span className={`font-black text-[11px] uppercase tracking-wide ${isLight ? 'text-black' : 'text-white'} group-hover:text-[var(--accent)] transition-colors`}>{(s.name||'').replace('_',' ')}</span>
+                  <span className={`font-black text-[11px] uppercase tracking-wide ${isLight ? 'text-black' : 'text-[var(--text)]'} group-hover:text-[var(--accent)] transition-colors`}>{(s.name||'').replace('_',' ')}</span>
                   <span className={`text-[10px] px-2.5 py-1 rounded-full font-black border shadow-sm ${levelColor(s.level)}`}>{safeFixed(s.score,0)}% {s.level}</span>
                 </div>
                 <div className={`text-[11px] mt-3 leading-relaxed line-clamp-2 ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>{s.reason || 'No reason'}</div>
@@ -210,7 +210,7 @@ export default function CrashDetector() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <GlassCard className="p-6 lg:col-span-2">
-            <h3 className={`font-black text-[14px] mb-5 flex items-center gap-2 ${isLight ? 'text-black' : 'text-white'}`}>
+            <h3 className={`font-black text-[14px] mb-5 flex items-center gap-2 ${isLight ? 'text-black' : 'text-[var(--text)]'}`}>
               <div className="w-8 h-8 rounded-lg bg-[var(--accent)] text-[var(--bg)] flex items-center justify-center">
                 <Activity size={14} />
               </div>
@@ -227,12 +227,12 @@ export default function CrashDetector() {
                   { label: 'Liquidations', value: `${Object.keys(raw.liquidations||{}).length} symbols`, sub: Object.entries(raw.liquidations||{}).slice(0,2).map(([k,v])=>`${k}: $${((v.total||0)/1e6).toFixed(1)}M`).join(' '), icon: AlertTriangle },
                   { label: 'Reddit + News', value: `${raw.reddit_count||0} posts, ${raw.news_count||0} news`, sub: `${raw.reddit_crash?.length || 0} crash posts, ${raw.news_crash?.length || 0} crash news`, icon: MessageSquare },
                 ].map((item, i) => (
-                  <div key={i} className={`group p-3 rounded-xl border transition-all hover:scale-[1.02] hover:shadow-md ${isLight ? 'bg-zinc-50 border-black/5 hover:bg-white hover:border-black/10' : 'bg-black/20 border-white/5 hover:bg-black/40 hover:border-[var(--accent)]/20'}`}>
+                  <div key={i} className={`group p-3 rounded-xl border transition-all hover:scale-[1.02] hover:shadow-md ${isLight ? 'bg-zinc-50 border-black/5 hover:bg-white hover:border-black/10' : 'theme-bg/20 border-white/5 hover:theme-bg/40 hover:border-[var(--accent)]/20'}`}>
                     <div className="flex items-center gap-2 mb-1">
                       <item.icon size={12} className="text-[var(--accent)]" />
                       <div className={`text-[10px] font-bold uppercase tracking-wide ${isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>{item.label}</div>
                     </div>
-                    <div className={`font-black ${item.color || (isLight ? 'text-black' : 'text-white')}`}>{item.value}</div>
+                    <div className={`font-black ${item.color || (isLight ? 'text-black' : 'text-[var(--text)]')}`}>{item.value}</div>
                     <div className={`text-[10px] mt-1 leading-tight ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>{item.sub}</div>
                   </div>
                 ))}
@@ -241,17 +241,17 @@ export default function CrashDetector() {
             
             {raw?.reddit_crash?.length>0 && (
               <div className="mt-5">
-                <div className={`text-[12px] font-black mb-2 flex items-center gap-2 ${isLight ? 'text-black' : 'text-white'}`}><MessageSquare size={14} className="text-orange-500" /> Crash Reddit • Early Signals</div>
+                <div className={`text-[12px] font-black mb-2 flex items-center gap-2 ${isLight ? 'text-black' : 'text-[var(--text)]'}`}><MessageSquare size={14} className="text-orange-500" /> Crash Reddit • Early Signals</div>
                 <div className="space-y-1.5">
-                  {raw.reddit_crash.map((p,i)=><div key={i} className={`text-[11px] p-2 rounded-lg border truncate ${isLight ? 'text-zinc-700 bg-white border-black/5' : 'text-zinc-300 bg-black/20 border-white/5'}`}>• {p.title} <span className="text-emerald-500 font-bold">({p.score}↑)</span></div>)}
+                  {raw.reddit_crash.map((p,i)=><div key={i} className={`text-[11px] p-2 rounded-lg border truncate ${isLight ? 'text-zinc-700 bg-white border-black/5' : 'text-zinc-300 theme-bg/20 border-white/5'}`}>• {p.title} <span className="text-emerald-500 font-bold">({p.score}↑)</span></div>)}
                 </div>
               </div>
             )}
             {raw?.news_crash?.length>0 && (
               <div className="mt-4">
-                <div className={`text-[12px] font-black mb-2 flex items-center gap-2 ${isLight ? 'text-black' : 'text-white'}`}><Newspaper size={14} className="text-red-500" /> Crash News • Panic Detection</div>
+                <div className={`text-[12px] font-black mb-2 flex items-center gap-2 ${isLight ? 'text-black' : 'text-[var(--text)]'}`}><Newspaper size={14} className="text-red-500" /> Crash News • Panic Detection</div>
                 <div className="space-y-1.5">
-                  {raw.news_crash.map((n,i)=><div key={i} className={`text-[11px] p-2 rounded-lg border truncate ${isLight ? 'text-zinc-700 bg-white border-black/5' : 'text-zinc-300 bg-black/20 border-white/5'}`}>• {n.title}</div>)}
+                  {raw.news_crash.map((n,i)=><div key={i} className={`text-[11px] p-2 rounded-lg border truncate ${isLight ? 'text-zinc-700 bg-white border-black/5' : 'text-zinc-300 theme-bg/20 border-white/5'}`}>• {n.title}</div>)}
                 </div>
               </div>
             )}
@@ -259,8 +259,8 @@ export default function CrashDetector() {
 
           <div className="space-y-5">
             <GlassCard className="p-5">
-              <h3 className={`font-black text-[13px] mb-4 flex items-center gap-2 ${isLight ? 'text-black' : 'text-white'}`}>
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 text-white flex items-center justify-center">
+              <h3 className={`font-black text-[13px] mb-4 flex items-center gap-2 ${isLight ? 'text-black' : 'text-[var(--text)]'}`}>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 text-[var(--text)] flex items-center justify-center">
                   <Shield size={14} />
                 </div>
                 Crash Alerts
@@ -291,7 +291,7 @@ export default function CrashDetector() {
             </GlassCard>
 
             <GlassCard className="p-5">
-              <h3 className={`font-black text-[13px] mb-4 flex items-center gap-2 ${isLight ? 'text-black' : 'text-white'}`}>
+              <h3 className={`font-black text-[13px] mb-4 flex items-center gap-2 ${isLight ? 'text-black' : 'text-[var(--text)]'}`}>
                 <div className="w-8 h-8 rounded-lg bg-[var(--accent)] text-[var(--bg)] flex items-center justify-center">
                   <BarChart3 size={14} />
                 </div>
@@ -301,7 +301,7 @@ export default function CrashDetector() {
                 {history.length===0 ? <div className={`text-[11px] text-center py-4 ${isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>No history yet</div> : history.map((h,i)=>(
                   <div key={i} className={`group flex justify-between items-center text-[11px] py-2 px-2 rounded-lg border-b last:border-0 hover:bg-[var(--accent-soft)] transition-colors ${isLight ? 'border-black/5' : 'border-white/5'}`}>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full bg-[var(--card)] border ${isLight ? 'text-zinc-500 border-black/5' : 'text-zinc-400 border-white/5'}`}>{h.timestamp ? new Date(h.timestamp).toLocaleTimeString() : ''}</span>
-                    <span className={`font-black px-2 py-0.5 rounded-full text-[10px] ${h.level==='CRITICAL' ? 'bg-red-500 text-white' : h.level==='HIGH' ? 'bg-orange-500 text-black' : h.level==='MEDIUM' ? 'bg-amber-500 text-black' : 'bg-emerald-500 text-black'}`}>{safeFixed(h.crash_risk,0)}% {h.level}</span>
+                    <span className={`font-black px-2 py-0.5 rounded-full text-[10px] ${h.level==='CRITICAL' ? 'bg-red-500 text-[var(--text)]' : h.level==='HIGH' ? 'bg-orange-500 text-black' : h.level==='MEDIUM' ? 'bg-amber-500 text-black' : 'bg-emerald-500 text-black'}`}>{safeFixed(h.crash_risk,0)}% {h.level}</span>
                     <span className={`font-bold mono ${h.btc_change<0 ? 'text-red-500' : 'text-emerald-500'}`}>{safeFixed(h.btc_change,1)}%</span>
                   </div>
                 ))}
@@ -311,16 +311,16 @@ export default function CrashDetector() {
         </div>
 
         <GlassCard className="p-6">
-          <h3 className={`font-black text-[13px] mb-3 flex items-center gap-2 ${isLight ? 'text-black' : 'text-white'}`}>
+          <h3 className={`font-black text-[13px] mb-3 flex items-center gap-2 ${isLight ? 'text-black' : 'text-[var(--text)]'}`}>
             <Zap size={14} className="text-[var(--accent)]" /> How Crash Detection Works • Before Market Impact
           </h3>
           <div className={`text-[11px] leading-relaxed space-y-2 ${isLight ? 'text-zinc-700' : 'text-zinc-300'}`}>
             <div className="grid md:grid-cols-2 gap-4">
-              <div className={`p-3 rounded-xl border ${isLight ? 'bg-white border-black/5' : 'bg-black/20 border-white/5'}`}>
+              <div className={`p-3 rounded-xl border ${isLight ? 'bg-white border-black/5' : 'theme-bg/20 border-white/5'}`}>
                 <div className="font-bold text-emerald-500 mb-1">✅ Fixed Bugs</div>
                 <div>Bare except → specific, fallback 100k → historical + last known, volatility sqrt(86400)→sqrt(365), slippage skips, p_value NaN, OI history, stablecoin flight, quality-weighted aggregation, thread locks, rate limit 60/min, Pydantic validation, cached fallback, safeFixed guards, {Object.keys(THEMES).length} themes support</div>
               </div>
-              <div className={`p-3 rounded-xl border ${isLight ? 'bg-white border-black/5' : 'bg-black/20 border-white/5'}`}>
+              <div className={`p-3 rounded-xl border ${isLight ? 'bg-white border-black/5' : 'theme-bg/20 border-white/5'}`}>
                 <div className="font-bold text-[var(--accent)] mb-1">🎯 Detection Logic</div>
                 <div>1. Orderbook imbalance bid drying 30-70% before crash 2. Whale sells {'>'}60% 3. Liquidations $1M-20M+ 4. Funding flip 5. Correlation 80%+ systemic 6. Volume spike + drop 7. Fear & Greed {'<'}25 8. News/Reddit crash keywords 9. Stablecoin flight BTC {'>'}7% + alt drops. All local Session reuse, ThreadPool 12, 3-5s timeouts, numpy {'<'}10ms, total {'<'}3s</div>
               </div>

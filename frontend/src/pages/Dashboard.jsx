@@ -8,12 +8,12 @@ import GlassCard, { StatCard } from '../components/GlassCard'
 import TradingCallCard from '../components/TradingCallCard'
 import { useMarketStore } from '../store/useMarketStore'
 import { useSettingsStore } from '../store/useSettingsStore'
-import { DollarSign, Target, ArrowRight, Activity, BarChart3 } from 'lucide-react'
+import { DollarSign, Target, ArrowRight, Activity, BarChart3, Zap, Sparkles } from 'lucide-react'
 import accuracyData from '../data/accuracy.json'
 
 export default function Dashboard() {
   const { selectedSymbol, setSelectedSymbol, tickers, prices, fetchAllTickers } = useMarketStore()
-  const { accountBalance, riskPerTrade } = useSettingsStore()
+  const { accountBalance, riskPerTrade, theme } = useSettingsStore()
   const [history, setHistory] = useState(null)
   const [forecast, setForecast] = useState(null)
   const [signal, setSignal] = useState(null)
@@ -71,40 +71,48 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen theme-bg">
       <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-5">
-        {/* Hero - minimal */}
-        <div className="rounded-xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 p-5 md:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 gpu-accelerated">
-          <div>
-            <h1 className="text-[24px] md:text-[28px] font-semibold tracking-tight text-zinc-900 dark:text-white flex items-center gap-3">
+        {/* Hero - themed */}
+        <div className="rounded-xl border bg-[var(--card)] border-[var(--border)] p-5 md:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 gpu-accelerated relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-soft)] via-transparent to-transparent pointer-events-none" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent)]/5 rounded-full blur-3xl -translate-y-32 translate-x-32 pointer-events-none" />
+          <div className="relative z-10">
+            <h1 className="text-[24px] md:text-[28px] font-semibold tracking-tight text-[var(--text)] flex items-center gap-3">
               Trading Intelligence
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-900 text-white dark:bg-white dark:text-black tracking-wide">LIVE</span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--accent)] text-white shadow-[var(--glow)] tracking-wide animate-pulse">LIVE</span>
+              <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--accent-soft)] border border-[var(--border)] text-[10px] font-medium text-[var(--accent)]"><Zap size={10} /> Real Money</span>
             </h1>
-            <p className="text-[13px] mt-2 text-zinc-500 leading-relaxed max-w-2xl">
-              Real market data • Endless training • {tradingSummary?.active || 0} active calls • No simulation • Minimal monochrome • 120fps
+            <p className="text-[13px] mt-2 text-[var(--text-sec)] leading-relaxed max-w-2xl flex items-center gap-2 flex-wrap">
+              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--buy)] animate-pulse" /> Live Binance + CoinDCX</span>
+              <span className="w-1 h-1 rounded-full bg-[var(--border)]" />
+              <span>{tradingSummary?.active || 0} active calls</span>
+              <span className="w-1 h-1 rounded-full bg-[var(--border)]" />
+              <span className="flex items-center gap-1"><Sparkles size={10} className="text-[var(--accent)]" /> 182 features</span>
+              <span className="w-1 h-1 rounded-full bg-[var(--border)]" />
+              <span>No simulation</span>
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
-              <div className="w-1.5 h-1.5 rounded-full bg-zinc-900 dark:bg-white animate-pulse" />
-              {tradingSummary?.buys || 0} BUY • {tradingSummary?.sells || 0} SELL
+          <div className="flex items-center gap-2 relative z-10">
+            <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--bg-secondary)] border border-[var(--border)] text-[11px] font-medium text-[var(--text-sec)]">
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[var(--buy)] animate-pulse" /> {tradingSummary?.buys || 0} BUY</span>
+              <span className="w-px h-3 bg-[var(--border)]" />
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[var(--sell)] animate-pulse" /> {tradingSummary?.sells || 0} SELL</span>
             </div>
-            <Link to="/trading" className="px-4 py-2 rounded-full text-[13px] font-medium bg-zinc-900 text-white dark:bg-white dark:text-black hover:scale-[1.02] transition-transform duration-200 gpu-accelerated flex items-center gap-1.5">
+            <Link to="/trading" className="px-4 py-2 rounded-full text-[13px] font-medium bg-[var(--accent)] text-white shadow-[var(--glow)] hover:shadow-[var(--shadow-md)] hover:scale-[1.02] transition-all duration-200 gpu-accelerated flex items-center gap-1.5">
               Trading <ArrowRight size={14} />
             </Link>
           </div>
         </div>
 
-        {/* Markets - minimal */}
-        <div className="rounded-xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 p-4 md:p-5 gpu-accelerated">
+        <div className="rounded-xl border bg-[var(--card)] border-[var(--border)] p-4 md:p-5 gpu-accelerated">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[11px] font-medium tracking-wide uppercase text-zinc-500 flex items-center gap-2">
-              <BarChart3 size={12} /> Markets
+            <h2 className="text-[11px] font-medium tracking-wide uppercase text-[var(--text-muted)] flex items-center gap-2">
+              <BarChart3 size={12} className="text-[var(--accent)]" /> Markets • Live
             </h2>
-            <span className="text-[10px] px-2 py-1 rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500">${accountBalance.toLocaleString()} • {(riskPerTrade*100).toFixed(1)}% risk</span>
+            <span className="text-[10px] px-2.5 py-1 rounded-full bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-muted)]">${accountBalance.toLocaleString()} • {(riskPerTrade*100).toFixed(1)}% risk • {theme}</span>
           </div>
           <AssetGrid onSelect={setSelectedSymbol} selected={selectedSymbol} />
         </div>
 
-        {/* Stats - minimal 120fps */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 stagger-children">
           {stats.map((stat, i) => <StatCard key={i} {...stat} />)}
         </div>
@@ -112,11 +120,11 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <div className="lg:col-span-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium text-[13px] tracking-tight text-zinc-900 dark:text-white flex items-center gap-2">
-                <Target size={14} /> Trading Calls
-                {tradingSummary && <span className="px-2 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-black text-[10px]">{tradingSummary.active || tradingSummary.total} ACTIVE</span>}
+              <h3 className="font-medium text-[13px] tracking-tight text-[var(--text)] flex items-center gap-2">
+                <Target size={14} className="text-[var(--accent)]" /> Trading Calls
+                {tradingSummary && <span className="px-2 py-0.5 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold shadow-sm">{tradingSummary.active || tradingSummary.total} ACTIVE</span>}
               </h3>
-              <Link to="/trading" className="text-[11px] font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 transition-colors duration-200">
+              <Link to="/trading" className="text-[11px] font-medium text-[var(--text-muted)] hover:text-[var(--text)] flex items-center gap-1 transition-colors duration-200">
                 View all <ArrowRight size={12} />
               </Link>
             </div>
@@ -129,16 +137,16 @@ export default function Dashboard() {
           </div>
 
           <div className="lg:col-span-7 space-y-4">
-            <GlassCard className="p-5" hover={false}>
+            <GlassCard className="p-5" hover={false} glow>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-medium text-[13px] tracking-tight text-zinc-900 dark:text-white flex items-center gap-2">
-                  <Activity size={14} /> Performance
-                  <span className="px-2 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-black text-[10px]">V5 MAX</span>
+                <h3 className="font-medium text-[13px] tracking-tight text-[var(--text)] flex items-center gap-2">
+                  <Activity size={14} className="text-[var(--accent)]" /> Performance
+                  <span className="px-2 py-0.5 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold shadow-sm">V5 MAX</span>
                 </h3>
-                <span className="text-[10px] px-2 py-1 rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500">Real data • No simulation</span>
+                <span className="text-[10px] px-2.5 py-1 rounded-full bg-[var(--accent-soft)] border border-[var(--border)] text-[var(--accent)] font-medium">Real data • No simulation</span>
               </div>
 
-              <div className="grid grid-cols-4 gap-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500 border-b border-zinc-100 dark:border-zinc-800 pb-2 mb-3">
+              <div className="grid grid-cols-4 gap-2 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)] border-b border-[var(--border)] pb-2 mb-3">
                 <span>Model</span>
                 <span>MAPE</span>
                 <span>RMSE</span>
@@ -149,14 +157,14 @@ export default function Dashboard() {
                 {accuracy && Object.entries(accuracy.models || {}).slice(0,5).map(([name, m]) => {
                   const isBest = accuracy.best_model === name
                   return (
-                    <div key={name} className={`grid grid-cols-4 gap-2 items-center p-3 rounded-lg text-[12px] border transition-all duration-200 hover:translate-y-[-1px] gpu-accelerated ${isBest ? 'bg-zinc-900 text-white dark:bg-white dark:text-black border-zinc-900 dark:border-white' : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                    <div key={name} className={`grid grid-cols-4 gap-2 items-center p-3 rounded-lg text-[12px] border transition-all duration-200 hover:translate-y-[-1px] gpu-accelerated ${isBest ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-[var(--glow)]' : 'bg-[var(--bg-secondary)] border-[var(--border)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-sm)]'}`}>
                       <span className="font-medium capitalize flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full ${isBest ? 'bg-white dark:bg-black animate-pulse' : 'bg-zinc-400'}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${isBest ? 'bg-white animate-pulse' : m.mape < 3 ? 'bg-[var(--buy)]' : m.mape < 6 ? 'bg-amber-500' : 'bg-[var(--text-faint)]'}`} />
                         {name}
                       </span>
                       <span className="mono font-medium">{safeFixed(m.mape,2)}%</span>
                       <span className="mono text-[11px] opacity-70">${m.rmse ? safeFixed(m.rmse,0) : '—'}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full w-fit font-medium ${m.mape < 3 ? 'bg-zinc-900 text-white dark:bg-white dark:text-black' : 'bg-white dark:bg-zinc-700 text-zinc-500 border border-zinc-200 dark:border-zinc-600'}`}>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full w-fit font-medium border ${m.mape < 3 ? 'bg-[var(--buy)] text-white border-[var(--buy)] shadow-sm' : m.mape < 6 ? 'bg-amber-500/15 text-amber-600 border-amber-500/20' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] border-[var(--border)]'}`}>
                         {m.mape < 3 ? 'Excellent' : m.mape < 6 ? 'Good' : 'Fair'}
                       </span>
                     </div>
@@ -165,24 +173,24 @@ export default function Dashboard() {
               </div>
 
               <div className="mt-5">
-                {loading ? <div className="skeleton h-[360px] rounded-xl"></div> : history ? <PriceChart data={history} forecast={forecast} realtimePrice={livePrice} symbol={selectedSymbol} height={360} /> : <div className="h-[360px] flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 gap-2 text-zinc-400"><BarChart3 size={20} /> Loading chart</div>}
+                {loading ? <div className="skeleton h-[360px] rounded-xl"></div> : history ? <PriceChart data={history} forecast={forecast} realtimePrice={livePrice} symbol={selectedSymbol} height={360} /> : <div className="h-[360px] flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border)] gap-2 text-[var(--text-muted)]"><BarChart3 size={20} /> Loading chart</div>}
               </div>
 
               {selectedCall && (
-                <div className="mt-5 p-4 rounded-xl border bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-800">
+                <div className="mt-5 p-4 rounded-xl border bg-[var(--bg-secondary)] border-[var(--border)]">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">{selectedCall.symbol} • Real Call</span>
-                    <span className={`ml-auto px-2.5 py-1 rounded-full text-[11px] font-medium ${selectedCall.signal?.includes('BUY') ? 'bg-zinc-900 text-white dark:bg-white dark:text-black' : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'}`}>{selectedCall.action}</span>
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">{selectedCall.symbol} • Real Call</span>
+                    <span className={`ml-auto px-2.5 py-1 rounded-full text-[11px] font-medium ${selectedCall.signal?.includes('BUY') ? 'bg-[var(--buy)] text-white shadow-sm' : 'bg-[var(--sell-soft)] text-[var(--sell)] border border-[var(--sell-border)]'}`}>{selectedCall.action}</span>
                   </div>
                   <div className="grid grid-cols-4 gap-2 text-[11px]">
                     {[
-                      { label: 'Entry', value: `$${safeFixed(selectedCall.entry_price,2)}` },
-                      { label: 'SL', value: `$${safeFixed(selectedCall.stop_loss,2)}` },
-                      { label: 'TP1', value: `$${safeFixed(selectedCall.take_profits?.tp1,2)}` },
-                      { label: 'R:R', value: `1:${safeFixed(selectedCall.risk_reward?.tp1 ?? 1,1)}` },
+                      { label: 'Entry', value: `$${safeFixed(selectedCall.entry_price,2)}`, accent: false },
+                      { label: 'SL', value: `$${safeFixed(selectedCall.stop_loss,2)}`, color: 'sell' },
+                      { label: 'TP1', value: `$${safeFixed(selectedCall.take_profits?.tp1,2)}`, color: 'buy' },
+                      { label: 'R:R', value: `1:${safeFixed(selectedCall.risk_reward?.tp1 ?? 1,1)}`, accent: true },
                     ].map((it, i) => (
-                      <div key={i} className="p-2.5 rounded-lg text-center border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700">
-                        <div className="text-[9px] uppercase tracking-wide text-zinc-500">{it.label}</div>
+                      <div key={i} className={`p-2.5 rounded-lg text-center border ${it.accent ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm' : it.color === 'buy' ? 'bg-[var(--buy)] text-white border-[var(--buy)] shadow-sm' : it.color === 'sell' ? 'bg-[var(--sell-soft)] border-[var(--sell-border)] text-[var(--sell)]' : 'bg-[var(--card)] border-[var(--border)]'}`}>
+                        <div className={`text-[9px] uppercase tracking-wide ${it.accent || it.color === 'buy' ? 'text-white/70' : it.color === 'sell' ? 'text-[var(--sell)]/70' : 'text-[var(--text-muted)]'}`}>{it.label}</div>
                         <div className="mono font-medium mt-1 text-[11px]">{it.value}</div>
                       </div>
                     ))}

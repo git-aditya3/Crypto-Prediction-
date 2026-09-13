@@ -30,12 +30,12 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white p-8">
+        <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-[var(--text)] p-8">
           <div className="max-w-md text-center space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center mx-auto font-medium">!</div>
+            <div className="w-12 h-12 rounded-xl bg-[var(--accent)] text-white flex items-center justify-center mx-auto font-bold shadow-[var(--glow)]">!</div>
             <h1 className="text-[18px] font-semibold">Something went wrong</h1>
-            <p className="text-[13px] text-zinc-500">{this.state.error?.message || 'Unknown'}</p>
-            <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black text-[13px] font-medium">Reload</button>
+            <p className="text-[13px] text-[var(--text-muted)]">{this.state.error?.message || 'Unknown'}</p>
+            <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-full bg-[var(--accent)] text-white text-[13px] font-medium shadow-[var(--glow)]">Reload</button>
           </div>
         </div>
       )
@@ -48,8 +48,8 @@ function LoadingFallback() {
   return (
     <div className="min-h-[50vh] flex items-center justify-center">
       <div className="text-center space-y-3">
-        <div className="w-6 h-6 border border-zinc-200 dark:border-zinc-700 border-t-zinc-900 dark:border-t-white rounded-full animate-spin mx-auto" />
-        <div className="text-[11px] text-zinc-500 font-medium uppercase tracking-wide">Loading</div>
+        <div className="w-6 h-6 border border-[var(--border)] border-t-[var(--accent)] rounded-full animate-spin mx-auto" />
+        <div className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wide">Loading</div>
       </div>
     </div>
   )
@@ -64,10 +64,10 @@ export default function App() {
     html.classList.remove('light', 'dark')
     const themeId = THEMES[theme] ? theme : 'dark'
     html.classList.add(themeId)
-    const isLight = themeId === 'light' || themeId === 'mono'
+    const isLight = ['light', 'sakura', 'mono'].includes(themeId)
     html.classList.add(isLight ? 'light' : 'dark')
     html.setAttribute('data-theme', themeId)
-    html.setAttribute('data-accent', 'zinc')
+    html.setAttribute('data-accent', accent || 'emerald')
     html.setAttribute('data-font', font || 'geist')
     html.setAttribute('data-density', density || 'comfortable')
     html.setAttribute('data-animations', animations ? 'true' : 'false')
@@ -78,7 +78,7 @@ export default function App() {
   return (
     <ErrorBoundary>
     <BrowserRouter>
-      <div className="min-h-screen theme-bg selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-black">
+      <div className="min-h-screen theme-bg selection:bg-[var(--accent)] selection:text-white">
         {showMarketTicker && <MarketTicker />}
         <Navbar />
         <main className="min-h-[calc(100vh-120px)]">
@@ -105,18 +105,22 @@ export default function App() {
           </Suspense>
         </main>
         
-        <footer className="mt-12 border-t bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+        <footer className="mt-12 border-t bg-[var(--card)] border-[var(--border)]">
           <div className="max-w-[1600px] mx-auto px-6 py-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-[11px] text-zinc-500">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-[11px] text-[var(--text-muted)]">
               <div className="flex items-center gap-3">
-                <span className="w-6 h-6 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center font-medium text-[11px]">₿</span>
-                <span className="font-medium text-zinc-900 dark:text-white">CryptoPred</span>
-                <span className="px-2 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-black text-[9px] font-medium">MINIMAL</span>
-                <span className="hidden md:inline-flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-zinc-900 dark:bg-white animate-pulse" /> LIVE • REAL • NO SIMULATION • 120FPS</span>
+                <span className="w-6 h-6 rounded-lg bg-[var(--accent)] text-white flex items-center justify-center font-bold text-[11px] shadow-[var(--glow)]">₿</span>
+                <span className="font-medium text-[var(--text)]">CryptoPred</span>
+                <span className="px-2 py-0.5 rounded-full bg-[var(--accent)] text-white text-[9px] font-bold shadow-sm">V8 THEMED</span>
+                <span className="hidden md:inline-flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-[var(--accent)] animate-pulse" /> LIVE • THEMED • REAL • 120FPS</span>
               </div>
               <div className="flex items-center gap-2">
-                <span>Monochrome • No colors • GPU accelerated</span>
-                <span className="px-2 py-0.5 rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px]">2026</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[var(--buy)]" /> Buy
+                  <span className="w-2 h-2 rounded-full bg-[var(--sell)] ml-2" /> Sell
+                  <span className="w-2 h-2 rounded-full bg-[var(--accent)] ml-2" /> Accent
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border)] text-[10px]">{new Date().getFullYear()}</span>
               </div>
             </div>
           </div>

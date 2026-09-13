@@ -85,7 +85,7 @@ export default function Scanner() {
           { id: 'momentum', label: 'Momentum' },
           { id: 'rsi', label: 'RSI' }
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${tab === t.id ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'}`}>{t.label}</button>
+          <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${tab === t.id ? 'bg-white text-black' : 'text-zinc-500 hover:text-[var(--text)]'}`}>{t.label}</button>
         ))}
       </div>
 

@@ -5,7 +5,7 @@ import GlassCard from '../components/GlassCard'
 import PriceChart from '../components/PriceChart'
 import { useMarketStore } from '../store/useMarketStore'
 import { useSettingsStore } from '../store/useSettingsStore'
-import { Target, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Target, RefreshCw, AlertTriangle, Zap, DollarSign } from 'lucide-react'
 
 const DEFAULT_SYMBOLS = ['BTC-USD','ETH-USD','BNB-USD','SOL-USD','XRP-USD','ADA-USD']
 
@@ -76,31 +76,32 @@ export default function TradingCalls() {
       <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <h1 className="text-[20px] font-semibold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2.5">
-              <span className="w-8 h-8 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center"><Target size={14} /></span>
+            <h1 className="text-[20px] font-semibold tracking-tight text-[var(--text)] flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-lg bg-[var(--accent)] text-white flex items-center justify-center shadow-[var(--glow)]"><Target size={14} /></span>
               Trading Calls
-              <span className="px-2 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-black text-[10px] font-medium">REAL</span>
+              <span className="px-2 py-0.5 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold shadow-sm">REAL</span>
+              <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-[var(--buy-soft)] text-[var(--buy)] border border-[var(--buy-border)] text-[10px] font-medium"><Zap size={10} /> Live</span>
             </h1>
-            <p className="text-[12px] mt-1 text-zinc-500">Live Binance • {activeCalls.length} active • Minimal • 120fps</p>
+            <p className="text-[12px] mt-1 text-[var(--text-muted)]">Live Binance • {activeCalls.length} active • Themed colors • 120fps</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-[12px] text-zinc-600 dark:text-zinc-400">
-              $<input type="number" value={accountBalance} onChange={e=>updateAccountBalance(parseFloat(e.target.value)||10000)} className="bg-transparent w-14 font-medium mono outline-none" />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-[var(--card)] border-[var(--border)] text-[12px] text-[var(--text-sec)]">
+              <DollarSign size={12} className="text-[var(--accent)]" /> $<input type="number" value={accountBalance} onChange={e=>updateAccountBalance(parseFloat(e.target.value)||10000)} className="bg-transparent w-14 font-medium mono outline-none" />
             </div>
             <select value={timeframe} onChange={e=>updateTimeframe(e.target.value)} className="ui-input w-auto !py-1.5 !px-2.5 text-[12px] rounded-full"><option value="1h">1H</option><option value="4h">4H</option><option value="1d">1D</option><option value="1w">1W</option></select>
             <select value={riskPerTrade} onChange={e=>updateRiskPerTrade(parseFloat(e.target.value))} className="ui-input w-auto !py-1.5 !px-2.5 text-[12px] rounded-full"><option value={0.01}>1%</option><option value={0.02}>2%</option><option value={0.03}>3%</option><option value={0.05}>5%</option></select>
-            <button onClick={fetchCalls} disabled={loading} className="px-3 py-1.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black text-[12px] font-medium flex items-center gap-1.5 hover:scale-105 transition-transform duration-200 gpu-accelerated"><RefreshCw size={12} className={loading?'animate-spin':''} />Refresh</button>
+            <button onClick={fetchCalls} disabled={loading} className="px-3 py-1.5 rounded-full bg-[var(--accent)] text-white text-[12px] font-medium flex items-center gap-1.5 hover:scale-105 shadow-[var(--glow)] transition-all duration-200 gpu-accelerated"><RefreshCw size={12} className={loading?'animate-spin':''} />Refresh</button>
           </div>
         </div>
 
-        <div className="p-3 rounded-xl border bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-800 flex items-center gap-2.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-zinc-900 dark:bg-white animate-pulse" />
-          <div className="text-[11px] text-zinc-600 dark:text-zinc-400"><span className="font-medium text-zinc-900 dark:text-white">Real trading</span> • Entry = live price • Risk ${((accountBalance||0)*(riskPerTrade||0)).toFixed(0)}/trade • No simulation • Minimal monochrome</div>
+        <div className="p-3 rounded-xl border bg-[var(--bg-secondary)] border-[var(--border)] flex items-center gap-2.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-[var(--buy)] animate-pulse" />
+          <div className="text-[11px] text-[var(--text-sec)]"><span className="font-medium text-[var(--text)]">Real trading</span> • Entry = live price • Risk ${((accountBalance||0)*(riskPerTrade||0)).toFixed(0)}/trade • Themed • No simulation</div>
         </div>
 
         {summary && <TradingCallSummary summary={summary} />}
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {[
             { key: 'all', label: 'All', count: activeCalls.length },
             { key: 'buy', label: 'Buy', count: activeCalls.filter(c=>(c.signal||'').includes('BUY')).length },
@@ -108,33 +109,33 @@ export default function TradingCalls() {
             { key: 'high_conf', label: '>80%', count: activeCalls.filter(c=>(c.confidence||0)>80).length },
             { key: 'low_risk', label: 'Low', count: activeCalls.filter(c=>c.risk_level==='LOW').length },
           ].map(f=>(
-            <button key={f.key} onClick={()=>setFilter(f.key)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap border flex items-center gap-1.5 transition-all duration-200 hover:scale-105 gpu-accelerated ${filter===f.key ? 'bg-zinc-900 text-white dark:bg-white dark:text-black border-zinc-900 dark:border-white' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300'}`}>
-              {f.label}<span className="px-1 py-0.5 rounded-full text-[9px] bg-white/20 dark:bg-black/10">{f.count}</span>
+            <button key={f.key} onClick={()=>setFilter(f.key)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap border flex items-center gap-1.5 transition-all duration-200 hover:scale-105 gpu-accelerated ${filter===f.key ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-[var(--glow)]' : 'bg-[var(--card)] border-[var(--border)] text-[var(--text-sec)] hover:border-[var(--border-strong)]'}`}>
+              {f.label}<span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${filter===f.key ? 'bg-white/20 text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border)]'}`}>{f.count}</span>
             </button>
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <div className="lg:col-span-5 space-y-3 max-h-[1000px] overflow-y-auto pr-1 stagger-children">
-            {loading ? [...Array(4)].map((_,i)=><div key={i} className="skeleton h-44 rounded-xl"></div>) : filteredCalls.length>0 ? filteredCalls.map((call,i)=><TradingCallCard key={`${call.symbol}-${i}`} call={call} onSelect={setSelectedCall} isSelected={selectedCall?.symbol===call.symbol} />) : <GlassCard className="p-8 text-center"><AlertTriangle size={20} className="mx-auto mb-2 text-zinc-400" /><div className="font-medium text-zinc-900 dark:text-white">No calls</div></GlassCard>}
+          <div className="lg:col-span-5 space-y-3 max-h-[1000px] overflow-y-auto pr-1 no-scrollbar stagger-children">
+            {loading ? [...Array(4)].map((_,i)=><div key={i} className="skeleton h-44 rounded-xl"></div>) : filteredCalls.length>0 ? filteredCalls.map((call,i)=><TradingCallCard key={`${call.symbol}-${i}`} call={call} onSelect={setSelectedCall} isSelected={selectedCall?.symbol===call.symbol} />) : <GlassCard className="p-8 text-center"><AlertTriangle size={20} className="mx-auto mb-2 text-[var(--text-muted)]" /><div className="font-medium text-[var(--text)]">No calls</div></GlassCard>}
           </div>
           <div className="lg:col-span-7 space-y-4">
             {selectedCall ? (
               <>
                 <GlassCard className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-medium text-[12px] tracking-tight text-zinc-900 dark:text-white flex items-center gap-1.5"><Target size={12} />{selectedCall.symbol} • Live</h3>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500">{selectedCall.model_used} • {selectedCall.timeframe}</span>
+                    <h3 className="font-medium text-[12px] tracking-tight text-[var(--text)] flex items-center gap-1.5"><Target size={12} className="text-[var(--accent)]" />{selectedCall.symbol} • Live</h3>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-muted)]">{selectedCall.model_used} • {selectedCall.timeframe}</span>
                   </div>
-                  {history ? <PriceChart data={history} forecast={forecast} realtimePrice={selectedCall.current_price} symbol={selectedCall.symbol} height={340} /> : <div className="h-[340px] flex items-center justify-center rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 text-zinc-400 text-[12px]">Loading</div>}
+                  {history ? <PriceChart data={history} forecast={forecast} realtimePrice={selectedCall.current_price} symbol={selectedCall.symbol} height={340} /> : <div className="h-[340px] flex items-center justify-center rounded-xl border border-dashed border-[var(--border)] text-[var(--text-muted)] text-[12px]">Loading</div>}
                   <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
-                    <div className="p-2.5 rounded-lg text-center border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700"><div className="text-[9px] uppercase text-zinc-500">Entry</div><div className="mono font-medium mt-1">${safeFixed(selectedCall.entry_price,2)}</div></div>
-                    <div className="p-2.5 rounded-lg text-center border bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-800"><div className="text-[9px] uppercase text-zinc-500">SL</div><div className="mono font-medium mt-1 text-zinc-600">${safeFixed(selectedCall.stop_loss,2)}</div></div>
-                    <div className="p-2.5 rounded-lg text-center border bg-zinc-900 dark:bg-white border-zinc-900 dark:border-white text-white dark:text-black"><div className="text-[9px] uppercase text-white/60 dark:text-black/60">TP1</div><div className="mono font-medium mt-1">${safeFixed(selectedCall.take_profits?.tp1,2)}</div></div>
+                    <div className="p-2.5 rounded-lg text-center border bg-[var(--card)] border-[var(--border)]"><div className="text-[9px] uppercase text-[var(--text-muted)]">Entry</div><div className="mono font-medium mt-1 text-[var(--text)]">${safeFixed(selectedCall.entry_price,2)}</div></div>
+                    <div className="p-2.5 rounded-lg text-center border bg-[var(--sell-soft)] border-[var(--sell-border)]"><div className="text-[9px] uppercase text-[var(--sell)]">SL</div><div className="mono font-medium mt-1 text-[var(--sell)]">${safeFixed(selectedCall.stop_loss,2)}</div></div>
+                    <div className="p-2.5 rounded-lg text-center border bg-[var(--buy)] border-[var(--buy)] text-white shadow-sm"><div className="text-[9px] uppercase text-white/70">TP1</div><div className="mono font-medium mt-1">${safeFixed(selectedCall.take_profits?.tp1,2)}</div></div>
                   </div>
                 </GlassCard>
               </>
-            ) : <GlassCard className="p-12 text-center"><Target size={20} className="mx-auto mb-2 text-zinc-400" /><div className="font-medium text-zinc-900 dark:text-white">Select a call</div></GlassCard>}
+            ) : <GlassCard className="p-12 text-center"><Target size={20} className="mx-auto mb-2 text-[var(--text-muted)]" /><div className="font-medium text-[var(--text)]">Select a call</div></GlassCard>}
           </div>
         </div>
       </div>

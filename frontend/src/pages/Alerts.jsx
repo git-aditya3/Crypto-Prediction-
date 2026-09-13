@@ -121,7 +121,7 @@ export default function Alerts() {
       </div>
 
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center theme-bg/70 backdrop-blur p-4">
           <div className="p-6 rounded-2xl ui-card border border-black/5 dark:border-white/5 w-full max-w-md">
             <h3 className="font-bold text-lg mb-4">Create Real Alert - Live Monitoring</h3>
             <div className="space-y-4">

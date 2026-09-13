@@ -1,16 +1,16 @@
 import { useMarketStore } from '../store/useMarketStore'
 
 const ASSET_META = {
-  'BTC-USD': { name: 'Bitcoin', icon: '₿' },
-  'ETH-USD': { name: 'Ethereum', icon: 'Ξ' },
-  'BNB-USD': { name: 'BNB', icon: 'B' },
-  'SOL-USD': { name: 'Solana', icon: 'S' },
-  'XRP-USD': { name: 'XRP', icon: 'X' },
-  'ADA-USD': { name: 'Cardano', icon: 'A' },
-  'DOGE-USD': { name: 'Dogecoin', icon: 'D' },
-  'AVAX-USD': { name: 'Avalanche', icon: 'A' },
-  'DOT-USD': { name: 'Polkadot', icon: 'P' },
-  'MATIC-USD': { name: 'Polygon', icon: 'M' },
+  'BTC-USD': { name: 'Bitcoin', icon: '₿', color: 'from-orange-500 to-amber-500' },
+  'ETH-USD': { name: 'Ethereum', icon: 'Ξ', color: 'from-indigo-500 to-purple-500' },
+  'BNB-USD': { name: 'BNB', icon: 'B', color: 'from-yellow-500 to-amber-500' },
+  'SOL-USD': { name: 'Solana', icon: 'S', color: 'from-purple-500 to-pink-500' },
+  'XRP-USD': { name: 'XRP', icon: 'X', color: 'from-zinc-500 to-zinc-700' },
+  'ADA-USD': { name: 'Cardano', icon: 'A', color: 'from-blue-500 to-cyan-500' },
+  'DOGE-USD': { name: 'Dogecoin', icon: 'D', color: 'from-yellow-400 to-orange-400' },
+  'AVAX-USD': { name: 'Avalanche', icon: 'A', color: 'from-red-500 to-red-700' },
+  'DOT-USD': { name: 'Polkadot', icon: 'P', color: 'from-pink-500 to-rose-500' },
+  'MATIC-USD': { name: 'Polygon', icon: 'M', color: 'from-indigo-600 to-purple-700' },
 }
 
 export default function AssetGrid({ onSelect, selected }) {
@@ -33,21 +33,23 @@ export default function AssetGrid({ onSelect, selected }) {
             onClick={() => onSelect(sym)}
             className={`group relative text-left p-3.5 rounded-xl border text-left gpu-accelerated transition-all duration-200 ease-out hover-lift ${
               isSelected
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-black border-zinc-900 dark:border-white shadow-sm scale-[1.02]'
-                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-[var(--glow)] scale-[1.02] ring-2 ring-[var(--accent-ring)]'
+                : 'bg-[var(--card)] border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[var(--card-hover)] hover:shadow-[var(--shadow-md)]'
             }`}
             style={{ willChange: 'transform, border-color' }}
           >
+            <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${meta.color} opacity-60 group-hover:opacity-100 transition-opacity rounded-t-xl`} />
+
             <div className="flex items-start justify-between mb-2.5">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-medium text-[11px] transition-transform duration-200 group-hover:scale-105 gpu-accelerated ${
-                isSelected ? 'bg-white/20 text-white dark:bg-black/10 dark:text-black' : 'bg-zinc-900 text-white dark:bg-white dark:text-black'
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[11px] transition-transform duration-200 group-hover:scale-110 group-hover:rotate-3 gpu-accelerated shadow-sm ${
+                isSelected ? 'bg-white/20 text-white' : `bg-gradient-to-br ${meta.color} text-white`
               }`}>
                 {meta.icon}
               </div>
-              <div className={`flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full mono ${
+              <div className={`flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full mono border ${
                 isSelected
-                  ? 'bg-white/20 text-white dark:bg-black/10 dark:text-black'
-                  : isPositive ? 'bg-zinc-900 text-white dark:bg-white dark:text-black' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
+                  ? 'bg-white/20 text-white border-white/20'
+                  : isPositive ? 'bg-[var(--buy-soft)] text-[var(--buy)] border-[var(--buy-border)]' : 'bg-[var(--sell-soft)] text-[var(--sell)] border-[var(--sell-border)]'
               }`}>
                 <span className="text-[9px]">{isPositive ? '↗' : '↘'}</span>
                 {Math.abs(change).toFixed(1)}%
@@ -55,13 +57,13 @@ export default function AssetGrid({ onSelect, selected }) {
             </div>
 
             <div className="space-y-0.5">
-              <div className={`font-medium text-[12px] tracking-tight ${isSelected ? 'text-white dark:text-black' : 'text-zinc-900 dark:text-white'}`}>
+              <div className={`font-medium text-[12px] tracking-tight ${isSelected ? 'text-white' : 'text-[var(--text)]'}`}>
                 {meta.name}
               </div>
-              <div className={`text-[10px] ${isSelected ? 'text-white/60 dark:text-black/60' : 'text-zinc-500'}`}>
+              <div className={`text-[10px] ${isSelected ? 'text-white/60' : 'text-[var(--text-muted)]'}`}>
                 {sym}
               </div>
-              <div className={`mono font-semibold text-[13px] mt-1.5 tracking-tight ${isSelected ? 'text-white dark:text-black' : 'text-zinc-900 dark:text-white'}`}>
+              <div className={`mono font-semibold text-[13px] mt-1.5 tracking-tight ${isSelected ? 'text-white' : 'text-[var(--text)]'}`}>
                 {price ? `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: price > 100 ? 2 : 3 })}` : '—'}
               </div>
             </div>
@@ -74,8 +76,8 @@ export default function AssetGrid({ onSelect, selected }) {
                     key={i}
                     className={`flex-1 rounded-full transition-all duration-300 ${
                       isSelected
-                        ? 'bg-white/30 dark:bg-black/20'
-                        : 'bg-zinc-200 dark:bg-zinc-700 group-hover:bg-zinc-300 dark:group-hover:bg-zinc-600'
+                        ? 'bg-white/30'
+                        : isPositive ? 'bg-[var(--buy)]/40 group-hover:bg-[var(--buy)]/60' : 'bg-[var(--sell)]/40 group-hover:bg-[var(--sell)]/60'
                     }`}
                     style={{ height: `${Math.max(3, Math.min(16, h))}%`, transform: 'translateZ(0)', willChange: 'height' }}
                   />
@@ -97,19 +99,19 @@ export function LiveAssetRow({ symbol }) {
   if (!ticker || !meta) return null
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all duration-200 hover:translate-y-[-1px] gpu-accelerated">
+    <div className="flex items-center justify-between p-3 rounded-xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--border-strong)] transition-all duration-200 hover:translate-y-[-1px] gpu-accelerated">
       <div className="flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center font-medium text-[11px]">
+        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${meta.color} text-white flex items-center justify-center font-bold text-[11px] shadow-sm`}>
           {meta.icon}
         </div>
         <div>
-          <div className="font-medium text-[13px] text-zinc-900 dark:text-white">{symbol}</div>
-          <div className="text-[11px] text-zinc-500">{meta.name}</div>
+          <div className="font-medium text-[13px] text-[var(--text)]">{symbol}</div>
+          <div className="text-[11px] text-[var(--text-muted)]">{meta.name}</div>
         </div>
       </div>
       <div className="text-right">
-        <div className="mono font-semibold text-[13px] text-zinc-900 dark:text-white">${ticker.price?.toFixed(2)}</div>
-        <div className={`text-[11px] font-medium mono ${ticker.priceChangePercent >= 0 ? 'text-zinc-900 dark:text-white' : 'text-zinc-500'}`}>
+        <div className="mono font-semibold text-[13px] text-[var(--text)]">${ticker.price?.toFixed(2)}</div>
+        <div className={`text-[11px] font-medium mono ${ticker.priceChangePercent >= 0 ? 'text-[var(--buy)]' : 'text-[var(--sell)]'}`}>
           {ticker.priceChangePercent >= 0 ? '↗' : '↘'} {ticker.priceChangePercent?.toFixed(1)}%
         </div>
       </div>

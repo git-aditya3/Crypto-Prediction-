@@ -8,40 +8,55 @@ export default function PriceChart({ data, forecast, height = 360, realtimePrice
   const seriesRef = useRef({})
   const [showForecast, setShowForecast] = useState(true)
   const theme = useSettingsStore(s => s.theme)
-  const isLight = theme === 'light' || theme === 'mono'
+
+  const getThemeColors = () => {
+    const isLight = theme === 'light' || theme === 'sakura'
+    if (theme === 'midnight') return { text: '#a5a5c5', grid: 'rgba(30,30,50,0.5)', border: '#1e1e32', up: '#8b5cf6', down: '#ef4444', forecast: '#8b5cf6', live: '#8b5cf6' }
+    if (theme === 'ocean') return { text: '#7fb5cc', grid: 'rgba(20,48,77,0.5)', border: '#14304d', up: '#06b6d4', down: '#ef4444', forecast: '#06b6d4', live: '#06b6d4' }
+    if (theme === 'forest') return { text: '#7ab895', grid: 'rgba(20,61,30,0.5)', border: '#143d1e', up: '#10b981', down: '#ef4444', forecast: '#10b981', live: '#10b981' }
+    if (theme === 'sunset') return { text: '#d4a574', grid: 'rgba(61,31,31,0.5)', border: '#3d1f1f', up: '#f97316', down: '#ef4444', forecast: '#f97316', live: '#f97316' }
+    if (theme === 'neon') return { text: '#d4a5c5', grid: 'rgba(45,27,78,0.5)', border: '#2d1b4e', up: '#ec4899', down: '#ef4444', forecast: '#ec4899', live: '#ec4899' }
+    if (theme === 'cyberpunk') return { text: '#8ab58a', grid: 'rgba(42,42,74,0.5)', border: '#2a2a4a', up: '#00ff9f', down: '#ff0055', forecast: '#00ff9f', live: '#00ff9f' }
+    if (theme === 'dracula') return { text: '#a5a5c5', grid: 'rgba(68,71,90,0.5)', border: '#44475a', up: '#50fa7b', down: '#ff5555', forecast: '#bd93f9', live: '#bd93f9' }
+    if (theme === 'nord') return { text: '#a5adbd', grid: 'rgba(76,86,106,0.3)', border: '#4c566a', up: '#a3be8c', down: '#bf616a', forecast: '#88c0d0', live: '#88c0d0' }
+    if (isLight) return { text: '#94a3b8', grid: 'rgba(0,0,0,0.04)', border: '#e2e8f0', up: '#10b981', down: '#ef4444', forecast: '#0f172a', live: '#0f172a' }
+    return { text: '#71717a', grid: 'rgba(255,255,255,0.04)', border: '#1f1f23', up: '#10b981', down: '#ef4444', forecast: '#fafafa', live: '#fafafa' }
+  }
 
   useEffect(() => {
     if (!ref.current || !data) return
     ref.current.innerHTML = ''
+
+    const colors = getThemeColors()
 
     const chart = createChart(ref.current, {
       width: ref.current.clientWidth,
       height,
       layout: { 
         background: { type: 'solid', color: 'transparent' }, 
-        textColor: isLight ? '#71717a' : '#52525b',
+        textColor: colors.text,
         fontFamily: 'Geist Mono, monospace',
         fontSize: 10
       },
       grid: { 
-        vertLines: { color: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', style: 1 }, 
-        horzLines: { color: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', style: 1 } 
+        vertLines: { color: colors.grid, style: 1 }, 
+        horzLines: { color: colors.grid, style: 1 } 
       },
       timeScale: { 
-        borderColor: isLight ? '#e4e4e7' : '#27272a',
+        borderColor: colors.border,
         timeVisible: true,
         secondsVisible: false,
         borderVisible: false,
       },
       rightPriceScale: { 
-        borderColor: isLight ? '#e4e4e7' : '#27272a',
+        borderColor: colors.border,
         borderVisible: false,
         scaleMargins: { top: 0.1, bottom: 0.1 }
       },
       crosshair: {
         mode: 1,
-        vertLine: { color: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)', width: 1, style: 2 },
-        horzLine: { color: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)', width: 1, style: 2 }
+        vertLine: { color: colors.grid, width: 1, style: 2 },
+        horzLine: { color: colors.grid, width: 1, style: 2 }
       },
       handleScroll: { mouseWheel: true, pressedMouseMove: true },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
@@ -49,16 +64,13 @@ export default function PriceChart({ data, forecast, height = 360, realtimePrice
 
     chartRef.current = chart
 
-    const upColor = isLight ? '#18181b' : '#fafafa'
-    const downColor = isLight ? '#a1a1aa' : '#52525b'
-
     const candleSeries = chart.addCandlestickSeries({
-      upColor,
-      downColor,
-      borderUpColor: upColor,
-      borderDownColor: downColor,
-      wickUpColor: upColor,
-      wickDownColor: downColor,
+      upColor: colors.up,
+      downColor: colors.down,
+      borderUpColor: colors.up,
+      borderDownColor: colors.down,
+      wickUpColor: colors.up,
+      wickDownColor: colors.down,
       priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
     })
 
@@ -77,8 +89,8 @@ export default function PriceChart({ data, forecast, height = 360, realtimePrice
 
     if (forecast && showForecast && forecast.ensemble) {
       const ensembleSeries = chart.addLineSeries({ 
-        color: isLight ? '#18181b' : '#fafafa', 
-        lineWidth: 2,
+        color: colors.forecast, 
+        lineWidth: 2.5,
         priceLineVisible: false,
         lastValueVisible: true,
       })
@@ -93,7 +105,7 @@ export default function PriceChart({ data, forecast, height = 360, realtimePrice
     if (realtimePrice && !isNaN(realtimePrice) && realtimePrice > 0) {
       const priceLine = candleSeries.createPriceLine({
         price: realtimePrice,
-        color: isLight ? '#18181b' : '#fafafa',
+        color: colors.live,
         lineWidth: 1,
         lineStyle: 0,
         axisLabelVisible: true,
@@ -115,14 +127,15 @@ export default function PriceChart({ data, forecast, height = 360, realtimePrice
       window.removeEventListener('resize', handleResize)
       chart.remove()
     }
-  }, [data, forecast, height, showForecast, isLight])
+  }, [data, forecast, height, showForecast, theme])
 
   useEffect(() => {
     if (seriesRef.current.candle && realtimePrice && seriesRef.current.liveLine) {
       try { seriesRef.current.candle.removePriceLine(seriesRef.current.liveLine) } catch {}
+      const colors = getThemeColors()
       const line = seriesRef.current.candle.createPriceLine({
         price: realtimePrice,
-        color: isLight ? '#18181b' : '#fafafa',
+        color: colors.live,
         lineWidth: 1,
         lineStyle: 0,
         axisLabelVisible: true,
@@ -130,31 +143,31 @@ export default function PriceChart({ data, forecast, height = 360, realtimePrice
       })
       seriesRef.current.liveLine = line
     }
-  }, [realtimePrice, isLight])
+  }, [realtimePrice, theme])
 
   if (!data) {
     return (
-      <div className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 flex items-center justify-center gpu-accelerated" style={{ height }}>
+      <div className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] p-8 flex items-center justify-center gpu-accelerated" style={{ height }}>
         <div className="text-center">
-          <div className="w-8 h-8 mx-auto mb-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center animate-pulse">
-            <div className="w-3 h-3 rounded bg-zinc-300 dark:bg-zinc-600"></div>
+          <div className="w-8 h-8 mx-auto mb-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)] flex items-center justify-center animate-pulse">
+            <div className="w-3 h-3 rounded bg-[var(--text-faint)]"></div>
           </div>
-          <div className="text-[11px] text-zinc-500">Loading chart</div>
+          <div className="text-[11px] text-[var(--text-muted)]">Loading chart</div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="relative rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 gpu-accelerated">
+    <div className="relative rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--card)] gpu-accelerated">
       <div className="absolute top-0 left-0 right-0 z-10 p-3 flex items-center justify-between pointer-events-none">
         <div className="flex items-center gap-2 pointer-events-auto">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-sm">
-            <div className="w-1.5 h-1.5 rounded-full bg-zinc-900 dark:bg-white animate-pulse"></div>
-            <span className="text-[11px] font-medium tracking-tight text-zinc-900 dark:text-white">{symbol}</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--card)] border border-[var(--border)] shadow-sm">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse"></div>
+            <span className="text-[11px] font-medium tracking-tight text-[var(--text)]">{symbol}</span>
           </div>
           {realtimePrice && !isNaN(realtimePrice) && (
-            <div className="px-2.5 py-1 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black border border-zinc-900 dark:border-white">
+            <div className="px-2.5 py-1 rounded-full bg-[var(--accent)] text-white border border-[var(--accent)] shadow-sm">
               <span className="text-[11px] mono font-medium">${(realtimePrice ?? 0).toLocaleString()}</span>
             </div>
           )}
@@ -163,7 +176,7 @@ export default function PriceChart({ data, forecast, height = 360, realtimePrice
         <div className="flex items-center gap-1.5 pointer-events-auto">
           <button
             onClick={() => setShowForecast(!showForecast)}
-            className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all duration-200 hover:scale-105 gpu-accelerated ${showForecast ? 'bg-zinc-900 text-white dark:bg-white dark:text-black border-zinc-900 dark:border-white' : 'bg-white dark:bg-zinc-900 text-zinc-500 border-zinc-200 dark:border-zinc-700 hover:border-zinc-300'}`}
+            className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all duration-200 hover:scale-105 gpu-accelerated ${showForecast ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm' : 'bg-[var(--card)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--border-strong)]'}`}
           >
             Forecast
           </button>

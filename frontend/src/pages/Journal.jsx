@@ -56,7 +56,7 @@ export default function Journal() {
           <h1 className="text-3xl font-black flex items-center gap-3"><BookOpen className="text-blue-400" /> Trading Journal - Real Trades</h1>
           <p className="text-zinc-500 mt-1">Log real trades with notes, emotions, lessons - improve actual trading</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-xl bg-blue-500 text-white font-bold flex items-center gap-2"><Plus size={16} /> Add Entry</button>
+        <button onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-xl bg-blue-500 text-[var(--text)] font-bold flex items-center gap-2"><Plus size={16} /> Add Entry</button>
       </div>
 
       {stats && (
@@ -122,7 +122,7 @@ export default function Journal() {
       </div>
 
       {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4 overflow-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center theme-bg/70 backdrop-blur p-4 overflow-auto">
           <div className="p-6 rounded-2xl ui-card border border-black/5 dark:border-white/5 w-full max-w-lg max-h-[90vh] overflow-auto">
             <h3 className="font-bold text-lg mb-4">Add Real Trade Journal Entry</h3>
             <div className="space-y-3">
@@ -146,7 +146,7 @@ export default function Journal() {
               <input placeholder="Tags comma separated e.g. breakout, high conviction" value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-transparent border border-black/5 dark:border-white/5" />
               <div className="flex gap-2">
                 <button onClick={() => setShowAdd(false)} className="flex-1 py-2 rounded-xl bg-transparent border border-black/5 dark:border-white/5">Cancel</button>
-                <button onClick={addEntry} className="flex-1 py-2 rounded-xl bg-blue-500 text-white font-bold">Add Real Entry</button>
+                <button onClick={addEntry} className="flex-1 py-2 rounded-xl bg-blue-500 text-[var(--text)] font-bold">Add Real Entry</button>
               </div>
             </div>
           </div>

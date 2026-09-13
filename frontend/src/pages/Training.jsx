@@ -73,7 +73,7 @@ export default function Training() {
   const isRunning = trainingStatus?.is_running
 
   return (
-    <div className={`min-h-screen relative font-poppins ${isDark ? 'bg-black' : 'bg-[#E3EDF7]'}`}>
+    <div className={`min-h-screen relative font-poppins ${isDark ? 'theme-bg' : 'theme-bg'}`}>
 
       
       
@@ -82,10 +82,10 @@ export default function Training() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">
-              <span className="w-10 h-10 rounded-xl bg-black dark:bg-white flex items-center justify-center shadow-lg shadow-violet-500/20">
-                <Brain size={20} className="text-white" />
+              <span className="w-10 h-10 rounded-xl theme-bg dark:bg-white flex items-center justify-center shadow-lg shadow-violet-500/20">
+                <Brain size={20} className="text-[var(--text)]" />
               </span>
-              <span className="text-white">Continuous Training</span>
+              <span className="text-[var(--text)]">Continuous Training</span>
               <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-widest border ${isRunning ? 'bg-zinc-100 dark:bg-zinc-800 border-black/5 dark:border-white/5 text-emerald-600' : 'bg-red-500/10 border-red-500/10 text-red-500'}`}>
                 {isRunning ? '● ENDLESS LEARNING ACTIVE' : '● STOPPED'}
               </span>
@@ -102,7 +102,7 @@ export default function Training() {
               Refresh
             </button>
             {isRunning ? (
-              <button onClick={handleStop} disabled={actionLoading} className="px-4 py-2.5 rounded-xl bg-red-500 text-white font-bold text-xs tracking-widest flex items-center gap-2 hover:bg-red-600 transition">
+              <button onClick={handleStop} disabled={actionLoading} className="px-4 py-2.5 rounded-xl bg-red-500 text-[var(--text)] font-bold text-xs tracking-widest flex items-center gap-2 hover:bg-red-600 transition">
                 <Square size={14} />
                 {actionLoading ? 'Stopping...' : 'STOP TRAINING'}
               </button>
@@ -133,10 +133,10 @@ export default function Training() {
             
             <GlassCard className="p-5">
               <div className="flex items-center gap-2 mb-2">
-                <Database size={14} className="text-zinc-900 dark:text-white" />
+                <Database size={14} className="text-zinc-900 dark:text-[var(--text)]" />
                 <span className="text-xs font-bold tracking-widest text-zinc-500 uppercase">Real Data</span>
               </div>
-              <div className="text-2xl font-black text-white">
+              <div className="text-2xl font-black text-[var(--text)]">
                 {Object.keys(trainingStatus.data_last_updated || {}).length} symbols
               </div>
               <div className="text-xs text-zinc-500 mt-1">
@@ -149,7 +149,7 @@ export default function Training() {
                 <Award size={14} className="text-zinc-500" />
                 <span className="text-xs font-bold tracking-widest text-zinc-500 uppercase">Performance</span>
               </div>
-              <div className="text-2xl font-black text-white">
+              <div className="text-2xl font-black text-[var(--text)]">
                 {trainingStatus.model_performance ? Object.keys(trainingStatus.model_performance).length : 0} trained
               </div>
               <div className="text-xs text-zinc-500 mt-1">
@@ -162,7 +162,7 @@ export default function Training() {
                 <Clock size={14} className="text-zinc-500" />
                 <span className="text-xs font-bold tracking-widest text-zinc-500 uppercase">Next Retrain</span>
               </div>
-              <div className="text-sm font-bold text-white">
+              <div className="text-sm font-bold text-[var(--text)]">
                 {trainingStatus.next_train_time ? Object.values(trainingStatus.next_train_time)[0] ? new Date(Object.values(trainingStatus.next_train_time)[0]).toLocaleTimeString() : '—' : '—'}
               </div>
               <div className="text-xs text-zinc-500 mt-1">
@@ -176,7 +176,7 @@ export default function Training() {
           {/* Training History */}
           <div className="lg:col-span-8 space-y-6">
             <GlassCard className="p-6">
-              <h3 className="font-bold text-white flex items-center gap-2 mb-6">
+              <h3 className="font-bold text-[var(--text)] flex items-center gap-2 mb-6">
                 <TrendingUp size={18} className="text-emerald-600" />
                 Training History • Real Market Data
                 <span className="ml-auto px-2 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/5 text-emerald-600 text-xs font-bold">
@@ -203,10 +203,10 @@ export default function Training() {
                     return (
                       <div key={i} className="grid grid-cols-6 gap-2 items-center p-3 rounded-xl bg-transparent/40 border border-black/5 dark:border-white/5/20 text-sm">
                         <span className="text-xs text-zinc-500">{new Date(h.timestamp).toLocaleTimeString()}</span>
-                        <span className="font-bold text-white">{h.symbol}</span>
+                        <span className="font-bold text-[var(--text)]">{h.symbol}</span>
                         <span className="mono text-zinc-500">{h.data_rows}</span>
                         <span className="mono font-bold text-emerald-600">{bestModel ? `${bestModel.mape.toFixed(2)}%` : '—'}</span>
-                        <span className="text-xs px-2 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white border border-black/5 dark:border-white/5 w-fit">
+                        <span className="text-xs px-2 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-[var(--text)] border border-black/5 dark:border-white/5 w-fit">
                           {bestModel?.name || '—'}
                         </span>
                         <span className="flex items-center gap-1 text-emerald-600 text-xs">
@@ -220,7 +220,7 @@ export default function Training() {
               ) : (
                 <div className="text-center py-12">
                   <Database size={32} className="mx-auto mb-4 text-zinc-500" />
-                  <div className="text-white font-bold">No training history yet</div>
+                  <div className="text-[var(--text)] font-bold">No training history yet</div>
                   <div className="text-zinc-500 text-sm mt-1">Start continuous training to see models learning from real market data</div>
                   <button onClick={handleStart} className="mt-4 btn-primary">Start Endless Training</button>
                 </div>
@@ -228,7 +228,7 @@ export default function Training() {
             </GlassCard>
 
             <GlassCard className="p-6">
-              <h3 className="font-bold text-white flex items-center gap-2 mb-4">
+              <h3 className="font-bold text-[var(--text)] flex items-center gap-2 mb-4">
                 <Zap size={18} className="text-zinc-500" />
                 Model Performance • Real Data Validation
               </h3>
@@ -238,7 +238,7 @@ export default function Training() {
                   {Object.entries(trainingStatus.model_performance).map(([symbol, perf]) => (
                     <div key={symbol} className="p-4 rounded-xl bg-transparent border border-black/5 dark:border-white/5">
                       <div className="flex items-center justify-between mb-3">
-                        <span className="font-black text-white">{symbol}</span>
+                        <span className="font-black text-[var(--text)]">{symbol}</span>
                         <span className="text-xs px-2 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-emerald-600 border border-black/5 dark:border-white/5">
                           Real Binance Data
                         </span>
@@ -249,7 +249,7 @@ export default function Training() {
                           return (
                             <div key={model} className="p-2.5 rounded-xl ui-card border border-black/5 dark:border-white/5/50 text-center">
                               <div className="text-[10px] font-bold tracking-widest text-zinc-500 uppercase">{model}</div>
-                              <div className="mono font-black text-sm text-white mt-1">{metrics.mape.toFixed(2)}%</div>
+                              <div className="mono font-black text-sm text-[var(--text)] mt-1">{metrics.mape.toFixed(2)}%</div>
                               <div className="text-[10px] text-zinc-500">MAPE</div>
                             </div>
                           )
@@ -270,7 +270,7 @@ export default function Training() {
           {/* Controls */}
           <div className="lg:col-span-4 space-y-6">
             <GlassCard className="p-6">
-              <h3 className="font-bold text-white flex items-center gap-2 mb-4">
+              <h3 className="font-bold text-[var(--text)] flex items-center gap-2 mb-4">
                 <Target size={18} className="text-emerald-600" />
                 Manual Retrain • Real Data
               </h3>
@@ -278,7 +278,7 @@ export default function Training() {
               <div className="space-y-4">
                 <div>
                   <label className="text-xs font-bold tracking-widest text-zinc-500 uppercase mb-2 block">Select Symbol</label>
-                  <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5 text-white">
+                  <select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-transparent border border-black/5 dark:border-white/5 text-[var(--text)]">
                     <option value="BTC-USD">BTC-USD • Bitcoin</option>
                     <option value="ETH-USD">ETH-USD • Ethereum</option>
                     <option value="SOL-USD">SOL-USD • Solana</option>
@@ -291,7 +291,7 @@ export default function Training() {
                 <button 
                   onClick={() => handleRetrain(selectedSymbol)} 
                   disabled={actionLoading}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-zinc-900 to-black text-white font-bold text-sm tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-violet-500/20 transition"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-zinc-900 to-black text-[var(--text)] font-bold text-sm tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-violet-500/20 transition"
                 >
                   <Brain size={16} />
                   {actionLoading ? 'Training with Real Data...' : `RETRAIN ${selectedSymbol}`}
@@ -310,8 +310,8 @@ export default function Training() {
             </GlassCard>
 
             <GlassCard className="p-6">
-              <h3 className="font-bold text-white flex items-center gap-2 mb-4">
-                <Database size={18} className="text-zinc-900 dark:text-white" />
+              <h3 className="font-bold text-[var(--text)] flex items-center gap-2 mb-4">
+                <Database size={18} className="text-zinc-900 dark:text-[var(--text)]" />
                 How Continuous Training Works
               </h3>
               
@@ -327,7 +327,7 @@ export default function Training() {
                   <div key={i} className="flex gap-3 p-3 rounded-xl bg-transparent/40 border border-black/5 dark:border-white/5/20">
                     <span className="text-emerald-600 font-bold">{item.icon}</span>
                     <div>
-                      <div className="font-bold text-white text-sm">{item.title}</div>
+                      <div className="font-bold text-[var(--text)] text-sm">{item.title}</div>
                       <div className="text-zinc-500 text-[11px] mt-1 leading-relaxed">{item.desc}</div>
                     </div>
                   </div>
@@ -341,7 +341,7 @@ export default function Training() {
                 <span className="text-xs font-bold tracking-widest text-emerald-600 uppercase">Real Data Guarantee</span>
               </div>
               <div className="text-[11px] text-zinc-500 leading-relaxed">
-                All training uses <span className="text-white font-bold">real Binance market data</span> - 
+                All training uses <span className="text-[var(--text)] font-bold">real Binance market data</span> - 
                 OHLCV from Binance REST API. No fake candles, no synthetic data, no paper simulation. 
                 Models learn from actual market movements, current and upcoming.
               </div>

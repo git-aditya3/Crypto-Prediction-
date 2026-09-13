@@ -175,7 +175,7 @@ export default function AutoTrading() {
           <p className="text-zinc-500 mt-1">Automate REAL trades with CoinDCX - actual INR from your account - no paper simulation - extensive user control - broker integration, risk guards, emergency stop</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={emergencyStop} className="px-4 py-2 rounded-xl bg-red-500 text-white font-bold flex items-center gap-2 hover:bg-red-400">
+          <button onClick={emergencyStop} className="px-4 py-2 rounded-xl bg-red-500 text-[var(--text)] font-bold flex items-center gap-2 hover:bg-red-400">
             <AlertTriangle size={16} /> Emergency Stop
           </button>
           {status?.is_running ? (
@@ -235,7 +235,7 @@ export default function AutoTrading() {
           { id: 'trades', label: 'Trades', icon: TrendingUp },
           { id: 'pending', label: `Pending (${pending.length})`, icon: Clock }
         ].map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'}`}>
+          <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black' : 'text-zinc-500 hover:text-[var(--text)]'}`}>
             <t.icon size={14} /> {t.label}
           </button>
         ))}
@@ -361,7 +361,7 @@ export default function AutoTrading() {
               <div key={id} className={`p-4 rounded-2xl border ${broker.paper_mode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-emerald-500/5 border-black/5 dark:border-white/5'}`}>
                 <div className="flex items-center justify-between">
                   <span className="font-bold">{broker.name || id}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${broker.paper_mode ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-black'}`}>{broker.paper_mode ? 'PAPER' : 'REAL'}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${broker.paper_mode ? 'bg-blue-500 text-[var(--text)]' : 'bg-emerald-500 text-black'}`}>{broker.paper_mode ? 'PAPER' : 'REAL'}</span>
                 </div>
                 <div className="mt-3 space-y-1 text-xs">
                   <div className="flex justify-between"><span className="text-zinc-500">Type</span><span>{broker.type}</span></div>
@@ -511,7 +511,7 @@ export default function AutoTrading() {
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-black dark:bg-white/5 border border-black/5 dark:border-white/5">
+            <div className="p-4 rounded-2xl theme-bg dark:bg-white/5 border border-black/5 dark:border-white/5">
               <h4 className="font-bold text-sm text-zinc-500">Risk Guard - How It Protects You</h4>
               <div className="mt-2 text-xs text-zinc-500 space-y-1">
                 <div>• Checks emergency stop, enabled, trading hours, daily loss, max positions, max drawdown, consecutive losses, daily trades, cooldown, symbol whitelist/blacklist, confidence, RR, position size</div>
@@ -539,7 +539,7 @@ export default function AutoTrading() {
                     <span className="font-bold">{trade.symbol||'Unknown'}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${trade.side === 'BUY' ? 'bg-zinc-100 dark:bg-zinc-800 text-emerald-600' : 'bg-red-500/10 text-red-500'}`}>{trade.side||'BUY'}</span>
                     <span className="text-xs text-zinc-500">{safeFixed(trade.quantity,4)} @ ${safeFixed(trade.entry_price,2)}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${trade.real_trading ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>{trade.real_trading ? 'REAL' : 'PAPER'}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${trade.real_trading ? 'bg-red-500 text-[var(--text)]' : 'bg-blue-500 text-[var(--text)]'}`}>{trade.real_trading ? 'REAL' : 'PAPER'}</span>
                     <span className="text-xs text-zinc-500">{trade.signal||''} {safeFixed(trade.confidence,0)}%</span>
                   </div>
                   <div className="text-right">
@@ -567,7 +567,7 @@ export default function AutoTrading() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-lg">{approval.symbol}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${approval.call?.signal?.includes('BUY') ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>{approval.call?.signal||'BUY'}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${approval.call?.signal?.includes('BUY') ? 'bg-emerald-500 text-black' : 'bg-red-500 text-[var(--text)]'}`}>{approval.call?.signal||'BUY'}</span>
                         <span className="text-xs text-zinc-500">{safeFixed(approval.quantity,4)} @ ${safeFixed(approval.call?.entry_price,2)} • {safeFixed(approval.call?.confidence,0)}% conf</span>
                       </div>
                       <div className="text-xs text-zinc-500 mt-1">SL ${safeFixed(approval.call?.stop_loss,2)} • TP1 ${safeFixed(approval.call?.take_profits?.tp1,2)} • RR {safeFixed(approval.call?.risk_reward,2)}</div>
@@ -587,7 +587,7 @@ export default function AutoTrading() {
 
       {/* Broker Form Modal */}
       {showBrokerForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center theme-bg/70 backdrop-blur p-4">
           <div className="p-6 rounded-2xl ui-card border border-black/5 dark:border-white/5 w-full max-w-md">
             <h3 className="font-bold text-lg mb-4">Connect CoinDCX - Real Money Trading</h3>
             <div className="space-y-3">
