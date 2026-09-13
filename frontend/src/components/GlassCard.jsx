@@ -7,13 +7,15 @@ export default function GlassCard({ children, className = '', hover = true, glow
   const variantClasses = {
     default: 'ui-card',
     accent: 'ui-card',
-    ghost: 'bg-transparent border border-dashed border-[var(--border)] rounded-xl',
-    minimal: 'bg-[var(--card)] border border-[var(--border)] rounded-xl p-5',
+    ghost: 'bg-transparent border border-dashed border-[var(--separator)] rounded-[20px]',
+    minimal: 'bg-[var(--card-solid)] border border-[var(--separator)] rounded-[20px] p-5',
     clay: 'clay-card',
     liquid: 'liquid-glass-card',
     neo: 'neo-card',
     brutal: 'brutal-card',
     flat: 'flat-card',
+    ios: 'liquid-glass-card',
+    prominent: 'liquid-glass-card liquid-glass-prominent',
   }
   
   const visualMap = {
@@ -28,16 +30,15 @@ export default function GlassCard({ children, className = '', hover = true, glow
   
   return (
     <div 
-      className={`${resolvedVariant} ${hover ? 'hover-lift' : ''} ${blur && visualStyle === 'liquid' ? 'glass' : ''} ${glow ? 'shadow-[var(--glow)]' : ''} ${className} gpu-accelerated`}
-      style={{ ...style }}
+      className={`${resolvedVariant} ${hover ? 'hover-lift' : ''} ${blur ? '' : '!backdrop-blur-none !bg-[var(--card-solid)]'} ${glow ? 'shadow-[var(--glow)]' : ''} ${className} gpu-accelerated`}
+      style={{ ...style, borderRadius: 'var(--radius-ios)', transform: 'translateZ(0)' }}
       {...props}
     >
-      {visualStyle === 'liquid' && (
-        <>
-          <div className="glass-blob w-32 h-32 bg-[var(--accent-soft)] top-0 right-0 opacity-30" />
-          <div className="glass-blob w-24 h-24 bg-[var(--buy-soft)] bottom-0 left-0 opacity-20" style={{ animationDelay: '2s' }} />
-        </>
-      )}
+      {/* iOS 26 Liquid Glass - subtle vibrant blobs, reflects surroundings */}
+      <div className="absolute inset-0 rounded-[inherit] overflow-hidden pointer-events-none">
+        <div className="glass-blob w-40 h-40 bg-[var(--accent-soft)] top-[-20%] right-[-10%] opacity-[0.15] blur-[40px]" />
+        <div className="glass-blob w-32 h-32 bg-[var(--buy-soft)] bottom-[-10%] left-[-10%] opacity-[0.10] blur-[30px]" style={{ animationDelay: '2s' }} />
+      </div>
       <div className="relative z-10">{children}</div>
     </div>
   )

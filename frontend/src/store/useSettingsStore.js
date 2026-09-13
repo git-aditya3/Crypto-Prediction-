@@ -5,121 +5,133 @@ export const THEMES = {
   light: {
     id: 'light',
     name: 'Light',
-    desc: 'Clean & minimal',
-    category: 'Minimal',
-    colors: { bg: '#E3EDF7', card: '#ffffff', accent: '#0f172a', text: '#0f172a' },
-    preview: 'bg-[#E3EDF7] text-black border-black/10',
-    icon: '☀️'
+    desc: 'iOS 26 Liquid Glass Light',
+    category: 'iOS 26',
+    colors: { bg: '#FBFBFD', card: 'rgba(255,255,255,0.72)', accent: '#007AFF', text: '#000000' },
+    preview: 'bg-[#FBFBFD] text-black border-black/10',
+    icon: '☀️',
+    ios: { material: 'thin', accent: 'systemBlue #007AFF', background: 'systemGroupedBackground #F2F2F7', blur: '40px saturate 180%' }
   },
   dark: {
     id: 'dark',
     name: 'Dark',
-    desc: 'Pure black',
-    category: 'Minimal',
-    colors: { bg: '#000000', card: '#161618', accent: '#ffffff', text: '#F1F5F9' },
+    desc: 'iOS 26 Liquid Glass Dark',
+    category: 'iOS 26',
+    colors: { bg: '#000000', card: 'rgba(28,28,30,0.72)', accent: '#0A84FF', text: '#FFFFFF' },
     preview: 'bg-black text-white border-white/10',
-    icon: '🌙'
+    icon: '🌙',
+    ios: { material: 'thin dark', accent: 'systemBlue dark #0A84FF', background: '#000000', blur: '40px saturate 180%' }
   },
   midnight: {
     id: 'midnight',
     name: 'Midnight',
-    desc: 'Deep purple',
-    category: 'Dark',
-    colors: { bg: '#0a0a12', card: '#13131f', accent: '#8b5cf6', text: '#e9e9ff' },
-    preview: 'bg-[#0a0a12] text-violet-300 border-violet-500/20',
-    icon: '🌌'
+    desc: 'iOS 26 Indigo Liquid Glass',
+    category: 'iOS 26 Dark',
+    colors: { bg: '#0A0A12', card: 'rgba(21,21,37,0.75)', accent: '#5E5CE6', text: '#E9E9FF' },
+    preview: 'bg-[#0A0A12] text-violet-300 border-violet-500/20',
+    icon: '🌌',
+    ios: { material: 'indigo tint', accent: 'systemIndigo #5856D6 / #5E5CE6 dark', blur: '40px saturate 180%' }
   },
   ocean: {
     id: 'ocean',
     name: 'Ocean',
-    desc: 'Deep sea blue',
-    category: 'Dark',
-    colors: { bg: '#060e1a', card: '#0e1e2e', accent: '#06b6d4', text: '#c7f0ff' },
-    preview: 'bg-[#060e1a] text-cyan-300 border-cyan-500/20',
-    icon: '🌊'
+    desc: 'iOS 26 Teal Liquid Glass',
+    category: 'iOS 26 Dark',
+    colors: { bg: '#050A14', card: 'rgba(14,30,46,0.75)', accent: '#64D2FF', text: '#C7F0FF' },
+    preview: 'bg-[#050A14] text-cyan-300 border-cyan-500/20',
+    icon: '🌊',
+    ios: { material: 'teal tint', accent: 'systemTeal #5AC8FA / #64D2FF dark', blur: '40px saturate 180%' }
   },
   forest: {
     id: 'forest',
     name: 'Forest',
-    desc: 'Emerald dark',
-    category: 'Dark',
-    colors: { bg: '#06120a', card: '#0f2214', accent: '#10b981', text: '#d1fae5' },
-    preview: 'bg-[#06120a] text-emerald-300 border-emerald-500/20',
-    icon: '🌲'
+    desc: 'iOS 26 Green Liquid Glass',
+    category: 'iOS 26 Dark',
+    colors: { bg: '#040A06', card: 'rgba(15,34,20,0.75)', accent: '#30D158', text: '#D1FAE5' },
+    preview: 'bg-[#040A06] text-emerald-300 border-emerald-500/20',
+    icon: '🌲',
+    ios: { material: 'green tint', accent: 'systemGreen #34C759 / #30D158 dark', blur: '40px saturate 180%' }
   },
   sunset: {
     id: 'sunset',
     name: 'Sunset',
-    desc: 'Warm dusk',
-    category: 'Colorful',
-    colors: { bg: '#1a0a0a', card: '#2a1515', accent: '#f97316', text: '#ffedd5' },
-    preview: 'bg-[#1a0a0a] text-orange-300 border-orange-500/20',
-    icon: '🌅'
+    desc: 'iOS 26 Orange Liquid Glass',
+    category: 'iOS 26 Dark',
+    colors: { bg: '#0F0600', card: 'rgba(42,21,21,0.75)', accent: '#FF9F0A', text: '#FFEAD0' },
+    preview: 'bg-[#0F0600] text-orange-300 border-orange-500/20',
+    icon: '🌅',
+    ios: { material: 'orange tint', accent: 'systemOrange #FF9500 / #FF9F0A dark', blur: '40px saturate 180%' }
   },
   neon: {
     id: 'neon',
     name: 'Neon',
-    desc: 'Cyber glow',
-    category: 'Colorful',
-    colors: { bg: '#0a0014', card: '#1a0a2e', accent: '#ec4899', text: '#fce7f3' },
-    preview: 'bg-[#0a0014] text-pink-300 border-pink-500/20',
-    icon: '💜'
+    desc: 'iOS 26 Pink Liquid Glass',
+    category: 'iOS 26 Dark',
+    colors: { bg: '#0A0014', card: 'rgba(26,10,46,0.75)', accent: '#FF375F', text: '#FFE0EB' },
+    preview: 'bg-[#0A0014] text-pink-300 border-pink-500/20',
+    icon: '💜',
+    ios: { material: 'pink tint', accent: 'systemPink #FF2D55 / #FF375F dark', blur: '40px saturate 180%' }
   },
   nord: {
     id: 'nord',
     name: 'Nord',
-    desc: 'Arctic frost',
-    category: 'Minimal',
-    colors: { bg: '#2e3440', card: '#3b4252', accent: '#88c0d0', text: '#eceff4' },
-    preview: 'bg-[#2e3440] text-slate-200 border-slate-500/20',
-    icon: '❄️'
+    desc: 'iOS 26 Frost Liquid Glass',
+    category: 'iOS 26',
+    colors: { bg: '#242933', card: 'rgba(46,52,64,0.75)', accent: '#88C0D0', text: '#ECEFF4' },
+    preview: 'bg-[#242933] text-slate-200 border-slate-500/20',
+    icon: '❄️',
+    ios: { material: 'frost', accent: '#88C0D0', blur: '40px saturate 150%' }
   },
   dracula: {
     id: 'dracula',
     name: 'Dracula',
-    desc: 'Vampire dark',
-    category: 'Dark',
-    colors: { bg: '#282a36', card: '#343746', accent: '#bd93f9', text: '#f8f8f2' },
-    preview: 'bg-[#282a36] text-purple-200 border-purple-500/20',
-    icon: '🧛'
+    desc: 'iOS 26 Purple Liquid Glass',
+    category: 'iOS 26 Dark',
+    colors: { bg: '#1E1F2E', card: 'rgba(40,42,54,0.75)', accent: '#BF5AF2', text: '#F8F8F2' },
+    preview: 'bg-[#1E1F2E] text-purple-200 border-purple-500/20',
+    icon: '🧛',
+    ios: { material: 'purple tint', accent: 'systemPurple #AF52DE / #BF5AF2 dark', blur: '40px saturate 180%' }
   },
   cyberpunk: {
     id: 'cyberpunk',
     name: 'Cyberpunk',
-    desc: 'Neon city',
-    category: 'Colorful',
-    colors: { bg: '#0f0f1e', card: '#1a1a2e', accent: '#00ff9f', text: '#00ff9f' },
-    preview: 'bg-[#0f0f1e] text-green-300 border-green-400/20',
-    icon: '🤖'
+    desc: 'iOS 26 Neon Liquid Glass',
+    category: 'iOS 26 Dark',
+    colors: { bg: '#050510', card: 'rgba(15,15,30,0.78)', accent: '#30D158', text: '#E0FFE0' },
+    preview: 'bg-[#050510] text-green-300 border-green-400/20',
+    icon: '🤖',
+    ios: { material: 'neon green tint prominent', accent: '#30D158', glow: '0 0 36px rgba(48,209,88,0.4)', blur: '40px saturate 180%' }
   },
   sakura: {
     id: 'sakura',
     name: 'Sakura',
-    desc: 'Cherry blossom',
-    category: 'Light',
-    colors: { bg: '#fdf2f8', card: '#ffffff', accent: '#ec4899', text: '#831843' },
-    preview: 'bg-[#fdf2f8] text-pink-800 border-pink-300',
-    icon: '🌸'
+    desc: 'iOS 26 Pink Light Liquid Glass',
+    category: 'iOS 26 Light',
+    colors: { bg: '#FFF0F5', card: 'rgba(255,255,255,0.75)', accent: '#FF2D55', text: '#4A0A1F' },
+    preview: 'bg-[#FFF0F5] text-pink-800 border-pink-300',
+    icon: '🌸',
+    ios: { material: 'pink light', accent: 'systemPink #FF2D55', background: '#FFF0F5', blur: '40px saturate 180%' }
   },
   mono: {
     id: 'mono',
     name: 'Mono',
-    desc: 'High contrast',
-    category: 'Minimal',
-    colors: { bg: '#ffffff', card: '#000000', accent: '#000000', text: '#000000' },
-    preview: 'bg-white text-black border-black',
-    icon: '◐'
+    desc: 'iOS 26 Mono Liquid Glass',
+    category: 'iOS 26',
+    colors: { bg: '#F5F5F7', card: 'rgba(255,255,255,0.80)', accent: '#000000', text: '#000000' },
+    preview: 'bg-[#F5F5F7] text-black border-black',
+    icon: '◐',
+    ios: { material: 'mono high contrast', accent: 'label #000000', blur: '30px saturate 160%' }
   }
 }
 
-export const THEME_CATEGORIES = ['All', 'Minimal', 'Dark', 'Colorful', 'Light']
+export const THEME_CATEGORIES = ['All', 'iOS 26', 'iOS 26 Dark', 'iOS 26 Light']
 
 export const VISUAL_STYLES = {
-  liquid: { id: 'liquid', name: 'Liquid Glass', desc: 'Premium frosted glass', icon: '💎', vibe: 'Premium, sleek, high-tech', bestFor: 'Trading dashboards' },
-  clay: { id: 'clay', name: 'Claymorphism', desc: 'Soft 3D clay', icon: '🧸', vibe: 'Friendly, 3D, gamified', bestFor: 'Crypto/Web3 wallets' },
-  flat: { id: 'flat', name: 'Flat 2.0', desc: 'Clean & functional', icon: '◧', vibe: 'Professional, legible', bestFor: 'Enterprise data' },
-  neo: { id: 'neo', name: 'Neomorphism', desc: 'Soft extruded', icon: '◫', vibe: 'Minimalist, tactile', bestFor: 'Minimal dashboards' },
-  brutal: { id: 'brutal', name: 'Neo-Brutalism', desc: 'Raw & edgy', icon: '◩', vibe: 'Edgy, creative', bestFor: 'Creative trading' },
+  liquid: { id: 'liquid', name: 'Liquid Glass', desc: 'iOS 26 translucent liquid glass - reflects surroundings, specular highlights', icon: '💎', vibe: 'iOS 26 Premium, translucent, depth', bestFor: 'iOS 26 Trading dashboards', ios: 'Liquid Glass material - blur 40px saturate 180%, translucent floats above content' },
+  clay: { id: 'clay', name: 'Elevated Liquid', desc: 'iOS 26 elevated liquid glass - prominent material', icon: '🧸', vibe: 'iOS 26 Elevated, prominent, soft', bestFor: 'iOS 26 Wallets', ios: 'Thick material - blur 60px saturate 200%' },
+  flat: { id: 'flat', name: 'Flat Liquid', desc: 'iOS 26 flat liquid - clean system backgrounds', icon: '◧', vibe: 'iOS 26 Clean, content-first', bestFor: 'iOS 26 Enterprise', ios: 'System background, separator 0.5px, thin material' },
+  neo: { id: 'neo', name: 'Soft Liquid', desc: 'iOS 26 soft liquid - secondary backgrounds', icon: '◫', vibe: 'iOS 26 Minimalist, tactile', bestFor: 'iOS 26 Minimal', ios: 'Secondary system background, soft extruded' },
+  brutal: { id: 'brutal', name: 'Neon Liquid', desc: 'iOS 26 neon liquid - vibrant accent glow', icon: '◩', vibe: 'iOS 26 Edgy, neon glow', bestFor: 'iOS 26 Creative', ios: 'Neon glow + liquid glass, accent glow 36px' },
 }
 
 export const useSettingsStore = create(

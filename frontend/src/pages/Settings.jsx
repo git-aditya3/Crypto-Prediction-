@@ -17,8 +17,8 @@ export default function SettingsPage() {
   const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
 
   const tabs = [
-    { id: 'visual', label: 'Visual Styles', icon: Sparkles, desc: 'Clay, Glass, Brutal...' },
-    { id: 'themes', label: 'Themes', icon: Palette, desc: `${Object.keys(THEMES).length} themes` },
+    { id: 'visual', label: 'iOS 26 Materials', icon: Sparkles, desc: 'Liquid Glass materials' },
+    { id: 'themes', label: 'iOS 26 Themes', icon: Palette, desc: `${Object.keys(THEMES).length} liquid glass` },
     { id: 'appearance', label: 'Appearance', icon: Eye, desc: 'Motion & effects' },
     { id: 'trading', label: 'Trading', icon: DollarSign, desc: 'Risk & balance' },
   ]
@@ -28,21 +28,21 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen theme-bg">
       <div className="max-w-[1400px] mx-auto p-4 md:p-6 space-y-5">
-        <div className="rounded-xl border bg-[var(--card)] border-[var(--border)] p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 gpu-accelerated relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-soft)] to-transparent pointer-events-none" />
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent)]/5 rounded-full blur-3xl -translate-y-32 translate-x-32 pointer-events-none" />
+        <div className="liquid-glass-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 gpu-accelerated relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-soft)] to-transparent pointer-events-none opacity-60" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent)]/08 rounded-full blur-[60px] -translate-y-32 translate-x-32 pointer-events-none" />
           <div className="flex items-center gap-3 relative z-10">
-            <div className="w-10 h-10 rounded-xl bg-[var(--accent)] text-white flex items-center justify-center shadow-[var(--glow)]">
+            <div className="w-10 h-10 rounded-xl bg-[var(--accent)] text-white flex items-center justify-center shadow-[var(--glow)]" style={{ borderRadius: '12px' }}>
               <SettingsIcon size={18} />
             </div>
             <div>
-              <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text)] flex items-center gap-2">
-                Settings
-                <span className="px-2.5 py-0.5 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold shadow-sm">{Object.keys(THEMES).length} THEMES</span>
-                <span className="px-2 py-0.5 rounded-full bg-[var(--buy-soft)] text-[var(--buy)] border border-[var(--buy-border)] text-[10px] font-bold">{Object.keys(VISUAL_STYLES).length} STYLES</span>
-                <span className={`hidden md:inline-flex text-[10px] px-2.5 py-1 rounded-full border font-medium ${currentTheme.preview}`}>{currentTheme.icon} {currentTheme.name}</span>
+              <h1 className="text-[20px] font-semibold tracking-tight text-[var(--text)] flex items-center gap-2" style={{ letterSpacing: '-0.45px', fontFamily: "-apple-system, 'SF Pro Display', sans-serif" }}>
+                iOS 26 Settings
+                <span className="px-2.5 py-1 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold shadow-[var(--glow)]">iOS 26 • {Object.keys(THEMES).length} LIQUID GLASS</span>
+                <span className="px-2.5 py-1 rounded-full bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] text-[var(--text-sec)] text-[10px] font-bold">{Object.keys(VISUAL_STYLES).length} MATERIALS</span>
+                <span className="hidden md:inline-flex text-[10px] px-2.5 py-1 rounded-full border font-medium bg-[var(--glass-bg)] backdrop-blur-xl" style={{ border: '0.5px solid var(--glass-border)' }}>{currentTheme.icon} {currentTheme.name}</span>
               </h1>
-              <p className="text-[12px] mt-0.5 text-[var(--text-sec)]">{currentTheme.desc} • {currentVisual.desc} • {currentVisual.vibe} • 120fps</p>
+              <p className="text-[12px] mt-0.5 text-[var(--text-sec)]" style={{ letterSpacing: '-0.08px' }}>{currentTheme.desc} • {currentVisual.ios} • {currentVisual.vibe} • blur 40px saturate 180% • SF Pro</p>
             </div>
           </div>
           <div className="flex items-center gap-2 relative z-10">

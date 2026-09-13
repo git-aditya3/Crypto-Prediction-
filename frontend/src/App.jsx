@@ -74,12 +74,16 @@ export default function App() {
     html.classList.add(isLight ? 'light' : 'dark')
     html.setAttribute('data-theme', themeId)
     html.setAttribute('data-visual', visualId)
-    html.setAttribute('data-accent', accent || 'emerald')
-    html.setAttribute('data-font', font || 'geist')
+    html.setAttribute('data-accent', accent || 'systemBlue')
+    html.setAttribute('data-font', font || 'sf-pro')
     html.setAttribute('data-density', density || 'comfortable')
     html.setAttribute('data-animations', animations ? 'true' : 'false')
     html.setAttribute('data-blur', blur ? 'true' : 'false')
-    document.body.style.fontFamily = "'Geist', system-ui, sans-serif"
+    html.setAttribute('data-ios-version', '26')
+    html.setAttribute('data-material', 'liquid-glass')
+    // iOS 26 SF Pro font stack
+    document.body.style.fontFamily = "-apple-system, 'SF Pro Display', 'SF Pro Text', 'Geist', 'Inter', system-ui, sans-serif"
+    document.body.style.letterSpacing = "-0.011em"
   }, [theme, visualStyle, accent, font, density, animations, blur])
 
   const currentVisual = VISUAL_STYLES[visualStyle] || VISUAL_STYLES.liquid
@@ -92,14 +96,11 @@ export default function App() {
         {showMarketTicker && <MarketTicker />}
         <Navbar />
         <main className="min-h-[calc(100vh-120px)] relative">
-          {/* Liquid glass vibrant blobs background */}
-          {visualStyle === 'liquid' && (
-            <>
-              <div className="glass-blob w-[400px] h-[400px] bg-[var(--accent)]/10 top-[10%] left-[5%] blur-[80px]" />
-              <div className="glass-blob w-[300px] h-[300px] bg-[var(--buy)]/10 top-[40%] right-[10%] blur-[60px]" style={{ animationDelay: '2s' }} />
-              <div className="glass-blob w-[500px] h-[500px] bg-[var(--accent-soft)] bottom-[10%] left-[20%] blur-[100px]" style={{ animationDelay: '4s' }} />
-            </>
-          )}
+          {/* iOS 26 Liquid Glass - translucent layers floating above content, reflects surroundings */}
+          <div className="glass-blob w-[600px] h-[600px] bg-[var(--accent)]/10 top-[-5%] left-[-5%] blur-[100px]" />
+          <div className="glass-blob w-[500px] h-[500px] bg-[var(--buy)]/08 top-[30%] right-[-10%] blur-[80px]" style={{ animationDelay: '3s' }} />
+          <div className="glass-blob w-[700px] h-[700px] bg-[var(--accent-soft)] bottom-[-10%] left-[15%] blur-[120px]" style={{ animationDelay: '6s' }} />
+          <div className="glass-blob w-[400px] h-[400px] bg-[var(--ios-purple)]/08 top-[60%] left-[50%] blur-[90px]" style={{ animationDelay: '9s' }} />
           <div className="relative z-10">
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
@@ -125,22 +126,22 @@ export default function App() {
           </div>
         </main>
         
-        <footer className={`mt-12 border-t ${visualStyle === 'liquid' ? 'liquid-glass !border-t-0 !rounded-none' : visualStyle === 'clay' ? 'clay-card !rounded-none !border-x-0 !border-b-0 !mt-8' : visualStyle === 'brutal' ? 'brutal-card !rounded-none !border-x-0 !border-b-0 !border-t-[3px]' : 'bg-[var(--card)] border-[var(--border)]'}`}>
+        <footer className="mt-12 liquid-glass !rounded-none border-t-0 border-b-0 border-x-0">
           <div className="max-w-[1600px] mx-auto px-6 py-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-[11px] text-[var(--text-muted)]">
               <div className="flex items-center gap-3 flex-wrap">
-                <span className={`w-7 h-7 rounded-lg bg-[var(--accent)] text-white flex items-center justify-center font-bold text-[11px] shadow-[var(--glow)] ${visualStyle === 'clay' ? 'clay-card !w-8 !h-8 !p-0 !rounded-xl' : visualStyle === 'brutal' ? 'brutal-card !w-7 !h-7 !p-0 !rounded-sm' : ''}`}>₿</span>
-                <span className="font-medium text-[var(--text)]">CryptoPred</span>
-                <span className={`px-2 py-0.5 rounded-full bg-[var(--accent)] text-white text-[9px] font-bold shadow-sm ${visualStyle === 'clay' ? 'clay-pill !text-[9px]' : visualStyle === 'brutal' ? 'brutal-pill !text-[8px]' : ''}`}>V8 {currentVisual.name}</span>
-                <span className="hidden md:inline-flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-[var(--accent)] animate-pulse shadow-[var(--glow)]" /> {currentTheme.name} • {currentVisual.vibe} • 120FPS</span>
+                <span className="w-8 h-8 rounded-xl bg-[var(--accent)] text-white flex items-center justify-center font-bold text-[12px] shadow-[var(--glow)]">₿</span>
+                <span className="font-semibold text-[13px] tracking-tight text-[var(--text)]" style={{ letterSpacing: '-0.23px' }}>CryptoPred</span>
+                <span className="px-2.5 py-1 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold shadow-[var(--glow)] tracking-wide">iOS 26 • {currentVisual.name}</span>
+                <span className="hidden md:inline-flex items-center gap-1.5 text-[11px]"><span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse shadow-[var(--glow)]" /> {currentTheme.name} • {currentVisual.vibe} • Liquid Glass</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[var(--buy)] shadow-[0_0_8px_var(--buy-soft)]" /> Buy
-                  <span className="w-2 h-2 rounded-full bg-[var(--sell)] ml-2 shadow-[0_0_8px_var(--sell-soft)]" /> Sell
-                  <span className="w-2 h-2 rounded-full bg-[var(--accent)] ml-2 shadow-[var(--glow)]" /> {currentTheme.name}
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-2 text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-[var(--buy)] shadow-[var(--glow-green)]" /> Buy
+                  <span className="w-2 h-2 rounded-full bg-[var(--sell)] ml-1 shadow-[var(--glow-red)]" /> Sell
+                  <span className="w-2 h-2 rounded-full bg-[var(--accent)] ml-1 shadow-[var(--glow)]" /> {currentTheme.name}
                 </span>
-                <span className={`px-2 py-0.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border)] text-[10px] ${visualStyle === 'clay' ? 'clay-pill' : visualStyle === 'brutal' ? 'brutal-card !py-0 !px-2 !text-[9px] !rounded-sm' : ''}`}>{new Date().getFullYear()}</span>
+                <span className="px-2.5 py-1 rounded-full bg-[var(--bg-secondary)] border border-[var(--separator)] text-[11px] font-medium">{new Date().getFullYear()} • iOS 26</span>
               </div>
             </div>
           </div>
