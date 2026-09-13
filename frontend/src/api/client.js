@@ -37,10 +37,10 @@ export const api = {
   getRealtimePrices: () => client.get('/realtime/prices').then(r => r.data),
   backtest: (payload) => client.post('/backtest', payload).then(r => r.data),
   backtestCompare: (symbol) => client.get(`/backtest/compare?symbol=${symbol}`).then(r => r.data),
-  // Market endpoints
+  // Market endpoints - real Binance data
   getMarketTickers: () => client.get('/market/tickers').then(r => r.data).catch(() => ({ tickers: {} })),
   getMarketKlines: (symbol, interval='1d', limit=200) => client.get(`/market/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`).then(r => r.data),
-  // Trading calls v3
+  // Trading calls v4 - REAL TRADING, no fake simulation
   getTradingCalls: (params={}) => {
     const qs = new URLSearchParams()
     if (params.symbols) qs.append('symbols', params.symbols.join ? params.symbols.join(',') : params.symbols)
@@ -53,7 +53,15 @@ export const api = {
   getTradingCall: (symbol, timeframe='1d', accountBalance=10000, riskPerTrade=0.02) => 
     client.get(`/trading/call/${symbol}?timeframe=${timeframe}&account_balance=${accountBalance}&risk_per_trade=${riskPerTrade}`).then(r => r.data),
   getTradingSummary: () => client.get('/trading/summary').then(r => r.data),
+  getTradingGuide: () => client.get('/trading/real/guide').then(r => r.data),
   getSettings: () => client.get('/settings').then(r => r.data),
+  // Continuous training - endless self-learning with live data
+  getTrainingStatus: () => client.get('/training/status').then(r => r.data),
+  startTraining: (payload) => client.post('/training/start', payload).then(r => r.data),
+  stopTraining: () => client.post('/training/stop').then(r => r.data),
+  retrainSymbol: (symbol, epochs=80) => client.post(`/training/retrain/${symbol}?epochs=${epochs}`).then(r => r.data),
+  retrainAll: (payload) => client.post('/training/retrain', payload).then(r => r.data),
+  getModels: () => client.get('/models').then(r => r.data),
 }
 
 export default client
