@@ -1,9 +1,9 @@
 """
 Auto Trading Engine - Real trades with CoinDCX INR integration
-Fixed: CoinDCX price source when broker=coindcx, INR handling, validation
+Fixed: thread safety, validation, price source, daily trades calc, INR handling
 """
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, date
 import json
 from pathlib import Path
 import threading
@@ -34,59 +34,93 @@ class AutoTradingEngine:
         self.trades: List[Dict] = []
         self.pending_approvals: List[Dict] = []
         self._lock = threading.Lock()
+        self._save_lock = threading.Lock()
         self.load()
 
     def load(self):
         try:
             if self.config_path.exists():
-                data = json.loads(self.config_path.read_text())
-                self.config = AutoTradingConfig.from_dict(data)
-                self.risk_guard.update_config(self.config)
-                logger.info(f"Loaded auto trading config: enabled={self.config.enabled} mode={self.config.mode} broker={self.config.execution.broker_id}")
+                try:
+                    raw = self.config_path.read_text()
+                    data = json.loads(raw)
+                    if isinstance(data, dict):
+                        self.config = AutoTradingConfig.from_dict(data)
+                        self.risk_guard.update_config(self.config)
+                        logger.info(f"Loaded auto trading config: enabled={self.config.enabled} mode={self.config.mode} broker={self.config.execution.broker_id}")
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.warning(f"Invalid autotrading config JSON: {e}, using defaults")
             if self.trades_path.exists():
-                trades_data = json.loads(self.trades_path.read_text())
-                with self._lock:
-                    self.trades = trades_data.get("trades", [])
-                    self.pending_approvals = trades_data.get("pending_approvals", [])
+                try:
+                    raw = self.trades_path.read_text()
+                    trades_data = json.loads(raw)
+                    if isinstance(trades_data, dict):
+                        with self._lock:
+                            trades_list = trades_data.get("trades", [])
+                            pending_list = trades_data.get("pending_approvals", [])
+                            if isinstance(trades_list, list):
+                                self.trades = trades_list[-500:]
+                            if isinstance(pending_list, list):
+                                self.pending_approvals = pending_list[:100]
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.warning(f"Invalid trades JSON: {e}")
         except Exception as e:
             logger.warning(f"Failed to load auto trading config: {e}")
 
     def save(self):
         try:
-            self.config_path.parent.mkdir(parents=True, exist_ok=True)
-            self.config.updated_at = datetime.utcnow().isoformat()
-            self.config_path.write_text(json.dumps(self.config.to_dict(), indent=2))
-            with self._lock:
-                trades_copy = list(self.trades[-200:])
-                pending_copy = list(self.pending_approvals)
-            self.trades_path.write_text(json.dumps({
-                "trades": trades_copy,
-                "pending_approvals": pending_copy,
-                "timestamp": datetime.utcnow().isoformat()
-            }, indent=2))
+            with self._save_lock:
+                self.config_path.parent.mkdir(parents=True, exist_ok=True)
+                self.config.updated_at = datetime.utcnow().isoformat()
+                # Atomic write via tmp
+                tmp_path = self.config_path.with_suffix('.tmp')
+                tmp_path.write_text(json.dumps(self.config.to_dict(), indent=2))
+                tmp_path.replace(self.config_path)
+
+                with self._lock:
+                    trades_copy = list(self.trades[-200:])
+                    pending_copy = list(self.pending_approvals)
+
+                trades_tmp = self.trades_path.with_suffix('.tmp')
+                trades_tmp.write_text(json.dumps({
+                    "trades": trades_copy,
+                    "pending_approvals": pending_copy,
+                    "timestamp": datetime.utcnow().isoformat()
+                }, indent=2))
+                trades_tmp.replace(self.trades_path)
         except Exception as e:
             logger.error(f"Failed to save auto trading config: {e}")
 
     def update_config(self, new_config: Dict) -> AutoTradingConfig:
-        self.config = AutoTradingConfig.from_dict(new_config)
-        self.risk_guard.update_config(self.config)
-        self.save()
-        logger.info(f"Updated auto trading config: enabled={self.config.enabled} mode={self.config.mode} broker={self.config.execution.broker_id}")
-        return self.config
+        try:
+            if not isinstance(new_config, dict):
+                raise ValueError("Config must be dict")
+            self.config = AutoTradingConfig.from_dict(new_config)
+            self.risk_guard.update_config(self.config)
+            self.save()
+            logger.info(f"Updated auto trading config: enabled={self.config.enabled} mode={self.config.mode} broker={self.config.execution.broker_id}")
+            return self.config
+        except Exception as e:
+            logger.error(f"Failed to update config: {e}")
+            raise
 
     def get_status(self) -> Dict:
         try:
-            broker_id = self.config.execution.broker_id
+            broker_id = getattr(self.config.execution, 'broker_id', 'paper') or 'paper'
             broker = self.broker_manager.get_broker(broker_id)
-            connected = broker.connected if broker and hasattr(broker, 'connected') else False
-            paper_mode = broker.paper_mode if broker and hasattr(broker, 'paper_mode') else True
+            connected = bool(getattr(broker, 'connected', False)) if broker else False
+            paper_mode = bool(getattr(broker, 'paper_mode', True)) if broker else True
         except Exception:
             connected=False
             paper_mode=True
-            broker_id=self.config.execution.broker_id
+            try:
+                broker_id=self.config.execution.broker_id
+            except Exception:
+                broker_id="paper"
 
         try:
-            open_pos = len(self.portfolio_manager.get_portfolio().positions)
+            portfolio = self.portfolio_manager.get_portfolio()
+            positions = getattr(portfolio, 'positions', {})
+            open_pos = len(positions) if isinstance(positions, dict) else 0
         except Exception:
             open_pos=0
 
@@ -100,24 +134,49 @@ class AutoTradingEngine:
             pending=0
             trades_copy=[]
 
+        daily_trades = 0
         try:
-            today = datetime.utcnow().date()
-            daily_trades = len([t for t in trades_copy if datetime.fromisoformat(t.get("timestamp","")).date() == today])
+            today = date.today()
+            # Use UTC date for consistency but also handle local
+            today_utc = datetime.utcnow().date()
+            for t in trades_copy:
+                try:
+                    if not isinstance(t, dict):
+                        continue
+                    ts_str = t.get("timestamp","")
+                    if not ts_str or not isinstance(ts_str, str):
+                        continue
+                    # Handle ISO with Z
+                    ts_clean = ts_str.replace("Z","").split(".")[0]
+                    try:
+                        dt = datetime.fromisoformat(ts_clean)
+                    except ValueError:
+                        continue
+                    # Compare both local and UTC date to be safe
+                    if dt.date() == today or dt.date() == today_utc:
+                        daily_trades+=1
+                except Exception:
+                    continue
         except Exception:
             daily_trades=0
 
+        try:
+            is_real = broker_id == "coindcx" and connected and not paper_mode and self.config.mode == "full_auto"
+        except Exception:
+            is_real = False
+
         return {
-            "enabled": self.config.enabled,
-            "mode": self.config.mode,
-            "is_running": self.is_running,
-            "emergency_stop": self.config.emergency_stop,
+            "enabled": bool(getattr(self.config, 'enabled', False)),
+            "mode": getattr(self.config, 'mode', 'paper'),
+            "is_running": bool(self.is_running),
+            "emergency_stop": bool(getattr(self.config, 'emergency_stop', False)),
             "broker_id": broker_id,
             "broker_connected": connected,
             "broker_paper_mode": paper_mode,
-            "real_trading": broker_id == "coindcx" and connected and not paper_mode and self.config.mode == "full_auto",
-            "account_balance": self.config.account_balance,
-            "risk_per_trade": self.config.risk.risk_per_trade_pct,
-            "max_positions": self.config.risk.max_positions,
+            "real_trading": is_real,
+            "account_balance": float(getattr(self.config, 'account_balance', 10000) or 10000),
+            "risk_per_trade": float(getattr(self.config.risk, 'risk_per_trade_pct', 2.0) or 2.0),
+            "max_positions": int(getattr(self.config.risk, 'max_positions', 5) or 5),
             "open_positions": open_pos,
             "total_trades": total_trades,
             "pending_approvals": pending,
@@ -129,20 +188,30 @@ class AutoTradingEngine:
         }
 
     def _get_live_price(self, symbol: str) -> Optional[float]:
-        """Get live price - CoinDCX primary when broker=coindcx"""
+        """Get live price - CoinDCX primary when broker=coindcx, Binance fallback"""
+        if not symbol or not isinstance(symbol, str):
+            return None
+        symbol = symbol.strip()
+        if len(symbol) < 3:
+            return None
+
         try:
-            broker_id = self.config.execution.broker_id.lower() if self.config.execution.broker_id else "paper"
+            broker_id = (getattr(self.config.execution, 'broker_id', 'paper') or 'paper').lower()
         except Exception:
             broker_id = "paper"
 
-        if broker_id == "coindcx":
+        # Try CoinDCX first if broker is coindcx or symbol is INR
+        is_inr_symbol = "INR" in symbol.upper()
+        should_try_coindcx = broker_id == "coindcx" or is_inr_symbol
+
+        if should_try_coindcx:
             try:
                 from ..data.coindcx_fetcher import CoinDCXRealtimeFetcher
                 coindcx = CoinDCXRealtimeFetcher(symbol=symbol)
                 price = coindcx.get_current_price()
-                if price and price > 0:
-                    logger.info(f"CoinDCX price for {symbol}: ₹{price:.2f}")
-                    return price
+                if price and isinstance(price, (int, float)) and price > 0 and price < 200_000_000:
+                    logger.debug(f"CoinDCX price for {symbol}: ₹{price:.2f}")
+                    return float(price)
             except Exception as e:
                 logger.debug(f"CoinDCX price failed {symbol}: {e}")
 
@@ -150,60 +219,97 @@ class AutoTradingEngine:
                 broker = self.broker_manager.get_broker("coindcx")
                 if broker and hasattr(broker, 'get_price'):
                     p = broker.get_price(symbol)
-                    if p and p > 0:
-                        return p
+                    if p and isinstance(p, (int, float)) and p > 0 and p < 200_000_000:
+                        return float(p)
             except Exception as e:
                 logger.debug(f"CoinDCX broker get_price failed {symbol}: {e}")
 
+        # Try Binance fetcher
         try:
             from ..data.realtime import BinanceRealtimeFetcher
             fetcher = BinanceRealtimeFetcher(symbol=symbol)
             price = fetcher.get_current_price()
-            if price and price > 0:
+            if price and isinstance(price, (int, float)) and price > 0 and price < 10_000_000:
+                # If broker is coindcx and symbol is USD, convert to INR for consistency
                 if broker_id == "coindcx" and "USD" in symbol.upper() and "INR" not in symbol.upper():
-                    # Convert USD to INR for coindcx broker consistency
-                    inr_price = price * 83.5
-                    return inr_price
-                return price
+                    inr_price = float(price) * 83.5
+                    if inr_price > 0 and inr_price < 200_000_000:
+                        return inr_price
+                return float(price)
         except Exception as e:
             logger.debug(f"Binance fetcher price failed {symbol}: {e}")
+
+        # Last resort: price_helper
+        try:
+            from ..data.price_helper import get_live_price
+            p = get_live_price(symbol)
+            if p and p > 0:
+                return float(p)
+        except Exception:
+            pass
 
         return None
 
     def check_trade_allowed(self, symbol: str, signal: Dict) -> Dict:
+        if not isinstance(signal, dict):
+            return {"allowed": False, "failed": ["Invalid signal"], "checks": {}}
+
         confidence = signal.get("confidence", 0)
+        try:
+            confidence = float(confidence or 0)
+        except (ValueError, TypeError):
+            confidence = 0.0
+
         risk_reward_val = signal.get("risk_reward", 2.0)
         if isinstance(risk_reward_val, dict):
-            risk_reward = risk_reward_val.get("tp2") or risk_reward_val.get("tp1") or (max(risk_reward_val.values()) if risk_reward_val else 2.0)
+            try:
+                rr = risk_reward_val.get("tp2") or risk_reward_val.get("tp1")
+                if rr is None:
+                    vals = [float(v) for v in risk_reward_val.values() if isinstance(v, (int, float)) or (isinstance(v, str) and v.replace('.','',1).isdigit())]
+                    rr = max(vals) if vals else 2.0
+                risk_reward = float(rr)
+            except (ValueError, TypeError):
+                risk_reward = 2.0
         else:
-            risk_reward = risk_reward_val
+            try:
+                risk_reward = float(risk_reward_val or 2.0)
+            except (ValueError, TypeError):
+                risk_reward = 2.0
+
         entry = signal.get("entry_price", 0)
         sl = signal.get("stop_loss", 0)
-
         try:
             entry_f = float(entry or 0)
             sl_f = float(sl or 0)
-            if entry_f <= 0 or sl_f <= 0:
+        except (ValueError, TypeError):
+            entry_f = 0.0
+            sl_f = 0.0
+
+        if entry_f <= 0 or sl_f <= 0:
+            try:
                 live = self._get_live_price(symbol)
                 if live and live > 0:
                     if entry_f <= 0:
+                        entry_f = live
                         entry = live
-                    # If SL still 0, set 2% below entry for LONG, 2% above for SHORT
                     if sl_f <= 0:
-                        if signal.get("signal","").upper() in ["BUY","LONG","STRONG_BUY"]:
-                            sl = entry * 0.98
+                        sig = signal.get("signal","").upper()
+                        if sig in ["BUY","LONG","STRONG_BUY"]:
+                            sl = entry_f * 0.98
+                            sl_f = sl
                         else:
-                            sl = entry * 1.02
-        except (ValueError, TypeError):
-            pass
+                            sl = entry_f * 1.02
+                            sl_f = sl
+            except Exception:
+                pass
 
         try:
             entry = float(entry or 0)
             sl = float(sl or 0)
             rr = float(risk_reward or 2.0)
         except (ValueError, TypeError):
-            entry=0
-            sl=0
+            entry=0.0
+            sl=0.0
             rr=2.0
 
         return self.risk_guard.full_check(
@@ -216,15 +322,27 @@ class AutoTradingEngine:
 
     def execute_trade(self, symbol: str, call: Dict = None, manual: bool = False) -> Dict:
         try:
-            if not call:
-                trading_call = self.call_generator.generate_call(
-                    symbol=symbol,
-                    account_balance=self.config.account_balance
-                )
-                call = trading_call.to_dict()
+            if not isinstance(symbol, str) or len(symbol) < 3:
+                return {"success": False, "reason": f"Invalid symbol {symbol}"}
+
+            if not call or not isinstance(call, dict):
+                try:
+                    trading_call = self.call_generator.generate_call(
+                        symbol=symbol,
+                        account_balance=float(self.config.account_balance or 10000)
+                    )
+                    call = trading_call.to_dict()
+                except Exception as e:
+                    return {"success": False, "reason": f"Failed to generate call: {e}", "symbol": symbol}
+
+            if not isinstance(call, dict):
+                return {"success": False, "reason": "Invalid call generated", "symbol": symbol}
 
             signal_type = call.get("signal", "")
-            allowed_signals = self.config.strategies.allowed_signals
+            if not isinstance(signal_type, str):
+                signal_type = str(signal_type)
+
+            allowed_signals = getattr(self.config.strategies, 'allowed_signals', ["STRONG_BUY","BUY","STRONG_SELL","SELL"])
             if signal_type not in allowed_signals:
                 return {
                     "success": False,
@@ -235,31 +353,44 @@ class AutoTradingEngine:
 
             rr_val = call.get("risk_reward", 2.0)
             if isinstance(rr_val, dict):
-                rr_val = rr_val.get("tp2") or rr_val.get("tp1") or (max(rr_val.values()) if rr_val else 2.0)
-
-            # Override entry price with live CoinDCX price if broker is coindcx
-            broker_id = self.config.execution.broker_id
-            live_price = self._get_live_price(symbol)
-            if live_price and live_price > 0:
-                # If broker is coindcx and call entry is USD but live is INR, keep live INR
-                # Otherwise if call entry differs too much (>5%) from live, use live
                 try:
-                    call_entry = float(call.get("entry_price",0) or 0)
-                    if call_entry > 0:
-                        # Check if both are same currency magnitude
-                        # USD price ~ 50k, INR price ~ 4M for BTC - different magnitude
-                        # So if live > call_entry*10, likely INR vs USD
+                    rr_val = rr_val.get("tp2") or rr_val.get("tp1")
+                    if rr_val is None:
+                        vals = [float(v) for v in call.get("risk_reward",{}).values() if isinstance(v, (int,float))]
+                        rr_val = max(vals) if vals else 2.0
+                except (ValueError, TypeError):
+                    rr_val = 2.0
+            try:
+                rr_val = float(rr_val or 2.0)
+            except (ValueError, TypeError):
+                rr_val = 2.0
+
+            broker_id = getattr(self.config.execution, 'broker_id', 'paper') or 'paper'
+            live_price = self._get_live_price(symbol)
+
+            if live_price and live_price > 0:
+                try:
+                    call_entry_raw = call.get("entry_price",0) or 0
+                    try:
+                        call_entry = float(call_entry_raw)
+                    except (ValueError, TypeError):
+                        call_entry = 0.0
+
+                    if call_entry <= 0:
+                        call["entry_price"] = live_price
+                    else:
+                        # Heuristic: if broker coindcx and live is INR (much larger), always use live INR
                         if broker_id == "coindcx":
-                            # For coindcx, always use INR live price
-                            call["entry_price"] = live_price
-                            # Also convert SL/TP to INR if they are USD
-                            if "USD" in symbol.upper():
-                                # Original SL/TP are USD, convert to INR
+                            # If live > call_entry*10, likely INR vs USD difference
+                            if live_price > call_entry * 10:
+                                call["entry_price"] = live_price
+                                # Convert SL/TP if they look like USD
                                 try:
-                                    if call.get("stop_loss"):
-                                        sl = float(call["stop_loss"])
-                                        if sl < live_price/10:  # Likely USD
-                                            call["stop_loss"] = sl * 83.5
+                                    sl_raw = call.get("stop_loss")
+                                    if sl_raw:
+                                        sl_f = float(sl_raw)
+                                        if sl_f < live_price/10:
+                                            call["stop_loss"] = sl_f * 83.5
                                     tps = call.get("take_profits",{})
                                     if isinstance(tps, dict):
                                         new_tps={}
@@ -272,19 +403,29 @@ class AutoTradingEngine:
                                                     new_tps[k] = tv
                                             except (ValueError, TypeError):
                                                 continue
-                                        call["take_profits"] = new_tps
+                                        if new_tps:
+                                            call["take_profits"] = new_tps
                                 except Exception:
                                     pass
+                            else:
+                                # If close (>5% diff), use live for accuracy
+                                if abs(call_entry - live_price) / max(call_entry,1) > 0.05:
+                                    call["entry_price"] = live_price
                         else:
-                            # Binance broker - use USD live if close, else keep call
-                            if abs(call_entry - live_price) / call_entry > 0.05:
+                            if abs(call_entry - live_price) / max(call_entry,1) > 0.05:
                                 call["entry_price"] = live_price
-                    else:
-                        call["entry_price"] = live_price
                 except Exception:
                     pass
             else:
                 logger.warning(f"No live price for {symbol} - using call entry {call.get('entry_price')}")
+
+            # Validate entry_price and stop_loss before risk check
+            try:
+                entry_check = float(call.get("entry_price",0) or 0)
+                if entry_check <=0 or entry_check > 200_000_000:
+                    return {"success": False, "reason": f"Invalid entry price {entry_check}", "symbol": symbol}
+            except (ValueError, TypeError):
+                return {"success": False, "reason": "Invalid entry price type", "symbol": symbol}
 
             risk_check = self.check_trade_allowed(
                 symbol=symbol,
@@ -296,42 +437,48 @@ class AutoTradingEngine:
                 }
             )
 
-            if not risk_check["allowed"] and not manual:
-                return {
-                    "success": False,
-                    "reason": f"Risk check failed: {risk_check['failed']}",
-                    "risk_check": risk_check,
-                    "symbol": symbol,
-                    "call": call
-                }
+            if not isinstance(risk_check, dict) or not risk_check.get("allowed", False):
+                if not manual:
+                    return {
+                        "success": False,
+                        "reason": f"Risk check failed: {risk_check.get('failed', []) if isinstance(risk_check, dict) else 'unknown'}",
+                        "risk_check": risk_check,
+                        "symbol": symbol,
+                        "call": call
+                    }
 
             pos_size_check = self.risk_guard.calculate_position_size(
-                entry_price=call["entry_price"],
-                stop_loss=call["stop_loss"],
-                account_balance=self.config.account_balance
+                entry_price=float(call["entry_price"]),
+                stop_loss=float(call.get("stop_loss",0) or 0),
+                account_balance=float(self.config.account_balance or 10000)
             )
 
-            if not pos_size_check.allowed:
+            if not pos_size_check or not getattr(pos_size_check, 'allowed', False):
+                reason = getattr(pos_size_check, 'reason', 'Position size failed') if pos_size_check else 'Position size failed'
                 return {
                     "success": False,
-                    "reason": f"Position size failed: {pos_size_check.reason}",
+                    "reason": f"Position size failed: {reason}",
                     "symbol": symbol
                 }
 
-            quantity = pos_size_check.position_size
-            if quantity <= 0:
+            quantity = getattr(pos_size_check, 'position_size', 0) or 0
+            try:
+                quantity = float(quantity)
+            except (ValueError, TypeError):
+                quantity = 0.0
+            if quantity <= 0 or quantity > 1e9:
                 return {"success": False, "reason": f"Invalid quantity {quantity}", "symbol": symbol}
 
-            mode = self.config.mode
-            broker_id = self.config.execution.broker_id
+            mode = getattr(self.config, 'mode', 'paper')
+            broker_id = getattr(self.config.execution, 'broker_id', 'paper') or 'paper'
             broker = self.broker_manager.get_broker(broker_id)
 
             if not broker:
-                return {"success": False, "reason": f"Broker {broker_id} not found"}
+                return {"success": False, "reason": f"Broker {broker_id} not found", "symbol": symbol}
 
             if mode == "semi_auto" and not manual:
                 approval = {
-                    "id": f"approval_{int(time.time())}_{symbol}",
+                    "id": f"approval_{int(time.time())}_{symbol}_{int(time.time()*1000)%1000}",
                     "symbol": symbol,
                     "call": call,
                     "quantity": quantity,
@@ -345,7 +492,7 @@ class AutoTradingEngine:
                 with self._lock:
                     self.pending_approvals.append(approval)
                 self.save()
-                logger.info(f"📋 Trade requires approval (semi-auto): {symbol} {call['signal']} {quantity:.4f} @ {call['entry_price']:.2f} broker={broker_id}")
+                logger.info(f"📋 Trade requires approval (semi-auto): {symbol} {call.get('signal')} {quantity:.6f} @ {call.get('entry_price')} broker={broker_id}")
                 return {
                     "success": False,
                     "requires_approval": True,
@@ -356,11 +503,11 @@ class AutoTradingEngine:
                     "risk_check": risk_check
                 }
 
-            is_real = mode == "full_auto" and self.config.execution.enable_real_trading and not getattr(broker, 'paper_mode', True)
+            is_real = mode == "full_auto" and getattr(self.config.execution, 'enable_real_trading', False) and not getattr(broker, 'paper_mode', True)
 
             if is_real:
-                logger.warning(f"🚨 REAL AUTO TRADE EXECUTING: {symbol} {call['signal']} {quantity:.4f} @ {call['entry_price']:.2f} broker={broker_id} - REAL MONEY")
-                if self.config.execution.require_confirmation and not manual:
+                logger.warning(f"🚨 REAL AUTO TRADE EXECUTING: {symbol} {call.get('signal')} {quantity:.6f} @ {call.get('entry_price')} broker={broker_id} - REAL MONEY")
+                if getattr(self.config.execution, 'require_confirmation', False) and not manual:
                     return {
                         "success": False,
                         "requires_confirmation": True,
@@ -369,53 +516,63 @@ class AutoTradingEngine:
                         "is_real": True
                     }
             else:
-                logger.info(f"📝 PAPER Auto Trade: {symbol} {call['signal']} {quantity:.4f} @ {call['entry_price']:.2f} - {mode} mode broker={broker_id}")
+                logger.info(f"📝 PAPER Auto Trade: {symbol} {call.get('signal')} {quantity:.6f} @ {call.get('entry_price')} - {mode} mode broker={broker_id}")
 
-            side = "BUY" if "BUY" in call["signal"].upper() else "SELL"
-            order_type = self.config.execution.order_type
+            side = "BUY" if "BUY" in str(call.get("signal","")).upper() else "SELL"
+            order_type = getattr(self.config.execution, 'order_type', 'MARKET') or 'MARKET'
 
-            # For CoinDCX, quantity is in crypto amount, not INR - ensure valid
-            # If symbol is BTC and quantity is tiny (<0.0001) may be rejected - but risk guard should handle
-            order = broker.place_order(
-                symbol=symbol,
-                side=side,
-                order_type=order_type,
-                quantity=quantity,
-                price=call["entry_price"],
-                stop_price=None,
-                stop_loss=call.get("stop_loss"),
-                take_profits=call.get("take_profits"),
-                leverage=call.get("position", {}).get("leverage", "1x"),
-                trailing_pct=self.config.risk.trailing_stop_pct if self.config.risk.use_trailing_stop else None,
-                strategy=call.get("strategy", "AI Ensemble")
-            )
+            try:
+                order = broker.place_order(
+                    symbol=symbol,
+                    side=side,
+                    order_type=order_type,
+                    quantity=quantity,
+                    price=float(call["entry_price"]),
+                    stop_price=None,
+                    stop_loss=call.get("stop_loss"),
+                    take_profits=call.get("take_profits"),
+                    leverage=call.get("position", {}).get("leverage", "1x") if isinstance(call.get("position"), dict) else "1x",
+                    trailing_pct=float(getattr(self.config.risk, 'trailing_stop_pct', 1.0) or 1.0) if getattr(self.config.risk, 'use_trailing_stop', False) else None,
+                    strategy=call.get("strategy", "AI Ensemble") if isinstance(call.get("strategy"), str) else "AI Ensemble"
+                )
+            except Exception as e:
+                logger.error(f"Broker place_order failed {symbol}: {e}")
+                return {"success": False, "reason": f"Broker order failed: {e}", "symbol": symbol}
+
+            if not order:
+                return {"success": False, "reason": "Broker returned no order", "symbol": symbol}
 
             try:
                 self.portfolio_manager.open_position(
                     symbol=symbol,
                     side="LONG" if side == "BUY" else "SHORT",
-                    entry_price=order.filled_price or call["entry_price"],
+                    entry_price=float(getattr(order, 'filled_price', None) or call["entry_price"]),
                     quantity=quantity,
                     stop_loss=call.get("stop_loss"),
                     take_profits=call.get("take_profits"),
                     leverage=getattr(order, 'leverage', '1x'),
-                    risk_amount=pos_size_check.risk_amount
+                    risk_amount=float(getattr(pos_size_check, 'risk_amount', 0) or 0)
                 )
             except Exception as e:
                 logger.warning(f"Failed to open portfolio position: {e}")
 
+            try:
+                order_dict = order.to_dict() if hasattr(order, 'to_dict') else {"id": getattr(order, 'id', 'unknown')}
+            except Exception:
+                order_dict = {"id": getattr(order, 'id', 'unknown')}
+
             trade_record = {
-                "id": order.id,
+                "id": getattr(order, 'id', f"trade_{int(time.time())}"),
                 "symbol": symbol,
                 "side": side,
                 "quantity": quantity,
-                "entry_price": order.filled_price or call["entry_price"],
+                "entry_price": float(getattr(order, 'filled_price', None) or call.get("entry_price",0) or 0),
                 "stop_loss": call.get("stop_loss"),
                 "take_profits": call.get("take_profits"),
-                "signal": call["signal"],
+                "signal": call.get("signal"),
                 "confidence": call.get("confidence"),
                 "risk_reward": call.get("risk_reward"),
-                "order": order.to_dict(),
+                "order": order_dict,
                 "call": call,
                 "risk_check": risk_check,
                 "mode": mode,
@@ -430,19 +587,22 @@ class AutoTradingEngine:
 
             with self._lock:
                 self.trades.append(trade_record)
-            self.risk_guard.record_trade(symbol, side, pnl=0, success=True)
+            try:
+                self.risk_guard.record_trade(symbol, side, pnl=0, success=True)
+            except Exception:
+                pass
             self.save()
 
             return {
                 "success": True,
-                "order": order.to_dict(),
+                "order": order_dict,
                 "trade": trade_record,
                 "real_trading": is_real,
                 "mode": mode,
                 "quantity": quantity,
                 "broker": broker_id,
                 "price_source": "CoinDCX INR" if broker_id == "coindcx" else "Binance USD",
-                "message": f"{'REAL' if is_real else 'PAPER'} trade executed: {symbol} {side} {quantity:.4f} @ {order.filled_price or call['entry_price']:.2f} broker={broker_id}",
+                "message": f"{'REAL' if is_real else 'PAPER'} trade executed: {symbol} {side} {quantity:.6f} @ {order_dict.get('filled_price') or call.get('entry_price')} broker={broker_id}",
                 "warning": "Real trading can lose money - monitor positions" if is_real else "Paper trading - safe simulation"
             }
 
@@ -452,42 +612,55 @@ class AutoTradingEngine:
             traceback.print_exc()
             return {
                 "success": False,
-                "reason": str(e),
+                "reason": str(e)[:500],
                 "symbol": symbol,
-                "error": traceback.format_exc()
+                "error": traceback.format_exc()[-2000:]
             }
 
     def approve_trade(self, approval_id: str) -> Dict:
+        if not approval_id or not isinstance(approval_id, str):
+            return {"success": False, "reason": "Invalid approval_id"}
+        approval_copy = None
         with self._lock:
             for i, approval in enumerate(self.pending_approvals):
-                if approval["id"] == approval_id:
-                    # Copy and remove
-                    approval_copy = dict(approval)
-                    self.pending_approvals.pop(i)
-                    break
+                try:
+                    if isinstance(approval, dict) and approval.get("id") == approval_id:
+                        approval_copy = dict(approval)
+                        self.pending_approvals.pop(i)
+                        break
+                except Exception:
+                    continue
             else:
                 return {"success": False, "reason": f"Approval {approval_id} not found"}
         self.save()
-        result = self.execute_trade(
-            symbol=approval_copy["symbol"],
-            call=approval_copy["call"],
-            manual=True
-        )
-        return result
+        try:
+            result = self.execute_trade(
+                symbol=approval_copy.get("symbol",""),
+                call=approval_copy.get("call"),
+                manual=True
+            )
+            return result
+        except Exception as e:
+            return {"success": False, "reason": f"Approve failed: {e}"}
 
     def reject_trade(self, approval_id: str) -> Dict:
+        if not approval_id or not isinstance(approval_id, str):
+            return {"success": False, "reason": "Invalid approval_id"}
         with self._lock:
             for i, approval in enumerate(self.pending_approvals):
-                if approval["id"] == approval_id:
-                    self.pending_approvals.pop(i)
-                    self.save()
-                    return {"success": True, "message": f"Rejected trade {approval_id}"}
+                try:
+                    if isinstance(approval, dict) and approval.get("id") == approval_id:
+                        self.pending_approvals.pop(i)
+                        self.save()
+                        return {"success": True, "message": f"Rejected trade {approval_id}"}
+                except Exception:
+                    continue
         return {"success": False, "reason": f"Approval {approval_id} not found"}
 
     def start(self) -> bool:
         if self.is_running:
             return False
-        if self.config.emergency_stop:
+        if getattr(self.config, 'emergency_stop', False):
             logger.warning("Cannot start - emergency stop enabled")
             return False
         self.is_running = True
@@ -512,17 +685,31 @@ class AutoTradingEngine:
         logger.info("Auto trading loop started - CoinDCX INR integration active")
         while self.is_running:
             try:
-                if not self.config.enabled or self.config.emergency_stop:
+                if not getattr(self.config, 'enabled', False) or getattr(self.config, 'emergency_stop', False):
                     time.sleep(60)
                     continue
 
-                symbols = self.config.symbols.whitelist
+                symbols = getattr(self.config.symbols, 'whitelist', []) or []
+                if not symbols or not isinstance(symbols, list):
+                    try:
+                        symbols = config.data.supported_symbols[:4]
+                    except Exception:
+                        symbols = ["BTC-USD","ETH-USD","BNB-USD","SOL-USD"]
+
+                blacklist = getattr(self.config.symbols, 'blacklist', []) or []
+                if isinstance(blacklist, list):
+                    symbols = [s for s in symbols if s not in blacklist]
+
+                # Validate symbols
+                validated=[]
+                for s in symbols:
+                    if isinstance(s, str) and len(s.strip()) >=3:
+                        validated.append(s.strip())
+                symbols = validated[:10]
                 if not symbols:
-                    symbols = config.data.supported_symbols[:4]
+                    symbols = ["BTC-USD","ETH-USD"]
 
-                symbols = [s for s in symbols if s not in self.config.symbols.blacklist]
-
-                logger.info(f"Auto trading scan - checking {len(symbols)} symbols: {symbols} broker={self.config.execution.broker_id} price_source={'CoinDCX INR' if self.config.execution.broker_id=='coindcx' else 'Binance'}")
+                logger.info(f"Auto trading scan - checking {len(symbols)} symbols: {symbols} broker={self.config.execution.broker_id}")
 
                 for symbol in symbols:
                     if not self.is_running:
@@ -530,32 +717,48 @@ class AutoTradingEngine:
                     try:
                         call = self.call_generator.generate_call(
                             symbol=symbol,
-                            account_balance=self.config.account_balance
+                            account_balance=float(self.config.account_balance or 10000)
                         )
-                        call_dict = call.to_dict()
-
-                        if call_dict["signal"] in ["HOLD", "NEUTRAL"]:
+                        if not call:
+                            continue
+                        call_dict = call.to_dict() if hasattr(call, 'to_dict') else {}
+                        if not isinstance(call_dict, dict):
                             continue
 
-                        if call_dict["confidence"] < self.config.strategies.ai_confidence_threshold:
-                            logger.info(f"Skipping {symbol}: confidence {call_dict['confidence']:.1f}% < {self.config.strategies.ai_confidence_threshold}%")
+                        sig = call_dict.get("signal","")
+                        if sig in ["HOLD", "NEUTRAL", ""]:
+                            continue
+
+                        conf = call_dict.get("confidence",0)
+                        try:
+                            conf_f = float(conf or 0)
+                        except (ValueError, TypeError):
+                            conf_f = 0.0
+
+                        threshold = float(getattr(self.config.strategies, 'ai_confidence_threshold', 70) or 70)
+                        if conf_f < threshold:
+                            logger.info(f"Skipping {symbol}: confidence {conf_f:.1f}% < {threshold}%")
                             continue
 
                         result = self.execute_trade(symbol=symbol, call=call_dict, manual=False)
 
-                        if result["success"]:
-                            logger.info(f"✅ Auto trade executed: {symbol} {result['message']}")
+                        if result.get("success"):
+                            logger.info(f"✅ Auto trade executed: {symbol} {result.get('message','')}")
                         elif result.get("requires_approval"):
                             logger.info(f"📋 Trade pending approval: {symbol}")
                         else:
-                            logger.info(f"⏭️ Skipped {symbol}: {result.get('reason')}")
+                            logger.info(f"⏭️ Skipped {symbol}: {result.get('reason','')}")
 
                         time.sleep(5)
 
                     except Exception as e:
                         logger.error(f"Auto trading failed for {symbol}: {e}")
 
-                sleep_minutes = 5 if self.config.strategies.primary_timeframe == "1d" else 1
+                try:
+                    primary_tf = getattr(self.config.strategies, 'primary_timeframe', '1d') or '1d'
+                except Exception:
+                    primary_tf = '1d'
+                sleep_minutes = 5 if primary_tf == "1d" else 1
                 logger.info(f"Auto trading scan complete - sleeping {sleep_minutes}min")
                 for _ in range(sleep_minutes * 60):
                     if not self.is_running:

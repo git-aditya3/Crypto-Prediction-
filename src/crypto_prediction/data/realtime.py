@@ -1,6 +1,6 @@
 """
 Real-time crypto data ingestion via Binance WebSocket + REST fallback + CoinDCX INR integration
-Fixed: thread safety, CoinDCX fallback, validation, error handling
+Fixed: avoids circular recursion, thread safety, validation
 """
 import asyncio
 import json
@@ -36,8 +36,9 @@ class BinanceRealtimeFetcher:
 
     def fetch_ohlcv_rest(self, interval: str = "1m", limit: int = 500) -> pd.DataFrame:
         try:
+            limit = max(1, min(1000, int(limit)))
             url = f"{self.rest_url}/api/v3/klines"
-            params = {"symbol": self.binance_symbol, "interval": interval, "limit": max(1, min(1000, limit))}
+            params = {"symbol": self.binance_symbol, "interval": interval, "limit": limit}
             resp = requests.get(url, params=params, timeout=10)
             resp.raise_for_status()
             data = resp.json()
@@ -78,9 +79,8 @@ class BinanceRealtimeFetcher:
             return {}
 
     def get_orderbook(self, limit: int = 20) -> Optional[Dict]:
-        """Orderbook for bots - real Binance depth"""
         try:
-            limit = max(5, min(100, limit))
+            limit = max(5, min(100, int(limit)))
             resp = requests.get(f"{self.rest_url}/api/v3/depth", params={"symbol": self.binance_symbol, "limit": limit}, timeout=3)
             if resp.status_code == 200:
                 data = resp.json()
@@ -96,7 +96,6 @@ class BinanceRealtimeFetcher:
         import websockets
         uri = f"{config.realtime.ws_url}/{self.binance_symbol.lower()}@trade"
         logger.info(f"Connecting to Binance WS: {uri}")
-
         while self.running:
             try:
                 async with websockets.connect(uri, ping_interval=20, close_timeout=10) as ws:
@@ -155,7 +154,8 @@ class BinanceRealtimeFetcher:
             logger.error(f"WS loop failed {self.binance_symbol}: {e}")
         finally:
             try:
-                self.loop.close()
+                if self.loop:
+                    self.loop.close()
             except Exception:
                 pass
 
@@ -183,18 +183,19 @@ class BinanceRealtimeFetcher:
 
     def add_callback(self, cb: Callable):
         if callable(cb):
-            self.callbacks.append(cb)
+            with self._lock:
+                self.callbacks.append(cb)
 
     def get_latest_trades(self, n: int = 100) -> List[Dict]:
         try:
-            n = max(1, min(1000, n))
+            n = max(1, min(1000, int(n)))
             with self._lock:
                 return list(self.buffer)[-n:]
         except Exception:
             return []
 
     def get_current_price(self) -> Optional[float]:
-        # Try buffer first
+        # Buffer first
         try:
             with self._lock:
                 if self.buffer:
@@ -206,54 +207,69 @@ class BinanceRealtimeFetcher:
         except Exception as e:
             logger.debug(f"Buffer price read failed {self.binance_symbol}: {e}")
 
-        # Try Binance REST
+        # Binance REST direct
         try:
             ticker = self.fetch_ticker_rest()
             lp = ticker.get('lastPrice')
-            if lp:
-                p = float(lp)
-                if 0 < p < 10_000_000:
-                    with self._lock:
-                        self._last_price = p
-                    return p
-        except (ValueError, TypeError, KeyError) as e:
-            logger.debug(f"REST price parse failed {self.binance_symbol}: {e}")
+            if lp is not None:
+                try:
+                    p = float(lp)
+                    if 0 < p < 10_000_000:
+                        with self._lock:
+                            self._last_price = p
+                        return p
+                except (ValueError, TypeError):
+                    pass
         except Exception as e:
             logger.debug(f"REST price failed {self.binance_symbol}: {e}")
 
-        # Try CoinDCX fallback for INR markets or when Binance blocked
+        # CoinDCX fallback - direct REST inside coindcx_fetcher already avoids circular, but we call it with direct method
+        # To avoid circular recursion (coindcx_fetcher -> BinanceRealtimeFetcher -> coindcx_fetcher), we call CoinDCX ticker directly here
         try:
-            from .coindcx_fetcher import CoinDCXRealtimeFetcher
-            # If symbol is USD, try to get INR then convert back, or if INR symbol use CoinDCX directly
-            coindcx = CoinDCXRealtimeFetcher(symbol=self.symbol)
-            inr_price = coindcx.get_current_price()
-            if inr_price and inr_price > 0:
-                # If original symbol is USD, convert INR back to USD
-                if "USD" in self.symbol.upper() and "INR" not in self.symbol.upper():
-                    usd_price = inr_price / 83.5
-                    if 0 < usd_price < 10_000_000:
-                        with self._lock:
-                            self._last_price = usd_price
-                        return usd_price
-                else:
-                    # INR symbol, return INR price
-                    return inr_price
+            # Direct CoinDCX REST, not via get_current_price which would call Binance again
+            import requests as req_lib
+            # Map USD symbol to INR
+            base = self.symbol.upper().replace("-USD","").replace("/USD","").replace("USD","").replace("-","").replace("/","")
+            coindcx_market = f"{base}INR" if base else "BTCINR"
+            resp = req_lib.get("https://api.coindcx.com/exchange/ticker", timeout=3)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list):
+                    for t in data:
+                        if t.get("market") == coindcx_market:
+                            try:
+                                price_inr = float(t.get("last_price",0) or 0)
+                                if price_inr > 0:
+                                    # Convert back to USD if original is USD
+                                    if "USD" in self.symbol.upper() and "INR" not in self.symbol.upper():
+                                        usd_price = price_inr / 83.5
+                                        if 0 < usd_price < 10_000_000:
+                                            with self._lock:
+                                                self._last_price = usd_price
+                                            return usd_price
+                                    else:
+                                        return price_inr
+                            except (ValueError, TypeError):
+                                continue
         except Exception as e:
-            logger.debug(f"CoinDCX fallback for {self.symbol} failed: {e}")
+            logger.debug(f"CoinDCX direct fallback failed {self.symbol}: {e}")
 
-        # Last resort: cached file directly (avoid yfinance recursion)
+        # Last resort: cached file directly
         try:
             from pathlib import Path
             import pandas as pd
             cache_path = config.project_root / "data" / "raw" / f"{self.symbol.replace('-','_')}_1d.csv"
             if cache_path.exists():
-                df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
-                if not df.empty:
-                    p = float(df['Close'].iloc[-1])
-                    if 0 < p < 10_000_000:
-                        with self._lock:
-                            self._last_price = p
-                        return p
+                try:
+                    df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
+                    if not df.empty and 'Close' in df.columns:
+                        p = float(df['Close'].iloc[-1])
+                        if 0 < p < 10_000_000:
+                            with self._lock:
+                                self._last_price = p
+                            return p
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -291,19 +307,21 @@ class RealtimeManager:
 
     def start_all(self):
         with self._lock:
-            for f in self.fetchers.values():
-                try:
-                    f.start()
-                except Exception as e:
-                    logger.warning(f"Failed to start fetcher: {e}")
+            fetchers = list(self.fetchers.values())
+        for f in fetchers:
+            try:
+                f.start()
+            except Exception as e:
+                logger.warning(f"Failed to start fetcher: {e}")
 
     def stop_all(self):
         with self._lock:
-            for f in self.fetchers.values():
-                try:
-                    f.stop()
-                except Exception as e:
-                    logger.debug(f"Failed to stop fetcher: {e}")
+            fetchers = list(self.fetchers.values())
+        for f in fetchers:
+            try:
+                f.stop()
+            except Exception as e:
+                logger.debug(f"Failed to stop fetcher: {e}")
 
     def get_prices(self) -> Dict[str, float]:
         result={}
@@ -320,7 +338,6 @@ class RealtimeManager:
         return result
 
     def get_coindcx_prices(self) -> Dict[str, float]:
-        """Get CoinDCX INR prices for integration"""
         try:
             from .coindcx_fetcher import get_coindcx_tickers_cached
             tickers = get_coindcx_tickers_cached()
@@ -364,7 +381,6 @@ class LivePredictor:
             current_price = self.fetcher.get_current_price()
         except Exception:
             pass
-
         try:
             forecast = self.predictor.forecast(steps=1, period="1y")
             signal = self.predictor.get_trading_signal(forecast)
