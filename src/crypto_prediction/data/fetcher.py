@@ -118,22 +118,37 @@ class CryptoDataFetcher:
         # Fetch fresh
         try:
             df = self.fetch_yfinance(symbol=sym)
-        except:
-            # Try coingecko mapping
-            mapping = {
-                "BTC-USD": "bitcoin",
-                "ETH-USD": "ethereum",
-                "BNB-USD": "binancecoin",
-                "SOL-USD": "solana",
-                "XRP-USD": "ripple",
-                "ADA-USD": "cardano",
-                "DOGE-USD": "dogecoin",
-                "AVAX-USD": "avalanche-2",
-                "DOT-USD": "polkadot",
-                "MATIC-USD": "matic-network"
-            }
-            coin_id = mapping.get(sym, "bitcoin")
-            df = self.fetch_coingecko(coin_id=coin_id, days="730")
+        except Exception as e_yf:
+            logger.warning(f"yfinance failed for {sym}: {e_yf}, trying CoinGecko fallback")
+            try:
+                # Try coingecko mapping
+                mapping = {
+                    "BTC-USD": "bitcoin",
+                    "ETH-USD": "ethereum",
+                    "BNB-USD": "binancecoin",
+                    "SOL-USD": "solana",
+                    "XRP-USD": "ripple",
+                    "ADA-USD": "cardano",
+                    "DOGE-USD": "dogecoin",
+                    "AVAX-USD": "avalanche-2",
+                    "DOT-USD": "polkadot",
+                    "MATIC-USD": "matic-network"
+                }
+                coin_id = mapping.get(sym, "bitcoin")
+                df = self.fetch_coingecko(coin_id=coin_id, days="730")
+            except Exception as e_cg:
+                logger.warning(f"CoinGecko also failed for {sym}: {e_cg}")
+                # Fallback to cached file if exists even when force_refresh
+                if cache_path.exists():
+                    try:
+                        df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
+                        logger.info(f"Falling back to cached data {cache_path} with {len(df)} rows after fetch failures")
+                        return df
+                    except Exception as e_cache:
+                        logger.error(f"Cache fallback also failed: {e_cache}")
+                        raise e_cache
+                else:
+                    raise e_cg
         
         self.save(df, str(cache_path))
         return df
