@@ -131,14 +131,26 @@ class BinanceRealtimeFetcher:
         return list(self.buffer)[-n:]
 
     def get_current_price(self) -> Optional[float]:
-        if self.buffer:
-            return self.buffer[-1]['price']
+        try:
+            if self.buffer:
+                price = self.buffer[-1].get('price')
+                if price and price > 0 and price < 10_000_000:
+                    return float(price)
+        except Exception as e:
+            logger.debug(f"Buffer price read failed: {e}")
         # fallback REST
         try:
             ticker = self.fetch_ticker_rest()
-            return float(ticker.get('lastPrice', 0))
-        except:
-            return None
+            lp = ticker.get('lastPrice', 0)
+            if lp:
+                p = float(lp)
+                if p > 0 and p < 10_000_000:
+                    return p
+        except (ValueError, TypeError, KeyError) as e:
+            logger.debug(f"REST price parse failed: {e}")
+        except Exception as e:
+            logger.debug(f"REST price failed: {e}")
+        return None
 
     def to_dataframe(self) -> pd.DataFrame:
         if not self.buffer:

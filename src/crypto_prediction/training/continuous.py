@@ -130,7 +130,7 @@ class ContinuousTrainer:
             if cache_path.exists():
                 try:
                     existing_df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
-                except:
+                except Exception:
                     pass
             
             # Fetch latest real data
@@ -369,7 +369,7 @@ class ContinuousTrainer:
                     imp_path = config.project_root / "models" / f"{symbol.replace('-','_')}_feature_importance_v3.csv"
                     imp.to_csv(imp_path, index=False)
                     logger.info(f"Top features for {symbol}: {imp.head(5)['feature'].tolist()}")
-                except:
+                except Exception:
                     pass
                     
             except Exception as e:

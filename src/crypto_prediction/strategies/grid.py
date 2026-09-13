@@ -43,8 +43,12 @@ class GridBot:
     def get_live_price(self, symbol: str) -> float:
         try:
             fetcher = BinanceRealtimeFetcher(symbol=symbol)
-            return fetcher.get_current_price() or 0
-        except:
+            price = fetcher.get_current_price()
+            if price and price > 0 and price < 10_000_000:
+                return float(price)
+            return 0
+        except Exception as e:
+            logger.debug(f"Grid live price failed {symbol}: {e}")
             return 0
     
     def generate_grid(self):

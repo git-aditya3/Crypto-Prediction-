@@ -62,7 +62,7 @@ class AlertManager:
         try:
             fetcher = BinanceRealtimeFetcher(symbol=symbol)
             return fetcher.get_current_price() or 0
-        except:
+        except Exception:
             return 0
     
     def create_alert(self, symbol: str, alert_type: str, target_price: float = None, condition: str = "") -> Alert:

@@ -199,7 +199,7 @@ class FeatureEngineer:
         try:
             df['VWAP'] = self.ti.vwap(df['High'], df['Low'], df['Close'], df['Volume'])
             df['Close_VWAP_Dist'] = (df['Close'] - df['VWAP']) / df['VWAP']
-        except:
+        except Exception:
             pass
         # Volume trend
         df['Volume_Momentum'] = df['Volume'].pct_change(5)
@@ -244,7 +244,7 @@ class FeatureEngineer:
             df['KC_Upper'] = kc_upper
             df['KC_Lower'] = kc_lower
             df['KC_Position'] = (df['Close'] - kc_lower) / (kc_upper - kc_lower)
-        except:
+        except Exception:
             pass
 
         # ATR
@@ -259,7 +259,7 @@ class FeatureEngineer:
                 df['Plus_DI'] = plus_di
                 df['Minus_DI'] = minus_di
                 df['DI_Diff'] = plus_di - minus_di
-            except:
+            except Exception:
                 pass
 
             # Ichimoku
@@ -270,7 +270,7 @@ class FeatureEngineer:
                 df['Ichimoku_Senkou_A'] = senkou_a
                 df['Ichimoku_Senkou_B'] = senkou_b
                 df['Ichimoku_Cloud_Dist'] = (df['Close'] - (senkou_a + senkou_b)/2) / df['Close']
-            except:
+            except Exception:
                 pass
 
         return df
@@ -298,13 +298,13 @@ class FeatureEngineer:
                 df['CCI'] = self.ti.cci(df['High'], df['Low'], df['Close'], self.cfg.cci_window)
                 df['Williams_R'] = self.ti.williams_r(df['High'], df['Low'], df['Close'], self.cfg.williams_window)
                 df['MFI'] = self.ti.mfi(df['High'], df['Low'], df['Close'], df['Volume'], self.cfg.mfi_window)
-            except:
+            except Exception:
                 pass
 
             # Fibonacci
             try:
                 df['Fib_Dist'] = self.ti.fibonacci_levels(df['Close'])
-            except:
+            except Exception:
                 pass
 
         return df

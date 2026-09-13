@@ -39,7 +39,7 @@ class PaperBroker(BaseBroker):
             fetcher = BinanceRealtimeFetcher(symbol=symbol)
             price = fetcher.get_current_price()
             return price or 0
-        except:
+        except Exception:
             return 0
 
     def place_order(self, symbol: str, side: str, order_type: str, quantity: float,
@@ -65,7 +65,7 @@ class PaperBroker(BaseBroker):
                     if bp and bp > 0:
                         live_price = bp
                         logger.warning(f"Using Binance fallback price for {symbol}: ${bp:.2f}")
-                except:
+                except Exception:
                     pass
         
         if live_price == 0:

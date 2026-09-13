@@ -104,7 +104,7 @@ class MarketScanner:
                         "timestamp": datetime.utcnow().isoformat(),
                         "real_data": True
                     })
-            except:
+            except Exception:
                 continue
         
         momentum.sort(key=lambda x: abs(x["change_pct"]), reverse=True)

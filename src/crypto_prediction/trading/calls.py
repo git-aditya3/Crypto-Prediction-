@@ -210,7 +210,7 @@ class TradingCallGenerator:
                         "average_compound": float(senti_df['sentiment_compound'].mean()),
                         "daily": [{"date": idx.strftime('%Y-%m-%d'), "compound": float(row['sentiment_compound'])} for idx, row in senti_df.tail(3).iterrows()]
                     }
-            except:
+            except Exception:
                 pass
 
             signal = signal_data.get('signal', 'HOLD')
@@ -309,7 +309,7 @@ class TradingCallGenerator:
                         leverage=pos.get('leverage_suggestion', '1x'),
                         status="ACTIVE"
                     )
-            except:
+            except Exception:
                 pass
 
             return TradingCall(

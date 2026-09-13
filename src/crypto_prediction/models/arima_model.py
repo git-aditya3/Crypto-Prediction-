@@ -51,7 +51,7 @@ class ARIMAModel(BaseModel):
                     if fit.aic < best_aic:
                         best_aic = fit.aic
                         best_order = order
-            except:
+            except Exception:
                 continue
         
         logger.info(f"Auto-selected ARIMA order {best_order} with AIC {best_aic:.2f} (from {len(candidates)} candidates)")
@@ -135,7 +135,7 @@ class ARIMAModel(BaseModel):
             return self.history
         try:
             return self.model_fit.fittedvalues
-        except:
+        except Exception:
             return self.history
 
     def forecast_future(self, last_sequence=None, steps: int = 7) -> np.ndarray:

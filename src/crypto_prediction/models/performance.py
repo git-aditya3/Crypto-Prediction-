@@ -213,7 +213,7 @@ class AdvancedEnsembleV4:
                 try:
                     p = model.predict(X)
                     preds[name] = p
-                except:
+                except Exception:
                     continue
             
             if len(preds) < 2:

@@ -167,7 +167,7 @@ class CoinDCXBroker(BaseBroker):
                         return float(data[0].get("last_price", 0))
                     elif isinstance(data, dict):
                         return float(data.get("last_price", 0))
-            except:
+            except Exception:
                 pass
             
             # Last fallback: use Binance price converted to INR (approx 83 INR per USD)

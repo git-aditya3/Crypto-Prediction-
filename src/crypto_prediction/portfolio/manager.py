@@ -114,7 +114,7 @@ class PortfolioManager:
             gen = TradingCallGenerator()
             bp = gen._get_binance_price(symbol)
             return bp or 0
-        except:
+        except Exception:
             return 0
     
     def open_position(self, symbol: str, side: str, entry_price: float, quantity: float, 

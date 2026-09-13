@@ -175,7 +175,7 @@ class EnsembleModel(BaseModel):
                 meta_X = np.column_stack([aligned[name] for name in model_names])
                 if meta_X.shape[1] == len(self.meta_learner.coef_):
                     return self.meta_learner.predict(meta_X)
-            except:
+            except Exception:
                 pass
 
         weights_to_use = self.dynamic_weights if self.use_dynamic_weights else self.weights

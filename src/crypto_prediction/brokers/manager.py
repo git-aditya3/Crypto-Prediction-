@@ -74,7 +74,7 @@ class BrokerManager:
     def _decode(self, encoded: str) -> str:
         try:
             return base64.b64decode(encoded.encode()).decode()
-        except:
+        except Exception:
             return encoded  # Fallback if not encoded
 
     def load(self):
@@ -144,7 +144,7 @@ class BrokerManager:
                         del self.brokers[broker_id]
                     if broker_id in self.broker_configs:
                         del self.broker_configs[broker_id]
-                except:
+                except Exception:
                     pass
             else:
                 raise ValueError(f"Broker {broker_id} already exists and is protected")
@@ -237,7 +237,7 @@ class BrokerManager:
                 try:
                     balances = broker.get_balance()
                     balance_info = {k: v.to_dict() for k, v in balances.items()}
-                except:
+                except Exception:
                     balance_info = {}
             
             result[broker_id] = {

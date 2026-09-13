@@ -281,7 +281,7 @@ class CryptoPredictor:
             if 'Sentiment_Compound' in data['cleaned_df'].columns:
                 forecasts['sentiment'] = float(data['cleaned_df']['Sentiment_Compound'].iloc[-1])
                 forecasts['sentiment_ma7'] = float(data['cleaned_df']['Sentiment_MA7'].iloc[-1]) if 'Sentiment_MA7' in data['cleaned_df'].columns else 0
-        except:
+        except Exception:
             pass
 
         return forecasts
