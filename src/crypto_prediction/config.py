@@ -1,5 +1,5 @@
 """
-Central configuration for Crypto Prediction core - Extended v2
+Central configuration for Crypto Prediction core - v3 Improved Accuracy
 """
 import os
 from dataclasses import dataclass, field
@@ -41,8 +41,8 @@ class DataConfig:
     })
     interval: str = "1d"
     period: str = "2y"
-    test_size: float = 0.2
-    val_size: float = 0.1
+    test_size: float = 0.15  # Reduced for more training data
+    val_size: float = 0.15
     sequence_length: int = 60
     prediction_horizon: int = 7
 
@@ -53,9 +53,10 @@ class FeatureConfig:
     use_volume_features: bool = True
     use_lag_features: bool = True
     use_sentiment: bool = True
-    lag_periods: List[int] = field(default_factory=lambda: [1, 3, 7, 14])
-    sma_windows: List[int] = field(default_factory=lambda: [7, 14, 30, 50])
-    ema_windows: List[int] = field(default_factory=lambda: [12, 26, 50])
+    use_advanced_indicators: bool = True  # New: ADX, CCI, etc.
+    lag_periods: List[int] = field(default_factory=lambda: [1, 2, 3, 5, 7, 10, 14, 21])
+    sma_windows: List[int] = field(default_factory=lambda: [5, 7, 10, 14, 20, 30, 50, 100, 200])
+    ema_windows: List[int] = field(default_factory=lambda: [9, 12, 21, 26, 50, 100])
     rsi_window: int = 14
     macd_fast: int = 12
     macd_slow: int = 26
@@ -63,21 +64,23 @@ class FeatureConfig:
     bb_window: int = 20
     bb_std: float = 2.0
     atr_window: int = 14
+    adx_window: int = 14
+    cci_window: int = 20
+    williams_window: int = 14
+    mfi_window: int = 14
 
 @dataclass
 class SentimentConfig:
     enabled: bool = True
     sources: List[str] = field(default_factory=lambda: ["news", "reddit", "twitter"])
-    # API keys from env
     cryptopanic_key: str = field(default_factory=lambda: os.getenv("CRYPTOPANIC_API_KEY", ""))
     newsapi_key: str = field(default_factory=lambda: os.getenv("NEWSAPI_KEY", ""))
     reddit_client_id: str = field(default_factory=lambda: os.getenv("REDDIT_CLIENT_ID", ""))
     reddit_secret: str = field(default_factory=lambda: os.getenv("REDDIT_SECRET", ""))
     twitter_bearer: str = field(default_factory=lambda: os.getenv("TWITTER_BEARER_TOKEN", ""))
-    # Fallback lexicon weights
     use_vader: bool = True
-    use_finbert: bool = False  # requires transformers torch
-    aggregation: str = "mean"  # mean, weighted
+    use_finbert: bool = False
+    aggregation: str = "mean"
     cache_hours: int = 4
 
 @dataclass
@@ -91,48 +94,60 @@ class RealtimeConfig:
 
 @dataclass
 class ModelConfig:
-    # LSTM
-    lstm_hidden_size: int = 128
-    lstm_num_layers: int = 2
-    lstm_dropout: float = 0.2
-    lstm_learning_rate: float = 0.001
-    lstm_epochs: int = 100
+    # LSTM - Improved v3
+    lstm_hidden_size: int = 256  # Increased from 128
+    lstm_num_layers: int = 3  # Increased from 2
+    lstm_dropout: float = 0.3
+    lstm_learning_rate: float = 0.0005  # Lower for stability
+    lstm_epochs: int = 150  # Increased
     lstm_batch_size: int = 32
-    lstm_patience: int = 10
+    lstm_patience: int = 15
+    lstm_bidirectional: bool = True  # New
+    lstm_use_attention: bool = True  # New
+    lstm_weight_decay: float = 1e-4
 
-    # XGBoost
-    xgb_n_estimators: int = 500
-    xgb_max_depth: int = 6
-    xgb_learning_rate: float = 0.05
-    xgb_subsample: float = 0.8
+    # XGBoost - Improved v3 - Tuned hyperparameters
+    xgb_n_estimators: int = 1000  # Increased
+    xgb_max_depth: int = 8  # Increased
+    xgb_learning_rate: float = 0.03  # Lower for better generalization
+    xgb_subsample: float = 0.9
     xgb_colsample_bytree: float = 0.8
+    xgb_reg_alpha: float = 0.1  # L1 regularization
+    xgb_reg_lambda: float = 1.0  # L2 regularization
+    xgb_min_child_weight: int = 3
+    xgb_gamma: float = 0.1
 
-    # ARIMA
-    arima_order: tuple = (5, 1, 0)
+    # ARIMA - Improved with auto order selection
+    arima_order: tuple = (5, 1, 2)  # Improved
+    arima_seasonal_order: tuple = (1, 1, 1, 7)  # Weekly seasonality
 
-    # Transformer (TFT-inspired)
-    transformer_d_model: int = 128
-    transformer_nhead: int = 4
-    transformer_num_layers: int = 2
-    transformer_dim_feedforward: int = 256
-    transformer_dropout: float = 0.1
-    transformer_learning_rate: float = 0.0005
-    transformer_epochs: int = 80
+    # Transformer (TFT-inspired) - Improved v3
+    transformer_d_model: int = 256  # Increased from 128
+    transformer_nhead: int = 8  # Increased from 4
+    transformer_num_layers: int = 4  # Increased from 2
+    transformer_dim_feedforward: int = 512  # Increased from 256
+    transformer_dropout: float = 0.2
+    transformer_learning_rate: float = 0.0003
+    transformer_epochs: int = 120
     transformer_batch_size: int = 32
-    transformer_patience: int = 12
+    transformer_patience: int = 15
+    transformer_use_learnable_pe: bool = True  # New
+    transformer_use_attention_pooling: bool = True  # New
 
-    # Ensemble
+    # Ensemble - Dynamic weighting
     ensemble_weights: dict = field(default_factory=lambda: {
-        "lstm": 0.35,
+        "lstm": 0.30,
         "transformer": 0.35,
-        "xgboost": 0.2,
-        "arima": 0.1
+        "xgboost": 0.25,
+        "arima": 0.10
     })
+    ensemble_use_stacking: bool = True  # New: use stacking meta-learner
+    ensemble_use_dynamic_weights: bool = True  # New: weight by validation performance
 
 @dataclass
 class BacktestConfig:
     initial_capital: float = 10000.0
-    commission: float = 0.001  # 0.1%
+    commission: float = 0.001
     slippage: float = 0.0005
     risk_free_rate: float = 0.02
 
@@ -141,7 +156,9 @@ class TrainingConfig:
     random_state: int = 42
     n_splits: int = 5
     save_models: bool = True
-    experiment_name: str = "crypto_pred_v2"
+    experiment_name: str = "crypto_pred_v3_improved"
+    use_robust_scaler: bool = True  # Use RobustScaler for crypto outliers
+    use_log_returns_target: bool = False  # Option to predict returns instead of price
 
 @dataclass
 class APIConfig:

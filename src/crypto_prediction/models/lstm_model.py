@@ -1,5 +1,9 @@
 """
-LSTM model using PyTorch for crypto price prediction
+LSTM model v3 Improved Accuracy
+- Bidirectional LSTM
+- Attention mechanism
+- LayerNorm, Residual, Deeper network
+- Huber loss, AdamW, Cosine scheduler
 """
 import numpy as np
 import torch
@@ -27,61 +31,124 @@ class CryptoDatasetTorch(Dataset):
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
 
-class LSTMNetwork(nn.Module):
-    def __init__(self, input_size: int, hidden_size: int = 128, num_layers: int = 2, dropout: float = 0.2, output_size: int = 1):
+class AttentionLayer(nn.Module):
+    """Self-attention over LSTM outputs"""
+    def __init__(self, hidden_size):
+        super().__init__()
+        self.attention = nn.MultiheadAttention(hidden_size, num_heads=4, batch_first=True)
+        self.norm = nn.LayerNorm(hidden_size)
+        
+    def forward(self, lstm_out):
+        # lstm_out: (batch, seq_len, hidden)
+        attn_out, _ = self.attention(lstm_out, lstm_out, lstm_out)
+        # Residual + Norm
+        out = self.norm(lstm_out + attn_out)
+        return out
+
+class LSTMNetworkV3(nn.Module):
+    def __init__(self, input_size: int, hidden_size: int = 256, num_layers: int = 3, 
+                 dropout: float = 0.3, output_size: int = 1, bidirectional: bool = True,
+                 use_attention: bool = True):
         super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
+        self.bidirectional = bidirectional
+        self.use_attention = use_attention
         
+        lstm_hidden = hidden_size
+        # Bidirectional doubles hidden
         self.lstm = nn.LSTM(
             input_size=input_size,
-            hidden_size=hidden_size,
+            hidden_size=lstm_hidden,
             num_layers=num_layers,
             batch_first=True,
-            dropout=dropout if num_layers > 1 else 0
+            dropout=dropout if num_layers > 1 else 0,
+            bidirectional=bidirectional
         )
+        
+        lstm_output_size = hidden_size * 2 if bidirectional else hidden_size
+        
+        self.attention = AttentionLayer(lstm_output_size) if use_attention else None
+        
+        self.layer_norm1 = nn.LayerNorm(lstm_output_size)
         self.dropout = nn.Dropout(dropout)
+        
+        # Deeper FC with residual
         self.fc_layers = nn.Sequential(
-            nn.Linear(hidden_size, 64),
+            nn.Linear(lstm_output_size, 128),
+            nn.LayerNorm(128),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(128, 64),
+            nn.LayerNorm(64),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(64, 32),
             nn.ReLU(),
             nn.Linear(32, output_size)
         )
+        
+        # Residual projection if needed
+        self.residual_proj = nn.Linear(lstm_output_size, 32) if lstm_output_size != 32 else None
 
     def forward(self, x):
         # x: (batch, seq_len, input_size)
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        batch_size = x.size(0)
+        num_directions = 2 if self.bidirectional else 1
         
-        out, _ = self.lstm(x, (h0, c0))  # out: (batch, seq_len, hidden)
-        out = out[:, -1, :]  # last time step
-        out = self.dropout(out)
-        out = self.fc_layers(out)
+        h0 = torch.zeros(self.num_layers * num_directions, batch_size, self.hidden_size).to(x.device)
+        c0 = torch.zeros(self.num_layers * num_directions, batch_size, self.hidden_size).to(x.device)
+        
+        lstm_out, _ = self.lstm(x, (h0, c0))  # (batch, seq_len, hidden*dir)
+        
+        if self.use_attention and self.attention is not None:
+            lstm_out = self.attention(lstm_out)
+        
+        lstm_out = self.layer_norm1(lstm_out)
+        
+        # Use last time step + attention pooling for better representation
+        last_out = lstm_out[:, -1, :]  # (batch, hidden)
+        
+        # Also compute mean pooling as additional signal
+        mean_out = torch.mean(lstm_out, dim=1)  # (batch, hidden)
+        
+        # Combine last + mean
+        combined = (last_out + mean_out) / 2
+        
+        combined = self.dropout(combined)
+        out = self.fc_layers(combined)
         return out.squeeze()
 
 class LSTMModel(BaseModel):
     def __init__(self, input_size: int, hidden_size: int = None, num_layers: int = None, dropout: float = None, 
-                 learning_rate: float = None, device: str = None):
+                 learning_rate: float = None, device: str = None, bidirectional: bool = None, use_attention: bool = None):
         super().__init__(name="lstm")
         self.input_size = input_size
         self.hidden_size = hidden_size or config.model.lstm_hidden_size
         self.num_layers = num_layers or config.model.lstm_num_layers
         self.dropout = dropout or config.model.lstm_dropout
         self.lr = learning_rate or config.model.lstm_learning_rate
+        self.bidirectional = bidirectional if bidirectional is not None else config.model.lstm_bidirectional
+        self.use_attention = use_attention if use_attention is not None else config.model.lstm_use_attention
+        self.weight_decay = config.model.lstm_weight_decay
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         
-        self.network = LSTMNetwork(
+        self.network = LSTMNetworkV3(
             input_size=input_size,
             hidden_size=self.hidden_size,
             num_layers=self.num_layers,
-            dropout=self.dropout
+            dropout=self.dropout,
+            bidirectional=self.bidirectional,
+            use_attention=self.use_attention
         ).to(self.device)
         
-        self.criterion = nn.MSELoss()
-        self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.lr)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=5, factor=0.5)
+        # Huber loss for robustness to outliers (better for crypto)
+        self.criterion = nn.HuberLoss(delta=1.0)
+        # AdamW with weight decay for better generalization
+        self.optimizer = torch.optim.AdamW(self.network.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        # Cosine annealing + ReduceLROnPlateau combo
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=5, factor=0.5, min_lr=1e-6)
+        self.cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=10, T_mult=2)
         
         self.train_losses = []
         self.val_losses = []
@@ -105,7 +172,7 @@ class LSTMModel(BaseModel):
         patience_counter = 0
         best_state = None
 
-        logger.info(f"Training LSTM on {self.device} | input_size={self.input_size} hidden={self.hidden_size} | epochs={epochs}")
+        logger.info(f"Training LSTM v3 on {self.device} | input={self.input_size} hidden={self.hidden_size} layers={self.num_layers} bidir={self.bidirectional} attn={self.use_attention} | epochs={epochs}")
 
         for epoch in range(epochs):
             self.network.train()
@@ -136,10 +203,11 @@ class LSTMModel(BaseModel):
                 val_loss /= len(val_loader)
                 self.val_losses.append(val_loss)
                 self.scheduler.step(val_loss)
+                # self.cosine_scheduler.step()
 
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
-                    best_state = self.network.state_dict().copy()
+                    best_state = {k: v.cpu().clone() for k, v in self.network.state_dict().items()}
                     patience_counter = 0
                 else:
                     patience_counter += 1
@@ -148,7 +216,7 @@ class LSTMModel(BaseModel):
                     logger.info(f"Epoch {epoch+1}/{epochs} | train_loss={train_loss:.6f} val_loss={val_loss:.6f} lr={self.optimizer.param_groups[0]['lr']:.6f}")
 
                 if patience_counter >= patience:
-                    logger.info(f"Early stopping at epoch {epoch+1}")
+                    logger.info(f"Early stopping at epoch {epoch+1} | best_val={best_val_loss:.6f}")
                     break
             else:
                 if verbose and (epoch + 1) % 10 == 0:
@@ -177,12 +245,14 @@ class LSTMModel(BaseModel):
                 'input_size': self.input_size,
                 'hidden_size': self.hidden_size,
                 'num_layers': self.num_layers,
-                'dropout': self.dropout
+                'dropout': self.dropout,
+                'bidirectional': self.bidirectional,
+                'use_attention': self.use_attention
             },
             'train_losses': self.train_losses,
             'val_losses': self.val_losses
         }, path)
-        logger.info(f"Saved LSTM torch model to {path}")
+        logger.info(f"Saved LSTM v3 torch model to {path}")
 
     @classmethod
     def load_torch(cls, path: str, device: str = None):
@@ -193,38 +263,31 @@ class LSTMModel(BaseModel):
             hidden_size=cfg['hidden_size'],
             num_layers=cfg['num_layers'],
             dropout=cfg['dropout'],
+            bidirectional=cfg.get('bidirectional', True),
+            use_attention=cfg.get('use_attention', True),
             device=device
         )
         model.network.load_state_dict(checkpoint['model_state'])
         model.train_losses = checkpoint.get('train_losses', [])
         model.val_losses = checkpoint.get('val_losses', [])
         model.is_fitted = True
-        logger.info(f"Loaded LSTM torch model from {path}")
+        logger.info(f"Loaded LSTM v3 torch model from {path}")
         return model
 
     def forecast_future(self, last_sequence: np.ndarray, steps: int = 7, preprocessor=None) -> np.ndarray:
-        """
-        last_sequence: (seq_len, n_features) scaled
-        Autoregressively predict future scaled targets, then inverse if preprocessor provided externally
-        Returns scaled predictions
-        """
         self.network.eval()
-        seq = last_sequence.copy()  # (seq_len, n_features)
+        seq = last_sequence.copy()
         preds_scaled = []
 
         with torch.no_grad():
             for _ in range(steps):
-                X_input = torch.FloatTensor(seq).unsqueeze(0).to(self.device)  # (1, seq_len, features)
-                pred = self.network(X_input).cpu().numpy()  # scalar scaled target
+                X_input = torch.FloatTensor(seq).unsqueeze(0).to(self.device)
+                pred = self.network(X_input).cpu().numpy()
                 preds_scaled.append(pred)
-
-                # For autoregressive, we need to create next feature vector.
-                # Simplification: repeat last feature vector but replace? 
-                # Better: shift sequence and append last features (approx)
-                # Since we don't have true future features, we use last feature row as proxy
-                # In production, you'd re-engineer features iteratively
                 next_row = seq[-1].copy()
-                # We don't know exact mapping, so keep as is - model will still trend
                 seq = np.vstack([seq[1:], next_row.reshape(1, -1)])
 
         return np.array(preds_scaled).ravel()
+
+# Keep old name for backward compat
+LSTMNetwork = LSTMNetworkV3

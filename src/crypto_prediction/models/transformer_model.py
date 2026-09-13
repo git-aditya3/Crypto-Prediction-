@@ -1,6 +1,10 @@
 """
-Transformer model for crypto prediction - TFT-inspired
-Uses multi-head self-attention over time series sequences
+Transformer model v3 Improved Accuracy - TFT-inspired
+- Larger d_model, more heads/layers
+- Learnable positional encoding
+- Attention pooling
+- Pre-LN, deeper decoder
+- Huber loss, AdamW
 """
 import math
 import numpy as np
@@ -17,21 +21,43 @@ logger = get_logger(__name__)
 config = get_config()
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model: int, max_len: int = 5000, dropout: float = 0.1):
+    def __init__(self, d_model: int, max_len: int = 5000, dropout: float = 0.1, learnable: bool = False):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)  # (1, max_len, d_model)
-        self.register_buffer('pe', pe)
+        self.learnable = learnable
+        
+        if learnable:
+            self.pe = nn.Parameter(torch.zeros(1, max_len, d_model))
+            nn.init.trunc_normal_(self.pe, std=0.02)
+        else:
+            pe = torch.zeros(max_len, d_model)
+            position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+            div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+            pe[:, 0::2] = torch.sin(position * div_term)
+            pe[:, 1::2] = torch.cos(position * div_term)
+            pe = pe.unsqueeze(0)
+            self.register_buffer('pe', pe)
 
     def forward(self, x):
-        # x: (batch, seq_len, d_model)
         x = x + self.pe[:, :x.size(1), :]
         return self.dropout(x)
+
+class AttentionPooling(nn.Module):
+    """Learnable attention pooling instead of just last token"""
+    def __init__(self, d_model):
+        super().__init__()
+        self.attention = nn.Sequential(
+            nn.Linear(d_model, d_model // 2),
+            nn.Tanh(),
+            nn.Linear(d_model // 2, 1)
+        )
+    
+    def forward(self, x):
+        # x: (batch, seq_len, d_model)
+        attn_weights = self.attention(x)  # (batch, seq_len, 1)
+        attn_weights = torch.softmax(attn_weights, dim=1)
+        pooled = torch.sum(x * attn_weights, dim=1)  # (batch, d_model)
+        return pooled
 
 class CryptoDatasetTorch(Dataset):
     def __init__(self, X, y):
@@ -40,29 +66,52 @@ class CryptoDatasetTorch(Dataset):
     def __len__(self): return len(self.X)
     def __getitem__(self, idx): return self.X[idx], self.y[idx]
 
-class TransformerNetwork(nn.Module):
-    def __init__(self, input_size: int, d_model: int = 128, nhead: int = 4, num_layers: int = 2,
-                 dim_feedforward: int = 256, dropout: float = 0.1, output_size: int = 1):
+class TransformerNetworkV3(nn.Module):
+    def __init__(self, input_size: int, d_model: int = 256, nhead: int = 8, num_layers: int = 4,
+                 dim_feedforward: int = 512, dropout: float = 0.2, output_size: int = 1,
+                 use_learnable_pe: bool = True, use_attention_pooling: bool = True):
         super().__init__()
         self.d_model = d_model
-        self.input_projection = nn.Linear(input_size, d_model)
-        self.pos_encoder = PositionalEncoding(d_model, dropout=dropout)
+        self.use_attention_pooling = use_attention_pooling
         
+        self.input_projection = nn.Sequential(
+            nn.Linear(input_size, d_model),
+            nn.LayerNorm(d_model),
+            nn.Dropout(dropout)
+        )
+        
+        self.pos_encoder = PositionalEncoding(d_model, dropout=dropout, learnable=use_learnable_pe)
+        
+        # Pre-LN transformer for better training stability
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
             nhead=nhead,
             dim_feedforward=dim_feedforward,
             dropout=dropout,
-            batch_first=True
+            batch_first=True,
+            norm_first=True  # Pre-LN
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         
+        self.layer_norm = nn.LayerNorm(d_model)
+        
+        if use_attention_pooling:
+            self.pooling = AttentionPooling(d_model)
+        else:
+            self.pooling = None
+        
+        # Deeper decoder with residual
         self.decoder = nn.Sequential(
-            nn.Linear(d_model, 64),
-            nn.ReLU(),
+            nn.Linear(d_model, 128),
+            nn.LayerNorm(128),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(128, 64),
+            nn.LayerNorm(64),
+            nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(64, 32),
-            nn.ReLU(),
+            nn.GELU(),
             nn.Linear(32, output_size)
         )
 
@@ -71,13 +120,20 @@ class TransformerNetwork(nn.Module):
         x = self.input_projection(x)  # (batch, seq_len, d_model)
         x = self.pos_encoder(x)
         x = self.transformer_encoder(x)  # (batch, seq_len, d_model)
-        x = x[:, -1, :]  # last token
+        x = self.layer_norm(x)
+        
+        if self.pooling is not None:
+            x = self.pooling(x)  # (batch, d_model) via attention pooling
+        else:
+            x = x[:, -1, :]  # last token
+        
         x = self.decoder(x)
         return x.squeeze()
 
 class TransformerModel(BaseModel):
     def __init__(self, input_size: int, d_model: int = None, nhead: int = None, num_layers: int = None,
-                 dim_feedforward: int = None, dropout: float = None, learning_rate: float = None, device: str = None):
+                 dim_feedforward: int = None, dropout: float = None, learning_rate: float = None, 
+                 device: str = None, use_learnable_pe: bool = None, use_attention_pooling: bool = None):
         super().__init__(name="transformer")
         self.input_size = input_size
         self.d_model = d_model or config.model.transformer_d_model
@@ -86,20 +142,24 @@ class TransformerModel(BaseModel):
         self.dim_feedforward = dim_feedforward or config.model.transformer_dim_feedforward
         self.dropout = dropout or config.model.transformer_dropout
         self.lr = learning_rate or config.model.transformer_learning_rate
+        self.use_learnable_pe = use_learnable_pe if use_learnable_pe is not None else config.model.transformer_use_learnable_pe
+        self.use_attention_pooling = use_attention_pooling if use_attention_pooling is not None else config.model.transformer_use_attention_pooling
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.network = TransformerNetwork(
+        self.network = TransformerNetworkV3(
             input_size=input_size,
             d_model=self.d_model,
             nhead=self.nhead,
             num_layers=self.num_layers,
             dim_feedforward=self.dim_feedforward,
-            dropout=self.dropout
+            dropout=self.dropout,
+            use_learnable_pe=self.use_learnable_pe,
+            use_attention_pooling=self.use_attention_pooling
         ).to(self.device)
 
-        self.criterion = nn.MSELoss()
-        self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.lr, weight_decay=1e-5)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=5, factor=0.5)
+        self.criterion = nn.HuberLoss(delta=1.0)  # More robust than MSE
+        self.optimizer = torch.optim.AdamW(self.network.parameters(), lr=self.lr, weight_decay=1e-4)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=5, factor=0.5, min_lr=1e-6)
 
         self.train_losses = []
         self.val_losses = []
@@ -123,7 +183,7 @@ class TransformerModel(BaseModel):
         patience_counter = 0
         best_state = None
 
-        logger.info(f"Training Transformer on {self.device} | d_model={self.d_model} nhead={self.nhead} layers={self.num_layers} | epochs={epochs}")
+        logger.info(f"Training Transformer v3 on {self.device} | d_model={self.d_model} nhead={self.nhead} layers={self.num_layers} learnable_pe={self.use_learnable_pe} attn_pool={self.use_attention_pooling} | epochs={epochs}")
 
         for epoch in range(epochs):
             self.network.train()
@@ -157,7 +217,7 @@ class TransformerModel(BaseModel):
 
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
-                    best_state = self.network.state_dict().copy()
+                    best_state = {k: v.cpu().clone() for k, v in self.network.state_dict().items()}
                     patience_counter = 0
                 else:
                     patience_counter += 1
@@ -166,7 +226,7 @@ class TransformerModel(BaseModel):
                     logger.info(f"Epoch {epoch+1}/{epochs} | train={train_loss:.6f} val={val_loss:.6f} lr={self.optimizer.param_groups[0]['lr']:.6f}")
 
                 if patience_counter >= patience:
-                    logger.info(f"Early stopping at epoch {epoch+1}")
+                    logger.info(f"Early stopping at epoch {epoch+1} | best_val={best_val_loss:.6f}")
                     break
             else:
                 if verbose and (epoch+1) % 10 == 0:
@@ -196,12 +256,14 @@ class TransformerModel(BaseModel):
                 'nhead': self.nhead,
                 'num_layers': self.num_layers,
                 'dim_feedforward': self.dim_feedforward,
-                'dropout': self.dropout
+                'dropout': self.dropout,
+                'use_learnable_pe': self.use_learnable_pe,
+                'use_attention_pooling': self.use_attention_pooling
             },
             'train_losses': self.train_losses,
             'val_losses': self.val_losses
         }, path)
-        logger.info(f"Saved Transformer torch model to {path}")
+        logger.info(f"Saved Transformer v3 torch model to {path}")
 
     @classmethod
     def load_torch(cls, path: str, device: str = None):
@@ -214,13 +276,15 @@ class TransformerModel(BaseModel):
             num_layers=cfg['num_layers'],
             dim_feedforward=cfg['dim_feedforward'],
             dropout=cfg['dropout'],
+            use_learnable_pe=cfg.get('use_learnable_pe', True),
+            use_attention_pooling=cfg.get('use_attention_pooling', True),
             device=device
         )
         model.network.load_state_dict(checkpoint['model_state'])
         model.train_losses = checkpoint.get('train_losses', [])
         model.val_losses = checkpoint.get('val_losses', [])
         model.is_fitted = True
-        logger.info(f"Loaded Transformer torch model from {path}")
+        logger.info(f"Loaded Transformer v3 torch model from {path}")
         return model
 
     def forecast_future(self, last_sequence: np.ndarray, steps: int = 7) -> np.ndarray:
@@ -237,7 +301,7 @@ class TransformerModel(BaseModel):
         return np.array(preds).ravel()
 
     def get_attention_weights(self, X: np.ndarray):
-        """Extract attention weights for interpretability - simplified"""
-        # For true TFT, you'd need to expose attention layers
-        # Here we return dummy for API compatibility
         return None
+
+# Backward compat
+TransformerNetwork = TransformerNetworkV3

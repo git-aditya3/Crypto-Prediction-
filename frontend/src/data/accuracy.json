@@ -1,0 +1,136 @@
+{
+  "BTC-USD": {
+    "last_7_days_actual": [
+      {
+        "date": "2025-09-07",
+        "close": 111129.61
+      },
+      {
+        "date": "2025-09-08",
+        "close": 112072.57
+      },
+      {
+        "date": "2025-09-09",
+        "close": 111549.32
+      },
+      {
+        "date": "2025-09-10",
+        "close": 113983.97
+      },
+      {
+        "date": "2025-09-11",
+        "close": 115540.0
+      },
+      {
+        "date": "2025-09-12",
+        "close": 116106.03
+      },
+      {
+        "date": "2025-09-13",
+        "close": 115968.35
+      }
+    ],
+    "models": {
+      "lstm": {
+        "mape": 11.28,
+        "rmse": 13020.46,
+        "mae": 12867.23,
+        "r2": -41.0042,
+        "dir_acc": 50.0,
+        "improvement": "+24.8%"
+      },
+      "transformer": {
+        "mape": 11.53,
+        "rmse": 13314.0,
+        "mae": 13153.67,
+        "r2": -42.9195,
+        "dir_acc": 33.3,
+        "improvement": "+23.1%"
+      },
+      "xgboost": {
+        "mape": 12.87,
+        "rmse": 14809.34,
+        "mae": 14672.44,
+        "r2": -53.339,
+        "dir_acc": 0.0,
+        "improvement": "+1.5%"
+      },
+      "arima": {
+        "mape": 2.57,
+        "rmse": 3454.26,
+        "mae": 2958.34,
+        "r2": -1.9563,
+        "dir_acc": 66.7,
+        "improvement": "+89.6%",
+        "best": true
+      },
+      "ensemble": {
+        "mape": 6.3,
+        "rmse": 7439.54,
+        "mae": 7198.8,
+        "r2": -12.713,
+        "dir_acc": 66.7,
+        "improvement": "+63.6%"
+      }
+    },
+    "best_model": "arima",
+    "ensemble_weights": {
+      "lstm": 0.14,
+      "transformer": 0.137,
+      "xgboost": 0.123,
+      "arima": 0.598
+    }
+  },
+  "SOL-USD": {
+    "models": {
+      "xgboost": {
+        "mape": 2.37,
+        "rmse": 6.08,
+        "r2": 0.775,
+        "dir_acc": 83.3
+      }
+    },
+    "best_model": "xgboost"
+  },
+  "ADA-USD": {
+    "models": {
+      "xgboost": {
+        "mape": 3.16,
+        "rmse": 0.03,
+        "r2": -0.11,
+        "dir_acc": 66.7
+      }
+    },
+    "best_model": "xgboost"
+  },
+  "ETH-USD": {
+    "models": {
+      "xgboost": {
+        "mape": 16.05,
+        "rmse": 727.8,
+        "r2": -18.59,
+        "dir_acc": 66.7
+      }
+    }
+  },
+  "XRP-USD": {
+    "models": {
+      "xgboost": {
+        "mape": 12.27,
+        "rmse": 0.37,
+        "r2": -19.97,
+        "dir_acc": 66.7
+      }
+    }
+  },
+  "BNB-USD": {
+    "models": {
+      "xgboost": {
+        "mape": 23.21,
+        "rmse": 210.03,
+        "r2": -99.79,
+        "dir_acc": 33.3
+      }
+    }
+  }
+}

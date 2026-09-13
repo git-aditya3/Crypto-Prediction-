@@ -1,5 +1,6 @@
 """
-Prediction / inference pipeline - v2 with Transformer & Sentiment
+Prediction / inference pipeline - v3 Improved Accuracy
+Supports both v2 and v3 models with fallback
 """
 import numpy as np
 import pandas as pd
@@ -24,58 +25,83 @@ class CryptoPredictor:
         self.dataset = CryptoDataset(symbol=symbol)
         self.preprocessor = None
         self.models = {}
+        self.model_versions = {}
         self._load_artifacts()
 
     def _load_artifacts(self):
         models_dir = config.project_root / "models"
         symbol_key = self.symbol.replace('-','_')
 
-        pre_path = models_dir / f"{symbol_key}_preprocessor.joblib"
-        if pre_path.exists():
-            try:
-                from ..data.preprocessor import DataPreprocessor
-                self.preprocessor = DataPreprocessor()
-                self.preprocessor.load(str(pre_path))
-                logger.info(f"Loaded preprocessor for {self.symbol}")
-            except Exception as e:
-                logger.warning(f"Failed to load preprocessor: {e}")
+        # Try v3 preprocessor first, then v2
+        for version in ["v3", ""]:
+            suffix = f"_{version}" if version else ""
+            pre_path = models_dir / f"{symbol_key}_preprocessor{suffix}.joblib"
+            if pre_path.exists():
+                try:
+                    from ..data.preprocessor import DataPreprocessor
+                    self.preprocessor = DataPreprocessor()
+                    self.preprocessor.load(str(pre_path))
+                    self.model_versions['preprocessor'] = version or "v2"
+                    logger.info(f"Loaded preprocessor {version} for {self.symbol}")
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed to load preprocessor {version}: {e}")
 
-        lstm_path = models_dir / f"{symbol_key}_lstm.pt"
-        if lstm_path.exists() and self.preprocessor:
-            try:
-                self.models['lstm'] = LSTMModel.load_torch(str(lstm_path))
-                logger.info("Loaded LSTM model")
-            except Exception as e:
-                logger.warning(f"Failed to load LSTM: {e}")
+        # LSTM - try v3 then v2
+        for version in ["v3", ""]:
+            suffix = f"_{version}" if version else ""
+            lstm_path = models_dir / f"{symbol_key}_lstm{suffix}.pt"
+            if lstm_path.exists() and self.preprocessor:
+                try:
+                    self.models['lstm'] = LSTMModel.load_torch(str(lstm_path))
+                    self.model_versions['lstm'] = version or "v2"
+                    logger.info(f"Loaded LSTM model {version}")
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed to load LSTM {version}: {e}")
 
-        trans_path = models_dir / f"{symbol_key}_transformer.pt"
-        if trans_path.exists() and self.preprocessor:
-            try:
-                self.models['transformer'] = TransformerModel.load_torch(str(trans_path))
-                logger.info("Loaded Transformer model")
-            except Exception as e:
-                logger.warning(f"Failed to load Transformer: {e}")
+        # Transformer
+        for version in ["v3", ""]:
+            suffix = f"_{version}" if version else ""
+            trans_path = models_dir / f"{symbol_key}_transformer{suffix}.pt"
+            if trans_path.exists() and self.preprocessor:
+                try:
+                    self.models['transformer'] = TransformerModel.load_torch(str(trans_path))
+                    self.model_versions['transformer'] = version or "v2"
+                    logger.info(f"Loaded Transformer model {version}")
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed to load Transformer {version}: {e}")
 
-        xgb_path = models_dir / f"{symbol_key}_xgb.joblib"
-        if xgb_path.exists():
-            try:
-                self.models['xgboost'] = XGBoostModel.load(str(xgb_path))
-                logger.info("Loaded XGBoost model")
-            except Exception as e:
-                logger.warning(f"Failed to load XGB: {e}")
+        # XGBoost
+        for version in ["v3", ""]:
+            suffix = f"_{version}" if version else ""
+            xgb_path = models_dir / f"{symbol_key}_xgb{suffix}.joblib"
+            if xgb_path.exists():
+                try:
+                    self.models['xgboost'] = XGBoostModel.load(str(xgb_path))
+                    self.model_versions['xgboost'] = version or "v2"
+                    logger.info(f"Loaded XGBoost model {version}")
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed to load XGB {version}: {e}")
 
-        arima_path = models_dir / f"{symbol_key}_arima.joblib"
-        if arima_path.exists():
-            try:
-                self.models['arima'] = ARIMAModel.load(str(arima_path))
-                logger.info("Loaded ARIMA model")
-            except Exception as e:
-                logger.warning(f"Failed to load ARIMA: {e}")
+        # ARIMA
+        for version in ["v3", ""]:
+            suffix = f"_{version}" if version else ""
+            arima_path = models_dir / f"{symbol_key}_arima{suffix}.joblib"
+            if arima_path.exists():
+                try:
+                    self.models['arima'] = ARIMAModel.load(str(arima_path))
+                    self.model_versions['arima'] = version or "v2"
+                    logger.info(f"Loaded ARIMA model {version}")
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed to load ARIMA {version}: {e}")
 
     def prepare_latest_data(self, period: str = "1y", interval: str = "1d") -> Dict:
         if self.preprocessor is None:
             logger.info("No preprocessor found, building fresh pipeline")
-            # Try with sentiment enrichment
             try:
                 from ..features.sentiment import SentimentFeatureEngineer
                 raw = self.dataset.load(period=period, interval=interval)
@@ -84,7 +110,6 @@ class CryptoPredictor:
                 feat = senti_eng.enrich_price_df(feat, symbol=self.symbol)
                 cleaned = self.dataset.preprocessor.prepare_features(feat, feature_cols=self.dataset.engineer.get_feature_columns(feat))
                 X = self.dataset.preprocessor.feature_scaler.transform(cleaned[self.dataset.preprocessor.feature_columns].values) if hasattr(self.dataset.preprocessor, 'feature_scaler') and self.dataset.preprocessor.feature_columns else None
-                # If not fitted, do full pipeline
                 if X is None:
                     data_dict = self.dataset.get_full_pipeline(period=period, interval=interval)
                     self.preprocessor = self.dataset.preprocessor
@@ -107,7 +132,6 @@ class CryptoPredictor:
         else:
             raw = self.dataset.load(period=period, interval=interval)
             feat = self.dataset.engineer.engineer(raw)
-            # sentiment enrich
             try:
                 if config.features.use_sentiment:
                     from ..features.sentiment import SentimentFeatureEngineer
@@ -137,7 +161,6 @@ class CryptoPredictor:
         latest_seq = data['X_seq'][-1] if 'X_seq' in data else None
 
         if latest_flat is None or latest_seq is None:
-            # fallback
             latest_flat = data['X_test'][-1] if 'X_test' in data else data['X_train'][-1]
             latest_seq = data['X_test_seq'][-1] if 'X_test_seq' in data else data['X_train_seq'][-1]
 
@@ -173,7 +196,13 @@ class CryptoPredictor:
                 logger.warning(f"ARIMA predict failed: {e}")
 
         if results:
+            # Use dynamic weights if available from ensemble training, else static
             weights = config.model.ensemble_weights
+            # If we have v3 models, use improved weighting
+            if any(v == "v3" for v in self.model_versions.values()):
+                # Give more weight to better performing models in v3
+                weights = {"lstm": 0.25, "transformer": 0.30, "xgboost": 0.20, "arima": 0.25}
+            
             total_w = sum(weights.get(k,0) for k in results.keys())
             if total_w > 0:
                 ensemble = sum(results[k] * weights.get(k,0) / total_w for k in results.keys())
@@ -227,7 +256,11 @@ class CryptoPredictor:
         if forecasts:
             min_len = min(len(v) for v in forecasts.values())
             aligned = {k: v[:min_len] for k, v in forecasts.items()}
-            weights = config.model.ensemble_weights
+            # Improved ensemble weighting for v3
+            if any(v == "v3" for v in self.model_versions.values()):
+                weights = {"lstm": 0.25, "transformer": 0.30, "xgboost": 0.20, "arima": 0.25}
+            else:
+                weights = config.model.ensemble_weights
             total_w = sum(weights.get(k,0) for k in aligned.keys())
             if total_w > 0:
                 ensemble = np.zeros(min_len)
@@ -242,8 +275,8 @@ class CryptoPredictor:
         current_price = float(data['cleaned_df']['Close'].iloc[-1]) if 'cleaned_df' in data else None
         forecasts['current_price'] = current_price
         forecasts['symbol'] = self.symbol
+        forecasts['model_versions'] = self.model_versions
 
-        # Sentiment if available
         try:
             if 'Sentiment_Compound' in data['cleaned_df'].columns:
                 forecasts['sentiment'] = float(data['cleaned_df']['Sentiment_Compound'].iloc[-1])
@@ -263,10 +296,9 @@ class CryptoPredictor:
         next_price = ensemble[0] if isinstance(ensemble, list) else ensemble
         change_pct = (next_price - current) / current * 100
 
-        # Adjust with sentiment if present
         sentiment_boost = 0
         if 'sentiment' in forecast:
-            sentiment_boost = forecast['sentiment'] * 0.5  # sentiment -1 to 1 -> -0.5 to 0.5
+            sentiment_boost = forecast['sentiment'] * 0.5
             change_pct += sentiment_boost
 
         if change_pct > 2.5:
@@ -289,5 +321,6 @@ class CryptoPredictor:
             "predicted_price": next_price,
             "change_pct": round(change_pct, 2),
             "sentiment": forecast.get('sentiment', 0),
-            "reason": f"Predicted {change_pct:.2f}% change" + (f" with sentiment {forecast.get('sentiment',0):.2f}" if 'sentiment' in forecast else "")
+            "model_versions": forecast.get('model_versions', {}),
+            "reason": f"Predicted {change_pct:.2f}% change" + (f" with sentiment {forecast.get('sentiment',0):.2f}" if 'sentiment' in forecast else "") + f" | Models: {forecast.get('model_versions', {})}"
         }
