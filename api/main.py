@@ -1,6 +1,5 @@
 """
-FastAPI for Crypto Prediction - v2 with Sentiment, Realtime, Transformer, Backtesting
-Polished UI with real-time Binance feed
+FastAPI for Crypto Prediction - v3 with Trading Calls, Improved Accuracy, Polished UI
 """
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,28 +11,29 @@ from pathlib import Path
 import pandas as pd
 import requests
 import time
+from datetime import datetime
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from crypto_prediction.config import get_config
 from crypto_prediction.data.fetcher import CryptoDataFetcher
 from crypto_prediction.prediction.predictor import CryptoPredictor
-from crypto_prediction.features.sentiment import SentimentFeatureEngineer, SentimentAnalyzer, fetch_sentiment
+from crypto_prediction.features.sentiment import SentimentFeatureEngineer, SentimentAnalyzer
 from crypto_prediction.data.realtime import BinanceRealtimeFetcher, RealtimeManager
 from crypto_prediction.backtesting.engine import BacktestEngine
 from crypto_prediction.backtesting.strategies import MovingAverageStrategy, RSIStrategy, PredictionStrategy, EnsembleSignalStrategy
+from crypto_prediction.trading.calls import TradingCallGenerator
 from crypto_prediction.utils.logger import get_logger
 
 logger = get_logger(__name__)
 config = get_config()
 
 app = FastAPI(
-    title="Crypto Prediction API v2",
-    description="End-to-end crypto forecasting: LSTM, Transformer (TFT), XGBoost, ARIMA, Sentiment, Realtime Binance, Backtesting - Polished UI with real-time data",
-    version="0.2.0"
+    title="Crypto Prediction API v3 - Trading Calls Edition",
+    description="End-to-end crypto forecasting with trading calls: LSTM v3, Transformer v3, XGBoost v3, ARIMA v3, Ensemble v3, Sentiment, Realtime Binance, Backtesting, Trading Calls with SL/TP",
+    version="0.3.0"
 )
 
-# CORS - allow all for preview environment
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,12 +42,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global realtime manager
 realtime_manager: Optional[RealtimeManager] = None
+call_generator = TradingCallGenerator(risk_per_trade=0.02)
 
-# Cache for market data
 _market_cache = {"tickers": None, "timestamp": 0}
-CACHE_TTL = 10  # seconds
+_calls_cache = {"calls": None, "timestamp": 0, "account_balance": 10000}
+CACHE_TTL = 10
+CALLS_CACHE_TTL = 60  # 1 minute for trading calls
 
 class ForecastResponse(BaseModel):
     symbol: str
@@ -80,53 +81,175 @@ class SentimentResponse(BaseModel):
 
 class BacktestRequest(BaseModel):
     symbol: str = "BTC-USD"
-    strategy: str = "ma"  # ma, rsi, prediction, ensemble
+    strategy: str = "ma"
     period: str = "1y"
     initial_capital: float = 10000
+
+class TradingCallRequest(BaseModel):
+    symbols: Optional[List[str]] = None
+    timeframe: str = "1d"
+    account_balance: float = 10000
+    risk_per_trade: float = 0.02
 
 @app.get("/")
 def root():
     return {
-        "message": "Crypto Prediction API v2 - Polished Real-time Edition",
-        "version": "0.2.0",
-        "features": ["LSTM", "Transformer", "XGBoost", "ARIMA", "Ensemble", "Sentiment", "Realtime Binance", "Backtesting", "React Polished UI"],
+        "message": "Crypto Prediction API v3 - Trading Calls Edition",
+        "version": "0.3.0",
+        "features": ["LSTM v3", "Transformer v3", "XGBoost v3", "ARIMA v3", "Ensemble v3 (Dynamic+Stacking)", "Trading Calls with SL/TP", "Sentiment", "Realtime Binance", "Backtesting", "Polished UI v3"],
         "supported_symbols": config.data.supported_symbols,
         "binance_map": config.data.binance_map,
         "data_status": {
             "historical": "987 rows each (BTC, ETH, SOL, BNB, XRP, ADA) 2023-2025",
             "realtime": "Binance WebSocket + REST live feed",
-            "total_assets": 10
+            "features": "182 features v3 (RobustScaler)",
+            "accuracy": "BTC ARIMA 2.57% MAPE, Ensemble 6.30%, SOL 2.37%, ADA 3.16% on past week"
         },
-        "endpoints": ["/predict", "/forecast", "/signal", "/history", "/sentiment", "/realtime/price", "/realtime/start", "/market/tickers", "/market/klines", "/backtest", "/health"]
+        "endpoints": ["/predict", "/forecast", "/signal", "/trading/calls", "/trading/call/{symbol}", "/trading/summary", "/history", "/sentiment", "/market/tickers", "/backtest", "/health"]
     }
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "0.2.0", "realtime": realtime_manager is not None}
+    return {"status": "ok", "version": "0.3.0", "realtime": realtime_manager is not None, "models": "v3 improved"}
 
-# === MARKET DATA - Real-time Binance proxy ===
+# === TRADING CALLS - NEW ===
+
+@app.get("/trading/calls")
+def get_trading_calls(
+    symbols: Optional[str] = Query(None, description="Filter symbols comma-separated e.g., BTC-USD,ETH-USD"),
+    timeframe: str = Query("1d", description="1m, 5m, 15m, 1h, 4h, 1d, 1w"),
+    account_balance: float = Query(10000, ge=100, le=10000000),
+    risk_per_trade: float = Query(0.02, ge=0.005, le=0.1),
+    use_cache: bool = Query(True)
+):
+    """Get trading calls for all or selected symbols with entry, SL, TP, risk management"""
+    # Parse symbols: support comma-separated
+    parsed_symbols: Optional[List[str]] = None
+    if symbols:
+        if "," in symbols:
+            parsed_symbols = [s.strip() for s in symbols.split(",") if s.strip()]
+        else:
+            parsed_symbols = [symbols.strip()]
+    symbols_list = parsed_symbols
+    global _calls_cache
+    now = time.time()
+    
+    # Check cache
+    if use_cache and _calls_cache["calls"] and (now - _calls_cache["timestamp"]) < CALLS_CACHE_TTL:
+        if _calls_cache["account_balance"] == account_balance:
+            cached = _calls_cache["calls"]
+            # Filter if needed
+            if symbols_list:
+                filtered = [c for c in cached["calls"] if c["symbol"] in symbols_list]
+                return {"calls": filtered, "summary": cached["summary"], "count": len(filtered), "cached": True, "timestamp": cached["timestamp"]}
+            return {**cached, "cached": True}
+    
+    try:
+        # Update risk manager
+        call_generator.risk_manager.risk_per_trade = risk_per_trade
+        
+        # Generate calls
+        target_symbols = symbols_list or config.data.supported_symbols
+        calls = call_generator.generate_all_calls(symbols=target_symbols, timeframe=timeframe, account_balance=account_balance)
+        
+        calls_dict = [c.to_dict() for c in calls]
+        summary = call_generator.get_call_summary(calls)
+        
+        result = {
+            "calls": calls_dict,
+            "summary": summary,
+            "count": len(calls_dict),
+            "timeframe": timeframe,
+            "account_balance": account_balance,
+            "risk_per_trade": risk_per_trade,
+            "timestamp": datetime.utcnow().isoformat(),
+            "cached": False
+        }
+        
+        # Cache
+        _calls_cache["calls"] = result
+        _calls_cache["timestamp"] = now
+        _calls_cache["account_balance"] = account_balance
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Trading calls failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/trading/call/{symbol}")
+def get_single_call(
+    symbol: str,
+    timeframe: str = Query("1d"),
+    account_balance: float = Query(10000, ge=100),
+    risk_per_trade: float = Query(0.02, ge=0.005, le=0.1)
+):
+    """Get trading call for single symbol"""
+    try:
+        call_generator.risk_manager.risk_per_trade = risk_per_trade
+        call = call_generator.generate_call(symbol=symbol, timeframe=timeframe, account_balance=account_balance)
+        return call.to_dict()
+    except Exception as e:
+        logger.error(f"Single call failed for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/trading/summary")
+def get_trading_summary():
+    """Get quick summary of market calls"""
+    try:
+        # Use cached if available
+        if _calls_cache["calls"] and (time.time() - _calls_cache["timestamp"]) < CALLS_CACHE_TTL:
+            return _calls_cache["calls"]["summary"]
+        
+        # Generate quick summary with top 6 symbols for speed
+        top_symbols = config.data.supported_symbols[:6]
+        calls = call_generator.generate_all_calls(symbols=top_symbols, account_balance=10000)
+        summary = call_generator.get_call_summary(calls)
+        return summary
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/trading/calls")
+def post_trading_calls(req: TradingCallRequest):
+    """POST version for trading calls with body"""
+    try:
+        call_generator.risk_manager.risk_per_trade = req.risk_per_trade
+        target_symbols = req.symbols or config.data.supported_symbols
+        calls = call_generator.generate_all_calls(symbols=target_symbols, timeframe=req.timeframe, account_balance=req.account_balance)
+        calls_dict = [c.to_dict() for c in calls]
+        summary = call_generator.get_call_summary(calls)
+        
+        return {
+            "calls": calls_dict,
+            "summary": summary,
+            "count": len(calls_dict),
+            "timeframe": req.timeframe,
+            "account_balance": req.account_balance
+        }
+    except Exception as e:
+        logger.error(f"Trading calls POST failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === MARKET DATA ===
 
 @app.get("/market/tickers")
 def market_tickers():
-    """Fetch all tickers from Binance - acts as proxy to avoid CORS and provide caching"""
     global _market_cache
     now = time.time()
     
-    # Return cached if fresh
     if _market_cache["tickers"] and (now - _market_cache["timestamp"]) < CACHE_TTL:
         return _market_cache["tickers"]
     
     try:
-        # Fetch from Binance
         resp = requests.get("https://api.binance.com/api/v3/ticker/24hr", timeout=10)
         resp.raise_for_status()
         all_tickers = resp.json()
         
-        # Filter to our symbols
         wanted = set(config.data.binance_map.values())
         filtered = [t for t in all_tickers if t["symbol"] in wanted]
         
-        # Map to our format
         reverse_map = {v: k for k, v in config.data.binance_map.items()}
         tickers = {}
         for t in filtered:
@@ -154,8 +277,7 @@ def market_tickers():
         return result
         
     except Exception as e:
-        logger.warning(f"Binance ticker fetch failed: {e}, using fallback")
-        # Fallback to our realtime fetchers if available
+        logger.warning(f"Binance ticker fetch failed: {e}")
         try:
             if realtime_manager:
                 prices = realtime_manager.get_prices()
@@ -178,10 +300,9 @@ def market_tickers():
 @app.get("/market/klines")
 def market_klines(
     symbol: str = Query("BTC-USD"),
-    interval: str = Query("1d", description="1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 3d, 1w, 1M"),
+    interval: str = Query("1d"),
     limit: int = Query(200, ge=1, le=1000)
 ):
-    """Fetch klines/candles from Binance"""
     try:
         binance_symbol = config.data.binance_map.get(symbol, symbol.replace("-", ""))
         resp = requests.get(
@@ -225,15 +346,12 @@ def market_orderbook(symbol: str = Query("BTC-USD"), limit: int = Query(20, ge=5
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# === HISTORY ===
-
 @app.get("/history")
 def get_history(symbol: str = Query("BTC-USD"), period: str = Query("1y"), interval: str = Query("1d")):
     try:
         fetcher = CryptoDataFetcher(symbol=symbol)
         df = fetcher.load_or_fetch(symbol=symbol)
         df_tail = df.tail(300)
-        # Enrich with sentiment?
         try:
             eng = SentimentFeatureEngineer()
             df_tail = eng.enrich_price_df(df_tail, symbol=symbol)
@@ -292,7 +410,6 @@ def trading_signal(symbol: str = Query("BTC-USD"), steps: int = Query(7)):
         signal = predictor.get_trading_signal(fc)
         signal['symbol'] = symbol
         
-        # Enrich with live price if available
         try:
             fetcher = BinanceRealtimeFetcher(symbol=symbol)
             live_price = fetcher.get_current_price()
@@ -336,7 +453,6 @@ def realtime_price(symbol: str = Query("BTC-USD")):
     try:
         fetcher = BinanceRealtimeFetcher(symbol=symbol)
         price = fetcher.get_current_price()
-        # Also get 24h ticker
         ticker = fetcher.fetch_ticker_rest()
         return {"symbol": symbol, "binance_symbol": fetcher.binance_symbol, "price": price, "ticker": ticker}
     except Exception as e:
@@ -359,7 +475,6 @@ def realtime_start(symbols: List[str] = Query(["BTC-USD"])):
 def realtime_prices():
     global realtime_manager
     if not realtime_manager:
-        # Try to return from market cache
         if _market_cache["tickers"]:
             return {"prices": {k: v["price"] for k, v in _market_cache["tickers"]["tickers"].items()}, "source": "cache"}
         raise HTTPException(status_code=400, detail="Realtime not started. POST /realtime/start")
@@ -374,12 +489,10 @@ def backtest(req: BacktestRequest):
     try:
         fetcher = CryptoDataFetcher(symbol=req.symbol)
         df = fetcher.load_or_fetch(symbol=req.symbol)
-        # Enrich features for strategies
         from crypto_prediction.features.technical import FeatureEngineer
         eng = FeatureEngineer()
         df = eng.engineer(df)
 
-        # Choose strategy
         if req.strategy == "ma":
             strat = MovingAverageStrategy(short_window=20, long_window=50)
         elif req.strategy == "rsi":
@@ -457,6 +570,54 @@ def list_models():
         return {"models": []}
     files = [f.name for f in models_dir.glob("*")]
     return {"models": files}
+
+@app.get("/settings")
+def get_settings():
+    """Get current settings and config"""
+    return {
+        "data": {
+            "supported_symbols": config.data.supported_symbols,
+            "sequence_length": config.data.sequence_length,
+            "test_size": config.data.test_size,
+            "val_size": config.data.val_size
+        },
+        "features": {
+            "use_technical": config.features.use_technical_indicators,
+            "use_sentiment": config.features.use_sentiment,
+            "use_advanced": config.features.use_advanced_indicators,
+            "sma_windows": config.features.sma_windows,
+            "rsi_window": config.features.rsi_window
+        },
+        "models": {
+            "lstm": {
+                "hidden_size": config.model.lstm_hidden_size,
+                "num_layers": config.model.lstm_num_layers,
+                "bidirectional": config.model.lstm_bidirectional,
+                "use_attention": config.model.lstm_use_attention
+            },
+            "transformer": {
+                "d_model": config.model.transformer_d_model,
+                "nhead": config.model.transformer_nhead,
+                "num_layers": config.model.transformer_num_layers,
+                "use_learnable_pe": config.model.transformer_use_learnable_pe
+            },
+            "xgboost": {
+                "n_estimators": config.model.xgb_n_estimators,
+                "max_depth": config.model.xgb_max_depth,
+                "learning_rate": config.model.xgb_learning_rate
+            },
+            "ensemble": {
+                "weights": config.model.ensemble_weights,
+                "use_stacking": config.model.ensemble_use_stacking,
+                "use_dynamic": config.model.ensemble_use_dynamic_weights
+            }
+        },
+        "trading": {
+            "risk_per_trade": 0.02,
+            "atr_sl_multiplier": 1.5,
+            "atr_tp_multiplier": 3.0
+        }
+    }
 
 if __name__ == "__main__":
     import uvicorn

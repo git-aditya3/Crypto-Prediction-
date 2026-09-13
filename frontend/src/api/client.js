@@ -37,9 +37,23 @@ export const api = {
   getRealtimePrices: () => client.get('/realtime/prices').then(r => r.data),
   backtest: (payload) => client.post('/backtest', payload).then(r => r.data),
   backtestCompare: (symbol) => client.get(`/backtest/compare?symbol=${symbol}`).then(r => r.data),
-  // New market endpoints
+  // Market endpoints
   getMarketTickers: () => client.get('/market/tickers').then(r => r.data).catch(() => ({ tickers: {} })),
   getMarketKlines: (symbol, interval='1d', limit=200) => client.get(`/market/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`).then(r => r.data),
+  // Trading calls v3
+  getTradingCalls: (params={}) => {
+    const qs = new URLSearchParams()
+    if (params.symbols) qs.append('symbols', params.symbols.join ? params.symbols.join(',') : params.symbols)
+    if (params.timeframe) qs.append('timeframe', params.timeframe)
+    if (params.accountBalance) qs.append('account_balance', params.accountBalance)
+    if (params.riskPerTrade) qs.append('risk_per_trade', params.riskPerTrade)
+    if (params.useCache === false) qs.append('use_cache', 'false')
+    return client.get(`/trading/calls?${qs.toString()}`).then(r => r.data)
+  },
+  getTradingCall: (symbol, timeframe='1d', accountBalance=10000, riskPerTrade=0.02) => 
+    client.get(`/trading/call/${symbol}?timeframe=${timeframe}&account_balance=${accountBalance}&risk_per_trade=${riskPerTrade}`).then(r => r.data),
+  getTradingSummary: () => client.get('/trading/summary').then(r => r.data),
+  getSettings: () => client.get('/settings').then(r => r.data),
 }
 
 export default client
