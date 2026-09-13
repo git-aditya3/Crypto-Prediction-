@@ -1,11 +1,8 @@
 """
-LSTM model v4 Max Performance
-- Deeper bidirectional (4 layers, 320 hidden)
-- Multi-head attention (8 heads)
-- Residual connections, Pre-LN, LayerNorm
-- Attention pooling + last token fusion
-- Huber loss, AdamW, Cosine + ReduceLROnPlateau
-- Dropout scheduling, gradient clipping, mixed precision ready
+GRU model v4 Max Performance - Fast + Accurate for crypto
+- Bidirectional GRU 3 layers 256 hidden
+- Attention pooling + residual
+- Huber loss, AdamW, schedulers
 """
 import numpy as np
 import torch
@@ -25,39 +22,8 @@ class CryptoDatasetTorch(Dataset):
     def __init__(self, X, y):
         self.X = torch.FloatTensor(X)
         self.y = torch.FloatTensor(y)
-    def __len__(self):
-        return len(self.X)
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
-
-class MultiHeadAttentionPooling(nn.Module):
-    def __init__(self, hidden_size, num_heads=8):
-        super().__init__()
-        self.num_heads = num_heads
-        self.hidden_size = hidden_size
-        self.head_dim = hidden_size // num_heads
-        assert hidden_size % num_heads == 0
-        
-        self.q_proj = nn.Linear(hidden_size, hidden_size)
-        self.k_proj = nn.Linear(hidden_size, hidden_size)
-        self.v_proj = nn.Linear(hidden_size, hidden_size)
-        self.out_proj = nn.Linear(hidden_size, hidden_size)
-        self.norm = nn.LayerNorm(hidden_size)
-        
-    def forward(self, x):
-        # x: (batch, seq_len, hidden)
-        B, L, H = x.shape
-        q = self.q_proj(x).view(B, L, self.num_heads, self.head_dim).transpose(1,2)  # B, heads, L, head_dim
-        k = self.k_proj(x).view(B, L, self.num_heads, self.head_dim).transpose(1,2)
-        v = self.v_proj(x).view(B, L, self.num_heads, self.head_dim).transpose(1,2)
-        
-        attn_scores = torch.matmul(q, k.transpose(-2,-1)) / (self.head_dim ** 0.5)  # B, heads, L, L
-        attn_weights = torch.softmax(attn_scores, dim=-1)
-        attn_out = torch.matmul(attn_weights, v)  # B, heads, L, head_dim
-        attn_out = attn_out.transpose(1,2).contiguous().view(B, L, H)  # B, L, H
-        out = self.out_proj(attn_out)
-        out = self.norm(x + out)
-        return out
+    def __len__(self): return len(self.X)
+    def __getitem__(self, idx): return self.X[idx], self.y[idx]
 
 class AttentionPooling(nn.Module):
     def __init__(self, hidden_size):
@@ -74,7 +40,7 @@ class AttentionPooling(nn.Module):
         return pooled, attn_weights
 
 class ResidualBlock(nn.Module):
-    def __init__(self, hidden_size, dropout=0.2):
+    def __init__(self, hidden_size, dropout=0.25):
         super().__init__()
         self.fc1 = nn.Linear(hidden_size, hidden_size)
         self.ln1 = nn.LayerNorm(hidden_size)
@@ -82,7 +48,6 @@ class ResidualBlock(nn.Module):
         self.ln2 = nn.LayerNorm(hidden_size)
         self.dropout = nn.Dropout(dropout)
         self.activation = nn.GELU()
-        
     def forward(self, x):
         residual = x
         out = self.fc1(x)
@@ -96,38 +61,31 @@ class ResidualBlock(nn.Module):
         out = self.activation(out)
         return out
 
-class LSTMNetworkV4(nn.Module):
-    def __init__(self, input_size: int, hidden_size: int = 320, num_layers: int = 4, 
-                 dropout: float = 0.25, output_size: int = 1, bidirectional: bool = True,
-                 use_attention: bool = True, attention_heads: int = 8, use_residual: bool = True):
+class GRUNetworkV4(nn.Module):
+    def __init__(self, input_size: int, hidden_size: int = 256, num_layers: int = 3, 
+                 dropout: float = 0.25, output_size: int = 1, bidirectional: bool = True):
         super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.bidirectional = bidirectional
-        self.use_attention = use_attention
-        self.use_residual = use_residual
         
-        lstm_hidden = hidden_size
-        self.lstm = nn.LSTM(
+        self.gru = nn.GRU(
             input_size=input_size,
-            hidden_size=lstm_hidden,
+            hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0,
             bidirectional=bidirectional
         )
         
-        lstm_output_size = hidden_size * 2 if bidirectional else hidden_size
+        gru_output_size = hidden_size * 2 if bidirectional else hidden_size
         
-        self.attention = MultiHeadAttentionPooling(lstm_output_size, num_heads=attention_heads) if use_attention else None
-        self.attention_pool = AttentionPooling(lstm_output_size)
-        
-        self.layer_norm1 = nn.LayerNorm(lstm_output_size)
+        self.attention_pool = AttentionPooling(gru_output_size)
+        self.layer_norm = nn.LayerNorm(gru_output_size)
         self.dropout = nn.Dropout(dropout)
         
-        # Deeper FC with residual blocks
         self.fc_input = nn.Sequential(
-            nn.Linear(lstm_output_size * 2, 256),  # *2 because we concat last + pooled
+            nn.Linear(gru_output_size * 2, 256),
             nn.LayerNorm(256),
             nn.GELU(),
             nn.Dropout(dropout)
@@ -136,7 +94,7 @@ class LSTMNetworkV4(nn.Module):
         self.res_blocks = nn.Sequential(
             ResidualBlock(256, dropout=dropout),
             ResidualBlock(256, dropout=dropout)
-        ) if use_residual else nn.Identity()
+        )
         
         self.fc_layers = nn.Sequential(
             nn.Linear(256, 128),
@@ -144,70 +102,52 @@ class LSTMNetworkV4(nn.Module):
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(128, 64),
-            nn.LayerNorm(64),
             nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(64, 32),
-            nn.GELU(),
-            nn.Linear(32, output_size)
+            nn.Linear(64, output_size)
         )
 
     def forward(self, x):
         batch_size = x.size(0)
         num_directions = 2 if self.bidirectional else 1
-        
         h0 = torch.zeros(self.num_layers * num_directions, batch_size, self.hidden_size, device=x.device)
-        c0 = torch.zeros(self.num_layers * num_directions, batch_size, self.hidden_size, device=x.device)
         
-        lstm_out, _ = self.lstm(x, (h0, c0))
+        gru_out, _ = self.gru(x, h0)
+        gru_out = self.layer_norm(gru_out)
         
-        if self.use_attention and self.attention is not None:
-            lstm_out = self.attention(lstm_out)
-        
-        lstm_out = self.layer_norm1(lstm_out)
-        
-        last_out = lstm_out[:, -1, :]
-        pooled_out, _ = self.attention_pool(lstm_out)
+        last_out = gru_out[:, -1, :]
+        pooled_out, _ = self.attention_pool(gru_out)
         
         combined = torch.cat([last_out, pooled_out], dim=1)
         combined = self.dropout(combined)
         
         out = self.fc_input(combined)
-        if self.use_residual:
-            out = self.res_blocks(out)
+        out = self.res_blocks(out)
         out = self.fc_layers(out)
         return out.squeeze()
 
-class LSTMModel(BaseModel):
-    def __init__(self, input_size: int, hidden_size: int = None, num_layers: int = None, dropout: float = None, 
-                 learning_rate: float = None, device: str = None, bidirectional: bool = None, 
-                 use_attention: bool = None, attention_heads: int = None, use_residual: bool = None):
-        super().__init__(name="lstm")
+class GRUModel(BaseModel):
+    def __init__(self, input_size: int, hidden_size: int = None, num_layers: int = None, 
+                 dropout: float = None, learning_rate: float = None, device: str = None,
+                 bidirectional: bool = None):
+        super().__init__(name="gru")
         self.input_size = input_size
-        self.hidden_size = hidden_size or config.model.lstm_hidden_size
-        self.num_layers = num_layers or config.model.lstm_num_layers
-        self.dropout = dropout or config.model.lstm_dropout
-        self.lr = learning_rate or config.model.lstm_learning_rate
-        self.bidirectional = bidirectional if bidirectional is not None else config.model.lstm_bidirectional
-        self.use_attention = use_attention if use_attention is not None else config.model.lstm_use_attention
-        self.attention_heads = attention_heads or config.model.lstm_attention_heads
-        self.use_residual = use_residual if use_residual is not None else config.model.lstm_use_residual
-        self.weight_decay = config.model.lstm_weight_decay
+        self.hidden_size = hidden_size or config.model.gru_hidden_size
+        self.num_layers = num_layers or config.model.gru_num_layers
+        self.dropout = dropout or config.model.gru_dropout
+        self.lr = learning_rate or config.model.gru_learning_rate
+        self.bidirectional = bidirectional if bidirectional is not None else config.model.gru_bidirectional
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         
-        self.network = LSTMNetworkV4(
+        self.network = GRUNetworkV4(
             input_size=input_size,
             hidden_size=self.hidden_size,
             num_layers=self.num_layers,
             dropout=self.dropout,
-            bidirectional=self.bidirectional,
-            use_attention=self.use_attention,
-            attention_heads=self.attention_heads,
-            use_residual=self.use_residual
+            bidirectional=self.bidirectional
         ).to(self.device)
         
         self.criterion = nn.HuberLoss(delta=1.0)
-        self.optimizer = torch.optim.AdamW(self.network.parameters(), lr=self.lr, weight_decay=self.weight_decay, betas=(0.9, 0.999))
+        self.optimizer = torch.optim.AdamW(self.network.parameters(), lr=self.lr, weight_decay=5e-5)
         self.scheduler_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=7, factor=0.5, min_lr=1e-7)
         self.scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=15, T_mult=2, eta_min=1e-7)
         
@@ -215,15 +155,12 @@ class LSTMModel(BaseModel):
         self.val_losses = []
 
     def fit(self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None,
-            epochs: int = None, batch_size: int = None, patience: int = None, verbose: bool = True, **kwargs) -> Dict:
+            epochs: int = None, batch_size: int = 32, patience: int = 20, verbose: bool = True, **kwargs) -> Dict:
         
-        epochs = epochs or config.model.lstm_epochs
-        batch_size = batch_size or config.model.lstm_batch_size
-        patience = patience or config.model.lstm_patience
-
+        epochs = epochs or config.model.gru_epochs
         train_ds = CryptoDatasetTorch(X_train, y_train)
-        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=False)
-
+        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=0)
+        
         val_loader = None
         if X_val is not None and y_val is not None:
             val_ds = CryptoDatasetTorch(X_val, y_val)
@@ -233,7 +170,7 @@ class LSTMModel(BaseModel):
         patience_counter = 0
         best_state = None
 
-        logger.info(f"Training LSTM v4 MAX on {self.device} | in={self.input_size} h={self.hidden_size} L={self.num_layers} bidir={self.bidirectional} attn={self.use_attention} heads={self.attention_heads} residual={self.use_residual} | epochs={epochs} batch={batch_size}")
+        logger.info(f"Training GRU v4 MAX on {self.device} | in={self.input_size} h={self.hidden_size} L={self.num_layers} bidir={self.bidirectional} | epochs={epochs}")
 
         for epoch in range(epochs):
             self.network.train()
@@ -252,7 +189,6 @@ class LSTMModel(BaseModel):
             self.train_losses.append(train_loss)
             self.scheduler_cosine.step()
 
-            val_loss = None
             if val_loader:
                 self.network.eval()
                 val_loss = 0.0
@@ -273,15 +209,15 @@ class LSTMModel(BaseModel):
                 else:
                     patience_counter += 1
 
-                if verbose and (epoch + 1) % 10 == 0:
-                    logger.info(f"LSTM v4 Epoch {epoch+1}/{epochs} | train={train_loss:.6f} val={val_loss:.6f} lr={self.optimizer.param_groups[0]['lr']:.7f} best={best_val_loss:.6f}")
+                if verbose and (epoch+1) % 10 == 0:
+                    logger.info(f"GRU v4 Epoch {epoch+1}/{epochs} | train={train_loss:.6f} val={val_loss:.6f} lr={self.optimizer.param_groups[0]['lr']:.7f}")
 
                 if patience_counter >= patience:
-                    logger.info(f"LSTM v4 Early stopping at epoch {epoch+1} | best_val={best_val_loss:.6f}")
+                    logger.info(f"GRU v4 Early stopping at {epoch+1}")
                     break
             else:
-                if verbose and (epoch + 1) % 10 == 0:
-                    logger.info(f"LSTM v4 Epoch {epoch+1}/{epochs} | train={train_loss:.6f}")
+                if verbose and (epoch+1) % 10 == 0:
+                    logger.info(f"GRU v4 Epoch {epoch+1}/{epochs} | train={train_loss:.6f}")
 
         if best_state is not None:
             self.network.load_state_dict(best_state)
@@ -290,8 +226,6 @@ class LSTMModel(BaseModel):
         return {"train_losses": self.train_losses, "val_losses": self.val_losses, "best_val_loss": best_val_loss, "version": "v4_max"}
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        if not self.is_fitted:
-            logger.warning("LSTM v4 not fitted, predicting anyway")
         self.network.eval()
         with torch.no_grad():
             X_tensor = torch.FloatTensor(X).to(self.device)
@@ -307,16 +241,13 @@ class LSTMModel(BaseModel):
                 'hidden_size': self.hidden_size,
                 'num_layers': self.num_layers,
                 'dropout': self.dropout,
-                'bidirectional': self.bidirectional,
-                'use_attention': self.use_attention,
-                'attention_heads': self.attention_heads,
-                'use_residual': self.use_residual
+                'bidirectional': self.bidirectional
             },
             'train_losses': self.train_losses,
             'val_losses': self.val_losses,
             'version': 'v4_max'
         }, path)
-        logger.info(f"Saved LSTM v4 MAX torch model to {path}")
+        logger.info(f"Saved GRU v4 MAX torch model to {path}")
 
     @classmethod
     def load_torch(cls, path: str, device: str = None):
@@ -328,30 +259,27 @@ class LSTMModel(BaseModel):
             num_layers=cfg['num_layers'],
             dropout=cfg['dropout'],
             bidirectional=cfg.get('bidirectional', True),
-            use_attention=cfg.get('use_attention', True),
-            attention_heads=cfg.get('attention_heads', 8),
-            use_residual=cfg.get('use_residual', True),
             device=device
         )
         model.network.load_state_dict(checkpoint['model_state'])
         model.train_losses = checkpoint.get('train_losses', [])
         model.val_losses = checkpoint.get('val_losses', [])
         model.is_fitted = True
-        logger.info(f"Loaded LSTM v4 MAX torch model from {path}")
+        logger.info(f"Loaded GRU v4 MAX torch model from {path}")
         return model
 
-    def forecast_future(self, last_sequence: np.ndarray, steps: int = 7, preprocessor=None) -> np.ndarray:
+    def forecast_future(self, last_sequence: np.ndarray, steps: int = 7) -> np.ndarray:
         self.network.eval()
         seq = last_sequence.copy()
-        preds_scaled = []
+        preds = []
         with torch.no_grad():
             for _ in range(steps):
                 X_input = torch.FloatTensor(seq).unsqueeze(0).to(self.device)
                 pred = self.network(X_input).cpu().numpy()
-                preds_scaled.append(pred)
+                preds.append(pred)
                 next_row = seq[-1].copy()
                 seq = np.vstack([seq[1:], next_row.reshape(1, -1)])
-        return np.array(preds_scaled).ravel()
+        return np.array(preds).ravel()
 
-LSTMNetworkV3 = LSTMNetworkV4
-LSTMNetwork = LSTMNetworkV4
+GRUNetworkV3 = GRUNetworkV4
+GRUNetwork = GRUNetworkV4

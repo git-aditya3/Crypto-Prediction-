@@ -1,0 +1,92 @@
+{
+  "enabled": false,
+  "mode": "full_auto",
+  "account_balance": 10000,
+  "risk": {
+    "risk_per_trade_pct": 2,
+    "max_daily_loss_pct": 6,
+    "max_positions": 5,
+    "max_drawdown_pct": 10,
+    "max_leverage": 5,
+    "position_size_method": "risk_based",
+    "fixed_position_size": 100,
+    "percent_balance_per_trade": 10,
+    "use_kelly": false,
+    "kelly_fraction": 0.5,
+    "stop_loss_atr_multiplier": 1.5,
+    "take_profit_rr": 2,
+    "use_trailing_stop": false,
+    "trailing_stop_pct": 1,
+    "move_sl_to_breakeven_at_tp1": true,
+    "daily_loss_halt": true,
+    "max_consecutive_losses": 3,
+    "cooldown_after_loss_minutes": 60
+  },
+  "strategies": {
+    "use_ai_ensemble": true,
+    "use_dca_bot": false,
+    "use_grid_bot": false,
+    "use_breakout": true,
+    "use_rsi_signals": true,
+    "use_volume_spikes": true,
+    "ai_confidence_threshold": 70,
+    "min_risk_reward": 1.5,
+    "allowed_signals": [
+      "STRONG_BUY",
+      "BUY",
+      "STRONG_SELL",
+      "SELL"
+    ],
+    "timeframes": [
+      "1d",
+      "4h",
+      "1h"
+    ],
+    "primary_timeframe": "1d"
+  },
+  "symbols": {
+    "whitelist": [
+      "BTC-USD",
+      "ETH-USD",
+      "BNB-USD",
+      "SOL-USD"
+    ],
+    "blacklist": [],
+    "max_positions_per_symbol": 1,
+    "symbol_risk_override": {}
+  },
+  "execution": {
+    "mode": "full_auto",
+    "order_type": "MARKET",
+    "limit_offset_pct": 0.1,
+    "slippage_tolerance_pct": 0.5,
+    "use_oco": true,
+    "auto_sl_tp": true,
+    "multiple_tp": true,
+    "tp1_pct": 50,
+    "tp2_pct": 30,
+    "tp3_pct": 20,
+    "broker_id": "coindcx",
+    "testnet": false,
+    "enable_real_trading": true,
+    "require_confirmation": false
+  },
+  "trading_hours": {
+    "enabled": false,
+    "start_hour": 9,
+    "end_hour": 17,
+    "timezone": "UTC",
+    "cooldown_between_trades_minutes": 15,
+    "avoid_high_volatility": false,
+    "max_volatility_pct": 10
+  },
+  "emergency_stop": false,
+  "max_daily_trades": 8,
+  "notes": "REAL MONEY TRADING via CoinDCX - Actual INR from user's account - No paper simulation",
+  "created_at": "2026-09-13T19:21:08.837824",
+  "updated_at": "2026-09-13T19:55:25.279811",
+  "real_trading": "REAL MONEY via CoinDCX - Actual INR and crypto from user's CoinDCX account",
+  "no_paper": "No paper money simulation - uses actual CoinDCX balances and executes real trades",
+  "broker": "CoinDCX - Indian exchange, INR pairs BTCINR, ETHINR, etc.",
+  "extensive_controls": "All parameters user controllable - risk, strategies, symbols, execution, hours, broker"
+}
