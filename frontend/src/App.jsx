@@ -18,6 +18,7 @@ import Analytics from './pages/Analytics'
 import Alerts from './pages/Alerts'
 import Journal from './pages/Journal'
 import AutoTrading from './pages/AutoTrading'
+import CrashDetector from './pages/CrashDetector'
 import { useSettingsStore } from './store/useSettingsStore'
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/trading" element={<TradingCalls />} />
+            <Route path="/crash" element={<CrashDetector />} />
             <Route path="/autotrade" element={<AutoTrading />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/strategies" element={<Strategies />} />

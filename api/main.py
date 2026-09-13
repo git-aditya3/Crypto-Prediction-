@@ -36,6 +36,7 @@ from crypto_prediction.analytics.manager import get_analytics_manager
 from crypto_prediction.journal.manager import get_journal_manager
 from crypto_prediction.brokers.manager import get_broker_manager
 from crypto_prediction.autotrading.engine import get_autotrading_engine
+from crypto_prediction.crash_detector.manager import get_crash_manager
 from crypto_prediction.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -98,6 +99,7 @@ analytics_manager = get_analytics_manager()
 journal_manager = get_journal_manager()
 broker_manager = get_broker_manager()
 autotrading_engine = get_autotrading_engine()
+crash_manager = get_crash_manager()
 
 _market_cache = {"tickers": None, "timestamp": 0}
 _calls_cache = {"calls": None, "timestamp": 0, "account_balance": 10000}
@@ -1360,6 +1362,93 @@ def get_settings():
         "autotrading": {"enabled": autotrading_engine.config.enabled, "mode": autotrading_engine.config.mode, "brokers": list(broker_manager.brokers.keys()), "extensive_controls": True},
         "extensive_features": ["Portfolio", "DCA Bot", "Grid Bot", "Breakout Scanner", "Alerts", "Market Scanner", "Analytics", "Journal", "Broker Integration", "Auto Trading Engine"]
     }
+
+# === CRASH DETECTOR - LOCAL FAST WEBSCRAPER FOR EARLY CRASH DETECTION ===
+# All processing locally, efficient, <3s total, <100ms local processing
+# Scrapes Binance spot/futures, funding, OI, orderbook, liquidations, trades, fear&greed, Reddit, news
+
+@app.get("/crash/status")
+def crash_status():
+    """Get current crash risk - fast local processing, cached 20s"""
+    try:
+        result = crash_manager.get_status()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/crash/scan")
+def crash_scan(symbols: Optional[str] = Query(None), force: bool = Query(False)):
+    """Full crash scan - parallel scraping, local aggregation"""
+    try:
+        parsed = None
+        if symbols:
+            parsed = [s.strip().upper() for s in symbols.split(",")] if "," in symbols else [symbols.strip().upper()]
+            # Convert to Binance format if needed
+            mapped=[]
+            for s in parsed:
+                if "USDT" in s:
+                    mapped.append(s)
+                else:
+                    # BTC-USD -> BTCUSDT
+                    mapped.append(s.replace("-","").replace("/","") + ("USDT" if "USDT" not in s else ""))
+            parsed=mapped
+        result = crash_manager.scan(symbols=parsed, force=force)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/crash/history")
+def crash_history(limit: int = Query(50, ge=1, le=200)):
+    try:
+        hist = crash_manager.get_history(limit=limit)
+        return {"count": len(hist), "history": hist, "local_processing": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/crash/alerts")
+def crash_alerts(limit: int = Query(20, ge=1, le=100)):
+    try:
+        alerts = crash_manager.get_alerts(limit=limit)
+        return {"count": len(alerts), "alerts": alerts, "message": "High/Critical crash alerts - early warning before market impact"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/crash/signals")
+def crash_signals():
+    try:
+        return crash_manager.get_signals_breakdown()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/crash/raw")
+def crash_raw(symbols: Optional[str] = Query(None)):
+    """Raw scraped data for debugging - shows all sources"""
+    try:
+        from crypto_prediction.crash_detector.scraper import get_scraper
+        scraper=get_scraper()
+        parsed = ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT"]
+        if symbols:
+            parsed = [s.strip().upper() for s in symbols.split(",")]
+        data=scraper.fetch_all(parsed)
+        return {
+            "timestamp": data.timestamp,
+            "fetch_time_ms": data.fetch_time_ms,
+            "spot_tickers_count": len(data.spot_tickers),
+            "futures_count": len(data.futures_tickers),
+            "funding_count": len(data.funding_rates),
+            "orderbooks": list(data.orderbooks.keys()),
+            "liquidations": {k: {"total": v.get("total",0), "long": v.get("long_liq",0)} for k,v in data.liquidations.items()},
+            "fear_greed": data.fear_greed,
+            "reddit_count": len(data.reddit_posts),
+            "reddit_crash": [p for p in data.reddit_posts if p.get("is_crash")][:5],
+            "news_count": len(data.news_titles),
+            "news_crash": [n for n in data.news_titles if n.get("is_crash")][:5],
+            "btc": data.spot_tickers.get("BTCUSDT",{}),
+            "local_processing": True,
+            "efficient": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

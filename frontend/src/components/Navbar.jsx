@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Target, Cpu, Wallet, Bot, Search, LineChart, Bell, BookOpen, GraduationCap, TrendingUp, Radio, Sparkles, BarChart3, Brain, Settings, Menu, X, Sun, Moon, Activity } from 'lucide-react'
+import { Home, Target, Cpu, Wallet, Bot, Search, LineChart, Bell, BookOpen, GraduationCap, TrendingUp, Radio, Sparkles, BarChart3, Brain, Settings, Menu, X, Sun, Moon, Activity, AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
 import { useMarketStore } from '../store/useMarketStore'
 import { useSettingsStore } from '../store/useSettingsStore'
@@ -13,6 +13,7 @@ export default function Navbar() {
 
   const nav = [
     { path: '/', label: 'Dashboard', icon: Home },
+    { path: '/crash', label: 'Crash', icon: AlertTriangle, badge: 'NEW' },
     { path: '/trading', label: 'Trading', icon: Target, badge: 'REAL' },
     { path: '/autotrade', label: 'Auto', icon: Cpu, badge: 'NEW' },
     { path: '/portfolio', label: 'Portfolio', icon: Wallet },

@@ -85,6 +85,13 @@ export const api = {
   getPositionSize: (payload) => client.post('/strategies/risk/position_size', payload).then(r => r.data),
   getPortfolioRisk: (symbols) => client.get(`/strategies/risk/portfolio${symbols ? `?symbols=${symbols}` : ''}`).then(r => r.data),
   scanInstitutional: (symbols) => client.get(`/strategies/institutional/scan${symbols ? `?symbols=${symbols}` : ''}`).then(r => r.data),
+  // Crash Detector - Local Fast Early Warning
+  getCrashStatus: () => client.get('/crash/status').then(r => r.data),
+  scanCrash: (symbols, force=false) => client.get(`/crash/scan${symbols ? `?symbols=${symbols}` : ''}${force ? (symbols ? '&force=true' : '?force=true') : ''}`).then(r => r.data),
+  getCrashHistory: (limit=50) => client.get(`/crash/history?limit=${limit}`).then(r => r.data),
+  getCrashAlerts: (limit=20) => client.get(`/crash/alerts?limit=${limit}`).then(r => r.data),
+  getCrashSignals: () => client.get('/crash/signals').then(r => r.data),
+  getCrashRaw: (symbols) => client.get(`/crash/raw${symbols ? `?symbols=${symbols}` : ''}`).then(r => r.data),
   // Alerts
   getAlerts: () => client.get('/alerts').then(r => r.data),
   createAlert: (payload) => client.post('/alerts/create', payload).then(r => r.data),
