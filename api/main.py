@@ -1258,6 +1258,89 @@ def market_orderbook(symbol: str = Query("BTC-USD"), limit: int = Query(20, ge=5
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# === COINDCX MARKET DATA - REAL INR ===
+
+@app.get("/market/coindcx/tickers")
+def coindcx_tickers():
+    """Real CoinDCX INR tickers - actual money markets"""
+    try:
+        from crypto_prediction.data.coindcx_fetcher import get_coindcx_tickers_cached
+        tickers = get_coindcx_tickers_cached()
+        return {
+            "tickers": tickers,
+            "count": len(tickers),
+            "source": "CoinDCX Live INR - Real Money",
+            "broker": "coindcx",
+            "real_trading": True,
+            "markets": list(tickers.keys())[:20],
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/market/coindcx/price")
+def coindcx_price(symbol: str = Query("BTC-USD")):
+    """Get CoinDCX live price for symbol - real INR"""
+    try:
+        from crypto_prediction.data.coindcx_fetcher import CoinDCXRealtimeFetcher
+        fetcher = CoinDCXRealtimeFetcher(symbol=symbol)
+        price = fetcher.get_current_price()
+        ticker = fetcher.fetch_ticker_rest(symbol)
+        return {
+            "symbol": symbol,
+            "coindcx_market": fetcher._map_symbol(symbol),
+            "price": price,
+            "price_inr": price,
+            "price_usd_approx": price / 83.5 if price else 0,
+            "ticker": ticker,
+            "source": "CoinDCX Live INR",
+            "real_data": True,
+            "broker": "coindcx"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/market/coindcx/orderbook")
+def coindcx_orderbook(symbol: str = Query("BTC-USD"), limit: int = Query(20, ge=5, le=100)):
+    """CoinDCX orderbook - real INR depth"""
+    try:
+        from crypto_prediction.data.coindcx_fetcher import CoinDCXRealtimeFetcher
+        fetcher = CoinDCXRealtimeFetcher(symbol=symbol)
+        ob = fetcher.get_orderbook(symbol, limit=limit)
+        if not ob:
+            raise HTTPException(status_code=404, detail=f"Orderbook not found for {symbol}")
+        return {
+            "symbol": symbol,
+            "market": ob.get("market", symbol),
+            "bids": ob.get("bids", [])[:limit],
+            "asks": ob.get("asks", [])[:limit],
+            "source": ob.get("source", "CoinDCX"),
+            "real_data": True,
+            "broker": "coindcx",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/market/all")
+def market_all():
+    """All market data - Binance USD + CoinDCX INR unified"""
+    try:
+        from crypto_prediction.data.price_helper import get_tickers_all
+        tickers = get_tickers_all()
+        return {
+            "tickers": tickers,
+            "count": len(tickers),
+            "sources": ["CoinDCX INR", "Binance USD"],
+            "real_data": True,
+            "integrated": True,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/history")
 def get_history(symbol: str = Query("BTC-USD"), period: str = Query("1y"), interval: str = Query("1d")):
     try:
@@ -1517,7 +1600,7 @@ def crash_signals():
 
 @app.get("/crash/raw")
 def crash_raw(symbols: Optional[str] = Query(None)):
-    """Raw scraped data for debugging - shows all sources"""
+    """Raw scraped data for debugging - shows all sources including CoinDCX INR"""
     try:
         from crypto_prediction.crash_detector.scraper import get_scraper
         scraper=get_scraper()
@@ -1529,6 +1612,7 @@ def crash_raw(symbols: Optional[str] = Query(None)):
             "timestamp": data.timestamp,
             "fetch_time_ms": data.fetch_time_ms,
             "spot_tickers_count": len(data.spot_tickers),
+            "coindcx_tickers_count": len(getattr(data, 'coindcx_tickers', {})),
             "futures_count": len(data.futures_tickers),
             "funding_count": len(data.funding_rates),
             "orderbooks": list(data.orderbooks.keys()),
@@ -1539,8 +1623,31 @@ def crash_raw(symbols: Optional[str] = Query(None)):
             "news_count": len(data.news_titles),
             "news_crash": [n for n in data.news_titles if n.get("is_crash")][:5],
             "btc": data.spot_tickers.get("BTCUSDT",{}),
+            "coindcx_btc": getattr(data, 'coindcx_tickers', {}).get("BTCUSDT",{}),
             "local_processing": True,
-            "efficient": True
+            "efficient": True,
+            "price_source": "Binance USD + CoinDCX INR primary fallback"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/crash/coindcx")
+def crash_coindcx():
+    """Crash detector with CoinDCX INR primary"""
+    try:
+        from crypto_prediction.data.coindcx_fetcher import get_coindcx_tickers_cached
+        coindcx = get_coindcx_tickers_cached()
+        crash_data = crash_manager.get_status()
+        # Merge
+        return {
+            "timestamp": datetime.utcnow().isoformat(),
+            "coindcx_tickers": coindcx,
+            "coindcx_count": len(coindcx),
+            "crash_risk": crash_data.get("crash_risk", {}),
+            "signals": crash_data.get("signals", []),
+            "source": "CoinDCX INR primary + Binance fallback",
+            "real_data": True,
+            "integrated": True
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

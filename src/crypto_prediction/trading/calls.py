@@ -54,6 +54,14 @@ class TradingCallGenerator:
         self.engineer = FeatureEngineer()
 
     def _get_binance_price(self, symbol: str) -> Optional[float]:
+        # Now uses unified price helper with CoinDCX INR primary
+        try:
+            from ..data.price_helper import get_live_price as unified_price
+            price = unified_price(symbol)
+            if price and price > 0 and price < 100_000_000:
+                return float(price)
+        except Exception as e:
+            logger.debug(f"Unified price failed {symbol}: {e}")
         try:
             from ..data.realtime import BinanceRealtimeFetcher
             f = BinanceRealtimeFetcher(symbol=symbol)
@@ -66,6 +74,10 @@ class TradingCallGenerator:
         except Exception as e:
             logger.warning(f"Binance price fallback failed for {symbol}: {e}")
         return None
+
+    def _get_live_price(self, symbol: str) -> Optional[float]:
+        """Unified live price - CoinDCX INR primary, Binance fallback"""
+        return self._get_binance_price(symbol)
 
     def _get_technical_indicators(self, df: pd.DataFrame) -> Dict:
         if df.empty:
@@ -215,9 +227,25 @@ class TradingCallGenerator:
 
             signal = signal_data.get('signal', 'HOLD')
             confidence = signal_data.get('confidence', 50)
-            current_price = signal_data.get('current_price') or forecast.get('current_price') or float(df['Close'].iloc[-1])
+            # Try live price first - CoinDCX INR primary
+            live_price = self._get_live_price(symbol)
+            if live_price and live_price > 0:
+                # If symbol is USD but live is INR (large), keep consistent?
+                # For USD symbols, live from Binance is USD; for INR symbols, live is INR
+                # Use live directly
+                current_price = live_price
+            else:
+                current_price = signal_data.get('current_price') or forecast.get('current_price') or float(df['Close'].iloc[-1])
             predicted_price = signal_data.get('predicted_price') or current_price
-            change_pct = signal_data.get('change_pct', 0)
+            # Recalc change pct if we overrode with live
+            if live_price and live_price > 0 and signal_data.get('predicted_price'):
+                try:
+                    pred = float(signal_data.get('predicted_price'))
+                    change_pct = (pred - live_price) / live_price * 100 if live_price else signal_data.get('change_pct',0)
+                except Exception:
+                    change_pct = signal_data.get('change_pct', 0)
+            else:
+                change_pct = signal_data.get('change_pct', 0)
             model_versions = forecast.get('model_versions', {}) or signal_data.get('model_versions', {})
 
             if signal in ["STRONG_BUY", "BUY"]:

@@ -33,6 +33,16 @@ class RiskConfig:
             self.kelly_fraction = 0.5
 
 class InstitutionalRiskModel:
+    def get_live_price(self, symbol: str) -> float:
+        try:
+            from ..data.price_helper import get_live_price as unified_price
+            price = unified_price(symbol)
+            if price and price > 0:
+                return float(price)
+            return 0
+        except Exception:
+            return 0
+
     def __init__(self, cfg: RiskConfig = None):
         self.config = cfg or RiskConfig()
 
@@ -217,7 +227,7 @@ class InstitutionalRiskModel:
 
             # Get current price for proper sizing
             try:
-                from ..data.realtime import BinanceRealtimeFetcher
+                from ..data.price_helper import get_live_price as unified_price
                 fetcher = BinanceRealtimeFetcher(symbol=symbol)
                 current_price = fetcher.get_current_price()
                 if not current_price or current_price <= 0:

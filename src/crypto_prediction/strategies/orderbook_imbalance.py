@@ -1,6 +1,5 @@
 """
-Institutional Order Book Imbalance & OFI
-Fixed: error handling, OFI logic, validation, NaN handling
+Institutional Order Book Imbalance & OFI - Fixed with CoinDCX INR support
 """
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional
@@ -47,25 +46,59 @@ class OrderBookImbalanceBot:
         self.prev_bids = None
         self.prev_asks = None
         self.signals_history = []
-        self.created_at = datetime.utcnow().isoformat()
         self._last_mid = 0.0
+        self.created_at = datetime.utcnow().isoformat()
+
+    def get_live_price(self, symbol: str) -> float:
+        try:
+            from ..data.price_helper import get_live_price as unified_price
+            price = unified_price(symbol)
+            if price and 0 < price < 100_000_000:
+                return float(price)
+            return 0
+        except Exception as e:
+            logger.debug(f"Unified price failed {symbol}: {e}")
+            return 0
 
     def fetch_orderbook(self, symbol: str) -> Optional[Dict]:
         try:
+            from ..data.price_helper import get_orderbook as unified_ob
+            ob = unified_ob(symbol, limit=max(20, self.config.depth*2))
+            if ob and ob.get('bids') and ob.get('asks'):
+                return ob
+        except Exception as e:
+            logger.debug(f"Unified orderbook failed {symbol}: {e}")
+
+        # Fallback Binance direct
+        try:
             import requests
-            binance_sym = config.data.binance_map.get(symbol, symbol.replace('-','').replace('/',''))
+            binance_sym = config.data.binance_map.get(symbol.upper(), symbol.replace('-','').replace('/','').replace('INR','USDT'))
+            if "INR" in symbol.upper():
+                base = symbol.upper().replace("INR","")
+                binance_sym = config.data.binance_map.get(f"{base}-USD", f"{base}USDT")
             resp = requests.get("https://api.binance.com/api/v3/depth", params={"symbol": binance_sym, "limit": max(20, self.config.depth*2)}, timeout=3)
             if resp.status_code == 200:
                 data = resp.json()
-                # Validate
                 if 'bids' in data and 'asks' in data:
+                    # If INR symbol, convert
+                    if "INR" in symbol.upper():
+                        inr_rate=83.5
+                        bids=[]
+                        asks=[]
+                        for p,q in data.get('bids',[]):
+                            try:
+                                bids.append([float(p)*inr_rate, float(q)])
+                            except (ValueError, TypeError):
+                                continue
+                        for p,q in data.get('asks',[]):
+                            try:
+                                asks.append([float(p)*inr_rate, float(q)])
+                            except (ValueError, TypeError):
+                                continue
+                        return {"bids": bids, "asks": asks}
                     return data
-            else:
-                logger.debug(f"Orderbook HTTP {resp.status_code} for {symbol}")
-        except requests.RequestException as e:
-            logger.debug(f"Orderbook fetch failed {symbol}: {e}")
         except Exception as e:
-            logger.debug(f"Orderbook unexpected error {symbol}: {e}")
+            logger.debug(f"Orderbook fetch failed {symbol}: {e}")
         return None
 
     def calculate_imbalance(self, orderbook) -> tuple:
@@ -90,7 +123,6 @@ class OrderBookImbalanceBot:
             total = bid_vol + ask_vol
             imbalance = (bid_vol - ask_vol) / total if total > 0 else 0.0
 
-            # Weighted by distance
             weighted_bid = 0.0
             weighted_ask = 0.0
             for i, b in enumerate(bids):
@@ -106,7 +138,6 @@ class OrderBookImbalanceBot:
             weighted_total = weighted_bid + weighted_ask
             weighted_imb = (weighted_bid - weighted_ask) / weighted_total if weighted_total > 0 else 0.0
 
-            # Bound
             imbalance = max(-1.0, min(1.0, imbalance))
             weighted_imb = max(-1.0, min(1.0, weighted_imb))
 
@@ -157,7 +188,6 @@ class OrderBookImbalanceBot:
             self.prev_bids = curr_bids
             self.prev_asks = curr_asks
 
-            # Normalize with tanh to [-1,1]
             try:
                 normalized = float(np.tanh(ofi / 10.0))
                 if not np.isfinite(normalized):
@@ -210,10 +240,9 @@ class OrderBookImbalanceBot:
                     mid = (bid_price + ask_price) / 2
                     self._last_mid = mid
             except Exception:
-                mid = self._last_mid
+                mid = self._last_mid or self.get_live_price(self.config.symbol)
 
             combined = (imbalance + weighted_imb + ofi) / 3.0
-            # Bound combined
             combined = max(-1.0, min(1.0, combined))
 
             signal = "HOLD"
@@ -260,8 +289,9 @@ class OrderBookImbalanceBot:
             "latest_signal": latest,
             "signals_history": self.signals_history[-20:],
             "type": "orderbook_imbalance",
-            "strategy": "Institutional Order Book Imbalance + OFI",
+            "strategy": "Institutional Order Book Imbalance + OFI - CoinDCX INR + Binance",
             "real_trading": True,
             "institutional": True,
+            "price_source": "CoinDCX INR primary, Binance fallback",
             "created_at": self.created_at
         }

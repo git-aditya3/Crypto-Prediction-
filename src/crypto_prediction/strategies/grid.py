@@ -42,15 +42,19 @@ class GridBot:
     
     def get_live_price(self, symbol: str) -> float:
         try:
-            fetcher = BinanceRealtimeFetcher(symbol=symbol)
-            price = fetcher.get_current_price()
-            if price and price > 0 and price < 10_000_000:
+            from ..data.price_helper import get_live_price as unified_price
+            price = unified_price(symbol)
+            if price and price > 0 and price < 100_000_000:
                 return float(price)
             return 0
         except Exception as e:
-            logger.debug(f"Grid live price failed {symbol}: {e}")
+            try:
+                from ..utils.logger import get_logger
+                get_logger(__name__).debug(f"Unified price failed {symbol}: {e}")
+            except Exception:
+                pass
             return 0
-    
+
     def generate_grid(self):
         """Generate grid levels for real trading"""
         lower = self.config.lower_price

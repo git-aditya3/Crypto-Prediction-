@@ -63,6 +63,22 @@ class TWAPVWAPExecutor:
         self.avg_executed_price = 0.0
         self.start_time = datetime.utcnow()
         self.created_at = datetime.utcnow().isoformat()
+
+    def get_live_price(self, symbol: str) -> float:
+        try:
+            from ..data.price_helper import get_live_price as unified_price
+            price = unified_price(symbol)
+            if price and price > 0 and price < 100_000_000:
+                return float(price)
+            return 0
+        except Exception as e:
+            try:
+                from ..utils.logger import get_logger
+                get_logger(__name__).debug(f"Unified price failed {symbol}: {e}")
+            except Exception:
+                pass
+            return 0
+
         self._last_price = 0.0
         self._generate_slices()
 

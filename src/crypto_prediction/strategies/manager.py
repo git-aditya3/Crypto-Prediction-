@@ -1,5 +1,5 @@
 """
-Strategy Manager - Fixed: error handling, validation, thread safety
+Strategy Manager - Fixed with CoinDCX INR support, error handling, thread safety
 """
 from typing import Dict, List
 import threading
@@ -30,14 +30,46 @@ class StrategyManager:
         self.funding_bots: Dict[str, FundingArbBot] = {}
         self.risk_model = InstitutionalRiskModel()
         self._lock = threading.Lock()
+        # CoinDCX INR mapping
+        self.coindcx_map = {
+            "BTC-USD": "BTCINR",
+            "ETH-USD": "ETHINR",
+            "BNB-USD": "BNBINR",
+            "SOL-USD": "SOLINR",
+            "XRP-USD": "XRPINR",
+            "ADA-USD": "ADAINR",
+            "DOGE-USD": "DOGEINR",
+            "AVAX-USD": "AVAXINR",
+            "MATIC-USD": "MATICINR",
+            "DOT-USD": "DOTINR",
+        }
 
     def _validate_symbol(self, symbol: str) -> str:
         if not symbol or not isinstance(symbol, str):
             raise ValueError("symbol must be non-empty string")
         symbol = symbol.strip().upper()
+        # Normalize: allow BTCINR, BTC-USD, BTC/USD, BTCUSDT, BTC
         if len(symbol) < 3 or len(symbol) > 20:
             raise ValueError(f"Invalid symbol length: {symbol}")
+        # Map common formats to our standard
+        # If BTCINR, keep as is for CoinDCX
+        # If BTCUSDT, convert to BTC-USD
+        if symbol.endswith("USDT") and "INR" not in symbol:
+            base = symbol.replace("USDT","")
+            if len(base) >= 2:
+                return f"{base}-USD"
+        if "/" in symbol:
+            symbol = symbol.replace("/","-")
+        # If already INR, keep
+        if "INR" in symbol:
+            # Ensure format BTCINR not BTC-INR? Keep both allowed
+            return symbol.replace("-","")
         return symbol
+
+    def _get_price_source(self, symbol: str) -> str:
+        if "INR" in symbol.upper():
+            return "CoinDCX INR primary"
+        return "CoinDCX INR + Binance USD fallback"
 
     def create_dca_bot(self, symbol: str, total_investment: float, num_orders: int = 5, 
                       price_deviation_pct: float = 1.0, take_profit_pct: float = 5.0, stop_loss_pct: float = 3.0) -> Dict:
@@ -46,6 +78,13 @@ class StrategyManager:
             raise ValueError("total_investment must be >0")
         if num_orders <= 0 or num_orders > 50:
             raise ValueError("num_orders must be 1-50")
+        if price_deviation_pct <= 0 or price_deviation_pct > 20:
+            price_deviation_pct = 1.0
+        if take_profit_pct <= 0 or take_profit_pct > 100:
+            take_profit_pct = 5.0
+        if stop_loss_pct <= 0 or stop_loss_pct > 50:
+            stop_loss_pct = 3.0
+
         cfg = DCABotConfig(
             symbol=symbol,
             total_investment=total_investment,
@@ -57,10 +96,21 @@ class StrategyManager:
         bot = DCABot(cfg)
         with self._lock:
             self.dca_bots[symbol] = bot
-        return bot.to_dict()
+        result = bot.to_dict()
+        result["price_source"] = self._get_price_source(symbol)
+        result["coindcx_support"] = True
+        return result
 
     def create_grid_bot(self, symbol: str, lower_price: float, upper_price: float, num_grids: int = 10, total_investment: float = 1000) -> Dict:
         symbol = self._validate_symbol(symbol)
+        try:
+            lower_price = float(lower_price)
+            upper_price = float(upper_price)
+            num_grids = int(num_grids)
+            total_investment = float(total_investment)
+        except (ValueError, TypeError):
+            raise ValueError("Invalid numeric parameters")
+
         if lower_price <= 0 or upper_price <= 0:
             raise ValueError("Prices must be >0")
         if lower_price >= upper_price:
@@ -69,6 +119,13 @@ class StrategyManager:
             raise ValueError("num_grids must be 2-100")
         if total_investment <= 0:
             raise ValueError("total_investment must be >0")
+
+        # Auto-detect if INR and adjust if prices seem USD but symbol is INR
+        if "INR" in symbol.upper() and lower_price < 1000 and symbol.upper().startswith("BTC"):
+            # Likely USD prices given for INR symbol, convert
+            lower_price = lower_price * 83.5
+            upper_price = upper_price * 83.5
+
         cfg = GridBotConfig(
             symbol=symbol,
             lower_price=lower_price,
@@ -79,12 +136,26 @@ class StrategyManager:
         bot = GridBot(cfg)
         with self._lock:
             self.grid_bots[symbol] = bot
-        return bot.to_dict()
+        result = bot.to_dict()
+        result["price_source"] = self._get_price_source(symbol)
+        result["coindcx_support"] = True
+        return result
 
     def create_mm_bot(self, symbol: str, total_investment: float = 10000, spread_bps: float = 20, max_inventory: float = 1.0) -> Dict:
         symbol = self._validate_symbol(symbol)
+        try:
+            total_investment = float(total_investment)
+            spread_bps = float(spread_bps)
+            max_inventory = float(max_inventory)
+        except (ValueError, TypeError):
+            raise ValueError("Invalid numeric parameters")
         if total_investment <= 0:
             raise ValueError("total_investment must be >0")
+        if spread_bps <= 0 or spread_bps > 1000:
+            spread_bps = 20
+        if max_inventory <= 0:
+            max_inventory = 1.0
+
         cfg = MarketMakingConfig(symbol=symbol, total_investment=total_investment, spread_bps=spread_bps, max_inventory=max_inventory)
         bot = MarketMakingBot(cfg)
         with self._lock:
@@ -93,7 +164,10 @@ class StrategyManager:
             bot.generate_quotes()
         except Exception as e:
             logger.warning(f"MM initial quote failed {symbol}: {e}")
-        return bot.to_dict()
+        result = bot.to_dict()
+        result["price_source"] = self._get_price_source(symbol)
+        result["coindcx_support"] = True
+        return result
 
     def get_mm_quote(self, symbol: str) -> Dict:
         symbol = self._validate_symbol(symbol)
@@ -107,27 +181,45 @@ class StrategyManager:
         try:
             quote = bot.generate_quotes()
             from dataclasses import asdict
-            return asdict(quote)
+            result = asdict(quote)
+            result["price_source"] = self._get_price_source(symbol)
+            result["coindcx_support"] = True
+            return result
         except Exception as e:
             logger.warning(f"MM quote failed {symbol}: {e}")
-            return {"error": str(e), "symbol": symbol, "signal": "NO_DATA"}
+            return {"error": str(e), "symbol": symbol, "signal": "NO_DATA", "price_source": self._get_price_source(symbol)}
 
     def create_execution_bot(self, symbol: str, side: str, total_quantity: float, strategy: str = "TWAP", duration_minutes: int = 60, num_slices: int = 12) -> Dict:
         symbol = self._validate_symbol(symbol)
         if total_quantity <= 0:
             raise ValueError("total_quantity must be >0")
+        try:
+            total_quantity = float(total_quantity)
+            duration_minutes = int(duration_minutes)
+            num_slices = int(num_slices)
+        except (ValueError, TypeError):
+            raise ValueError("Invalid numeric parameters")
+        side = side.upper()
+        if side not in ["BUY","SELL"]:
+            raise ValueError("side must be BUY or SELL")
         cfg = ExecutionConfig(symbol=symbol, side=side, total_quantity=total_quantity, strategy=strategy, duration_minutes=duration_minutes, num_slices=num_slices)
         bot = TWAPVWAPExecutor(cfg)
         key = f"{symbol}_{strategy.upper()}_{side.upper()}"
         with self._lock:
             self.execution_bots[key] = bot
-        return bot.to_dict()
+        result = bot.to_dict()
+        result["price_source"] = self._get_price_source(symbol)
+        return result
 
     def create_stat_arb_bot(self, symbol_a: str, symbol_b: str, entry_z: float = 2.0) -> Dict:
         symbol_a = self._validate_symbol(symbol_a)
         symbol_b = self._validate_symbol(symbol_b)
         if symbol_a == symbol_b:
             raise ValueError("Symbols must be different")
+        try:
+            entry_z = float(entry_z)
+        except (ValueError, TypeError):
+            entry_z = 2.0
         cfg = StatArbConfig(symbol_a=symbol_a, symbol_b=symbol_b, entry_z=entry_z)
         bot = StatArbBot(cfg)
         key = f"{symbol_a}_{symbol_b}"
@@ -137,7 +229,9 @@ class StrategyManager:
             bot.generate_signal()
         except Exception as e:
             logger.warning(f"StatArb initial signal failed {key}: {e}")
-        return bot.to_dict()
+        result = bot.to_dict()
+        result["price_source"] = "CoinDCX INR + Binance"
+        return result
 
     def get_stat_arb_signal(self, symbol_a: str, symbol_b: str) -> Dict:
         symbol_a = self._validate_symbol(symbol_a)
@@ -156,7 +250,9 @@ class StrategyManager:
         try:
             sig = bot.generate_signal()
             from dataclasses import asdict
-            return asdict(sig)
+            result = asdict(sig)
+            result["price_source"] = "CoinDCX INR + Binance"
+            return result
         except Exception as e:
             logger.warning(f"StatArb signal failed {key}: {e}")
             return {"error": str(e), "pair": f"{symbol_a}/{symbol_b}", "signal": "ERROR"}
@@ -171,7 +267,9 @@ class StrategyManager:
             bot.generate_signal()
         except Exception as e:
             logger.warning(f"OFI initial signal failed {symbol}: {e}")
-        return bot.to_dict()
+        result = bot.to_dict()
+        result["price_source"] = self._get_price_source(symbol)
+        return result
 
     def get_ofi_signal(self, symbol: str) -> Dict:
         symbol = self._validate_symbol(symbol)
@@ -185,7 +283,9 @@ class StrategyManager:
         try:
             sig = bot.generate_signal()
             from dataclasses import asdict
-            return asdict(sig)
+            result = asdict(sig)
+            result["price_source"] = self._get_price_source(symbol)
+            return result
         except Exception as e:
             logger.warning(f"OFI signal failed {symbol}: {e}")
             return {"error": str(e), "symbol": symbol, "signal": "ERROR"}
@@ -200,7 +300,9 @@ class StrategyManager:
             bot.generate_signal()
         except Exception as e:
             logger.warning(f"Funding initial signal failed {symbol}: {e}")
-        return bot.to_dict()
+        result = bot.to_dict()
+        result["price_source"] = self._get_price_source(symbol)
+        return result
 
     def get_funding_signal(self, symbol: str) -> Dict:
         symbol = self._validate_symbol(symbol)
@@ -214,7 +316,9 @@ class StrategyManager:
         try:
             sig = bot.generate_signal()
             from dataclasses import asdict
-            return asdict(sig)
+            result = asdict(sig)
+            result["price_source"] = self._get_price_source(symbol)
+            return result
         except Exception as e:
             logger.warning(f"Funding signal failed {symbol}: {e}")
             return {"error": str(e), "symbol": symbol, "signal": "ERROR"}
@@ -223,7 +327,9 @@ class StrategyManager:
         symbol = self._validate_symbol(symbol)
         if account_balance <= 0:
             raise ValueError("account_balance must be >0")
-        return self.risk_model.position_size(symbol, account_balance, win_rate, win_loss_ratio)
+        result = self.risk_model.position_size(symbol, account_balance, win_rate, win_loss_ratio)
+        result["price_source"] = self._get_price_source(symbol)
+        return result
 
     def get_portfolio_risk(self, symbols: List[str] = None) -> Dict:
         if symbols:
@@ -235,7 +341,10 @@ class StrategyManager:
                     continue
             symbols = validated[:10]
         symbols = symbols or config.data.supported_symbols[:5]
-        return self.risk_model.portfolio_risk(symbols)
+        result = self.risk_model.portfolio_risk(symbols)
+        result["price_source"] = "CoinDCX INR + Binance"
+        result["coindcx_support"] = True
+        return result
 
     def get_all_bots(self) -> Dict:
         with self._lock:
@@ -257,14 +366,21 @@ class StrategyManager:
             "funding_bots": funding,
             "count": count,
             "real_trading": True,
-            "institutional": True
+            "institutional": True,
+            "price_source": "CoinDCX INR primary, Binance fallback",
+            "coindcx_support": True,
+            "inr_pairs": list(self.coindcx_map.values())
         }
 
     def scan_breakouts(self, symbols: List[str] = None) -> List[Dict]:
         try:
             if symbols:
                 symbols = [self._validate_symbol(s) for s in symbols]
-            return self.breakout_bot.scan_all(symbols)
+            results = self.breakout_bot.scan_all(symbols)
+            # Add price source info
+            for r in results:
+                r["price_source"] = self._get_price_source(r.get("symbol",""))
+            return results
         except Exception as e:
             logger.warning(f"Breakout scan failed: {e}")
             return []
@@ -308,6 +424,9 @@ class StrategyManager:
             except Exception as e:
                 logger.debug(f"Institutional stat arb scan failed {a}/{b}: {e}")
                 results["stat_arb"].append({"pair": f"{a}/{b}", "signal": "ERROR", "error": str(e)})
+
+        results["price_source"] = "CoinDCX INR primary, Binance fallback"
+        results["coindcx_support"] = True
         return results
 
 _strategy_manager = None

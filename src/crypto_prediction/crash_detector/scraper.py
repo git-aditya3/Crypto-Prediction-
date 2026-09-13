@@ -104,6 +104,7 @@ class ScrapedData:
     fear_greed: Dict
     reddit_posts: List
     news_titles: List
+    coindcx_tickers: Dict
     fetch_time_ms: float
     errors: List[str]
     data_quality: float  # 0-1, how much data we got
@@ -358,6 +359,47 @@ class FastScraper:
         except Exception:
             return []
 
+    def fetch_coindcx_tickers(self) -> Dict:
+        """Real CoinDCX INR tickers - actual money markets"""
+        try:
+            from ..data.coindcx_fetcher import CoinDCXRealtimeFetcher
+            fetcher = CoinDCXRealtimeFetcher(symbol="BTC-USD")
+            tickers = fetcher.get_tickers_all()
+            # Convert INR tickers to USD-like format for crash detection (convert back to USD for uniform scoring)
+            # But keep INR for raw display
+            converted={}
+            for market, data in tickers.items():
+                try:
+                    price_inr = float(data.get("price",0) or 0)
+                    if price_inr <=0:
+                        continue
+                    # Convert INR to USD for crash detection uniformity
+                    price_usd = price_inr / 83.5
+                    # Map INR market to USDT symbol for compatibility
+                    # BTCINR -> BTCUSDT
+                    base = market.replace("INR","")
+                    usdt_sym = f"{base}USDT"
+                    converted[usdt_sym] = {
+                        "symbol": usdt_sym,
+                        "price": price_usd,
+                        "price_inr": price_inr,
+                        "change_pct": float(data.get("change",0) or 0) / price_inr * 100 if price_inr else 0,
+                        "change": float(data.get("change",0) or 0),
+                        "high": float(data.get("high",0) or 0) / 83.5,
+                        "low": float(data.get("low",0) or 0) / 83.5,
+                        "volume": float(data.get("volume",0) or 0),
+                        "quote_vol": float(data.get("volume",0) or 0) * price_usd,
+                        "count": 100,
+                        "source": "CoinDCX INR converted",
+                        "market": market
+                    }
+                except (ValueError, TypeError):
+                    continue
+            return converted
+        except Exception as e:
+            # Debug but not error
+            return {}
+
     def fetch_news(self) -> List:
         xml = fetch_text(COINDESK_RSS, timeout=4, retries=1)
         titles=[]
@@ -401,6 +443,7 @@ class FastScraper:
                 ex.submit(self.fetch_fear_greed): "fng",
                 ex.submit(self.fetch_reddit): "reddit",
                 ex.submit(self.fetch_news): "news",
+                ex.submit(self.fetch_coindcx_tickers): "coindcx",  # Real CoinDCX INR data
             }
             for sym in symbols[:5]:
                 futures[ex.submit(self.fetch_orderbook, sym, 20)] = f"ob_{sym}"
@@ -424,6 +467,18 @@ class FastScraper:
         reddit = results.get("reddit") or []
         news = results.get("news") or []
         oi = results.get("oi") or {}
+        coindcx = results.get("coindcx") or {}
+
+        # Integrate CoinDCX tickers with Binance - CoinDCX is fallback when Binance fails, or additional source
+        # If Binance spot empty but CoinDCX has data, use CoinDCX
+        if not spot and coindcx:
+            spot = coindcx
+            errors.append("Binance spot failed, using CoinDCX INR converted")
+        elif coindcx:
+            # Merge: add CoinDCX tickers that are not in Binance
+            for k,v in coindcx.items():
+                if k not in spot:
+                    spot[k] = v
 
         orderbooks={}
         trades={}
@@ -441,8 +496,8 @@ class FastScraper:
 
         elapsed=(time.time()-start)*1000
 
-        # Data quality: how many sources succeeded
-        total_sources = 6 + len(symbols[:5])*3 + 1
+        # Data quality: how many sources succeeded - now includes CoinDCX
+        total_sources = 7 + len(symbols[:5])*3 + 1
         success_sources = sum(1 for k,v in results.items() if v not in [None, {}, []])
         quality = success_sources / total_sources if total_sources else 0
         quality = max(0.0, min(1.0, quality))
@@ -459,6 +514,7 @@ class FastScraper:
             fear_greed=fng,
             reddit_posts=reddit,
             news_titles=news,
+            coindcx_tickers=coindcx,
             fetch_time_ms=elapsed,
             errors=errors,
             data_quality=quality

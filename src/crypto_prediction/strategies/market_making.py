@@ -60,36 +60,40 @@ class MarketMakingBot:
         self.cash = cfg.total_investment
         self.trades = []
         self.quotes_history = []
-        self.created_at = datetime.utcnow().isoformat()
         self._last_price = 0.0
+        self.created_at = datetime.utcnow().isoformat()
+
+    def get_live_price(self, symbol: str) -> float:
+        try:
+            from ..data.price_helper import get_live_price as unified_price
+            price = unified_price(symbol)
+            if price and price > 0 and price < 100_000_000:
+                return float(price)
+            return 0
+        except Exception as e:
+            try:
+                from ..utils.logger import get_logger
+                get_logger(__name__).debug(f"Unified price failed {symbol}: {e}")
+            except Exception:
+                pass
+            return 0
 
     def get_market_data(self, symbol: str):
         try:
-            fetcher = BinanceRealtimeFetcher(symbol=symbol)
-            price = fetcher.get_current_price()
+            from ..data.price_helper import get_live_price as unified_price, get_orderbook as unified_ob
+            price = unified_price(symbol)
             if price and price > 0:
                 self._last_price = price
             else:
                 price = self._last_price or 0
 
             orderbook = None
-            if hasattr(fetcher, 'get_orderbook'):
-                try:
-                    orderbook = fetcher.get_orderbook(limit=20)
-                except Exception:
-                    orderbook = None
+            try:
+                orderbook = unified_ob(symbol, limit=20)
+            except Exception:
+                orderbook = None
 
-            if not orderbook:
-                import requests
-                binance_sym = config.data.binance_map.get(symbol, symbol.replace('-','').replace('/',''))
-                try:
-                    resp = requests.get("https://api.binance.com/api/v3/depth", params={"symbol": binance_sym, "limit": 20}, timeout=3)
-                    if resp.status_code == 200:
-                        orderbook = resp.json()
-                except requests.RequestException as e:
-                    logger.debug(f"MM orderbook REST failed {symbol}: {e}")
-
-            # Fallback price from historical if live fails
+            # Fallback historical
             if not price or price == 0:
                 try:
                     from ..data.fetcher import CryptoDataFetcher
@@ -97,6 +101,8 @@ class MarketMakingBot:
                     df = f.load_or_fetch(symbol=symbol)
                     if not df.empty:
                         price = float(df['Close'].iloc[-1])
+                        if "INR" in symbol.upper():
+                            price = price * 83.5
                         self._last_price = price
                 except Exception:
                     pass
