@@ -452,21 +452,32 @@ class CryptoDataFetcher:
                     try:
                         df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
                         df = validate_ohlcv(df)
-                        logger.info(f"Falling back to cached data v6 {cache_path} with {len(df)} rows after fetch failures")
+                        logger.warning(f"Using STALE cached data v6 {cache_path} ({len(df)} rows) after all live fetches failed")
                         with self._cache_lock:
                             self._cache[safe_sym] = df.copy()
                         return df
                     except Exception as e_cache:
                         logger.error(f"Cache fallback also failed: {e_cache}")
-                        raise e_cache
-                else:
+                # Last resort: deterministic synthetic series so the platform
+                # works fully offline (never cached, so live data always wins).
+                try:
+                    from .synthetic import generate_ohlcv
+                    df = generate_ohlcv(symbol=sym, rows=1100)
+                    logger.warning(
+                        f"OFFLINE MODE: no live market data or cache available for {sym} - "
+                        f"using clearly-labelled synthetic series for demo/prediction. "
+                        f"Forecasts are illustrative until real data is fetched."
+                    )
+                    return df
+                except Exception as e_syn:
+                    logger.error(f"Synthetic fallback also failed for {sym}: {e_syn}")
                     raise e_cg
 
     def get_metrics(self) -> Dict:
         return dict(self._fetch_metrics)
 
     def get_latest_price(self, symbol: str = None) -> Optional[float]:
-        """v6: unified latest price with fallback"""
+        """v6: unified latest price with fallback (live -> local cache -> None)"""
         sym = symbol or self.symbol
         # Try binance direct first
         try:
@@ -480,6 +491,16 @@ class CryptoDataFetcher:
             df = self.fetch_yfinance(symbol=sym, period="1d")
             if len(df) > 0:
                 return float(df['Close'].iloc[-1])
+        except Exception:
+            pass
+        # Offline: last close from local cache (never triggers a synthetic price)
+        try:
+            safe_sym = sym.replace('-','_').replace('/','_').replace(' ','_')
+            cache_path = config.project_root / "data" / "raw" / f"{safe_sym}_{self.interval}.csv"
+            if cache_path.exists():
+                df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
+                if len(df) > 0:
+                    return float(df['Close'].iloc[-1])
         except Exception:
             pass
         return None

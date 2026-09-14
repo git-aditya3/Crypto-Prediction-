@@ -6,13 +6,10 @@ function getApiBase() {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL
   }
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname
-    if (host.includes('e2b.app') || host.includes('arena')) {
-      return '/api'
-    }
-  }
-  return 'http://localhost:8000'
+  // Same-origin by default: the API server serves both the built app and
+  // the REST API (it strips the /api prefix; Vite's dev proxy does the same).
+  // Set VITE_API_URL to point at a different server if needed.
+  return '/api'
 }
 
 const API_BASE = getApiBase()

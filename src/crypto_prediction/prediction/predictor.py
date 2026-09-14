@@ -45,12 +45,42 @@ class CryptoPredictor:
         self.model_versions = {}
         self._load_artifacts()
 
+    def _ensemble_weights(self, model_names: List[str]) -> Dict[str, float]:
+        """Ensemble weights for the given loaded models.
+
+        Prefers inverse-MAPE weights from the most recent training report
+        (i.e. models that actually forecast well get more weight); falls
+        back to the static configured weights.
+        """
+        try:
+            safe = self.symbol.replace('-', '_').replace('/', '_')
+            report_path = config.project_root / "models" / f"{safe}_training_report_v6.json"
+            if report_path.exists():
+                import json as _json
+                with open(report_path) as f:
+                    data = _json.load(f)
+                metrics = data.get("metrics", {}) or {}
+                weights = {}
+                for name in model_names:
+                    mape = (metrics.get(name) or {}).get("mape")
+                    if mape is None or not np.isfinite(mape):
+                        continue
+                    weights[name] = 1.0 / (float(mape) + 0.5)
+                if weights:
+                    total = sum(weights.values())
+                    return {k: w / total for k, w in weights.items()}
+        except Exception:
+            pass
+        # Fallback: static config weights (missing entries -> small default)
+        static = config.model.ensemble_weights
+        return {k: static.get(k, 0.05) for k in model_names}
+
     def _load_artifacts(self):
         models_dir = config.project_root / "models"
         symbol_key = self.symbol.replace('-','_').replace('/','_')
 
         # Preprocessor - try v5, v4, v3, v2
-        for version in ["v5", "v4", "v3", ""]:
+        for version in ["v6", "v5", "v4", "v3", ""]:
             suffix = f"_{version}" if version else ""
             pre_path = models_dir / f"{symbol_key}_preprocessor{suffix}.joblib"
             if pre_path.exists():
@@ -65,7 +95,7 @@ class CryptoPredictor:
                     logger.warning(f"Failed to load preprocessor {version}: {e}")
 
         # LSTM - v5, v4, v3, v2
-        for version in ["v5", "v4", "v3", ""]:
+        for version in ["v6", "v5", "v4", "v3", ""]:
             suffix = f"_{version}" if version else ""
             lstm_path = models_dir / f"{symbol_key}_lstm{suffix}.pt"
             if lstm_path.exists() and self.preprocessor:
@@ -78,7 +108,7 @@ class CryptoPredictor:
                     logger.warning(f"Failed to load LSTM {version}: {e}")
 
         # Transformer
-        for version in ["v5", "v4", "v3", ""]:
+        for version in ["v6", "v5", "v4", "v3", ""]:
             suffix = f"_{version}" if version else ""
             trans_path = models_dir / f"{symbol_key}_transformer{suffix}.pt"
             if trans_path.exists() and self.preprocessor:
@@ -92,7 +122,7 @@ class CryptoPredictor:
 
         # GRU - v5, v4
         if HAS_GRU:
-            for version in ["v5", "v4", ""]:
+            for version in ["v6", "v5", "v4", ""]:
                 suffix = f"_{version}" if version else ""
                 gru_path = models_dir / f"{symbol_key}_gru{suffix}.pt"
                 if gru_path.exists() and self.preprocessor:
@@ -119,7 +149,7 @@ class CryptoPredictor:
                         logger.warning(f"Failed to load TCN {version}: {e}")
 
         # XGBoost
-        for version in ["v5", "v4", "v3", ""]:
+        for version in ["v6", "v5", "v4", "v3", ""]:
             suffix = f"_{version}" if version else ""
             xgb_path = models_dir / f"{symbol_key}_xgb{suffix}.joblib"
             if xgb_path.exists():
@@ -132,7 +162,7 @@ class CryptoPredictor:
                     logger.warning(f"Failed to load XGB {version}: {e}")
 
         # ARIMA
-        for version in ["v5", "v4", "v3", ""]:
+        for version in ["v6", "v5", "v4", "v3", ""]:
             suffix = f"_{version}" if version else ""
             arima_path = models_dir / f"{symbol_key}_arima{suffix}.joblib"
             if arima_path.exists():
@@ -177,13 +207,18 @@ class CryptoPredictor:
         else:
             raw = self.dataset.load(period=period, interval=interval)
             feat = self.dataset.engineer.engineer(raw)
-            try:
-                if config.features.use_sentiment:
+            # Only enrich with sentiment when the loaded model was actually
+            # trained on sentiment features - otherwise the fetch just adds
+            # latency (and fails offline) without being used.
+            saved_cols = set(self.preprocessor.feature_columns)
+            needs_sentiment = any('Sentiment' in c or c.startswith('sentiment') for c in saved_cols)
+            if config.features.use_sentiment and needs_sentiment:
+                try:
                     from ..features.sentiment import SentimentFeatureEngineer
                     senti_eng = SentimentFeatureEngineer()
                     feat = senti_eng.enrich_price_df(feat, symbol=self.symbol)
-            except Exception as e:
-                logger.warning(f"Sentiment enrich failed in predict: {e}")
+                except Exception as e:
+                    logger.warning(f"Sentiment enrich failed in predict: {e}")
 
             cleaned = self.preprocessor.prepare_features(feat, feature_cols=self.preprocessor.feature_columns)
             X = self.preprocessor.feature_scaler.transform(cleaned[self.preprocessor.feature_columns].values)
@@ -257,13 +292,7 @@ class CryptoPredictor:
                 logger.warning(f"ARIMA predict failed: {e}")
 
         if results:
-            # v5 weighting
-            if any(v in ["v5","v4"] for v in self.model_versions.values()):
-                weights = config.model.ensemble_weights  # v5 weights includes TCN
-            elif any(v == "v3" for v in self.model_versions.values()):
-                weights = {"lstm": 0.25, "transformer": 0.30, "xgboost": 0.20, "arima": 0.25}
-            else:
-                weights = config.model.ensemble_weights
+            weights = self._ensemble_weights([k for k in results.keys() if k != 'ensemble'])
             
             total_w = sum(weights.get(k,0) for k in results.keys())
             if total_w > 0:
@@ -343,12 +372,7 @@ class CryptoPredictor:
         if forecasts:
             min_len = min(len(v) for v in forecasts.values())
             aligned = {k: v[:min_len] for k, v in forecasts.items()}
-            if any(v in ["v5","v4"] for v in self.model_versions.values()):
-                weights = config.model.ensemble_weights
-            elif any(v == "v3" for v in self.model_versions.values()):
-                weights = {"lstm": 0.25, "transformer": 0.30, "xgboost": 0.20, "arima": 0.25}
-            else:
-                weights = config.model.ensemble_weights
+            weights = self._ensemble_weights(list(aligned.keys()))
             total_w = sum(weights.get(k,0) for k in aligned.keys())
             if total_w > 0:
                 ensemble = np.zeros(min_len)

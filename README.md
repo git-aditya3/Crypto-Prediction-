@@ -1,297 +1,214 @@
-# ₿ Crypto Prediction v2
+# ₿ Crypto Prediction
 
-**End-to-end cryptocurrency forecasting platform — now with Transformer, Sentiment, Realtime Binance, Backtesting, and React Frontend**
+**End-to-end cryptocurrency forecasting platform — pretrained ML ensemble, web dashboard, REST API, backtesting.**
 
-> Production-ready core: data ingestion, 50+ technical indicators, sentiment (News/Reddit/Twitter), LSTM + Transformer (TFT) + XGBoost + ARIMA ensemble, training pipeline, FastAPI service, Streamlit dashboard, and React frontend with TradingView lightweight-charts.
+One `pip install` + one command and everything runs: pretrained models ship in
+`models/`, the data layer falls back gracefully (live APIs → local cache →
+labelled synthetic series), and the web dashboard is prebuilt. No training
+step, no API keys, no extra commands.
+
+> ⚠️ **Disclaimer:** This is a research/education platform. Forecasts are
+> statistical estimates, not financial advice. Crypto markets are extremely
+> volatile — never trade real money on the basis of model output alone.
 
 ---
 
-## 🏗️ Architecture v2
+## 🚀 Quick start (Windows git bash / macOS / Linux)
+
+```bash
+git clone https://github.com/git-aditya3/Crypto-Prediction-
+cd Crypto-Prediction-
+
+./install.sh          # creates .venv and installs all dependencies
+./start.sh            # starts the web app + API on http://localhost:8000
+```
+
+Open **http://localhost:8000** — the React dashboard with live charts,
+forecasts, signals, backtests. (Windows without git bash: use `install.bat`
+and `start.bat` in cmd/PowerShell.)
+
+Everything is verified with the self-diagnostic:
+
+```bash
+python run.py check          # or: python run.py check --offline
+```
+
+### One-command CLI (same for all of these)
+
+```bash
+python run.py                          # serve web app + API (default)
+python run.py predict                  # predict BTC-USD, next 7 days
+python run.py predict --symbol ETH-USD --steps 14
+python run.py train --symbol BTC-USD   # retrain on fresh live data
+python run.py backtest --symbol BTC-USD --strategy ensemble
+python run.py dashboard                # Streamlit dashboard on :8501
+python run.py check --offline          # self-diagnostic (no network)
+python run.py install                  # (re)install dependencies
+```
+
+If you `pip install -e .` (or `pip install .`), the same commands are
+available as `crypto-prediction`, `crypto-predict`, `crypto-train`,
+`crypto-backtest`, `crypto-check`.
+
+---
+
+## 📦 What works out of the box
+
+| Feature | Status |
+|---|---|
+| Price data (BTC/ETH/XRP/ADA/BNB/SOL/… + INR pairs) | ✅ Binance → Yahoo → CoinGecko → CoinDCX → local cache → labelled synthetic fallback. Works fully offline. |
+| ML price prediction | ✅ **Pretrained models bundled** for `BTC-USD`, `XRP-USD`, `ADA-USD`, `BNB-USD` (LSTM + Transformer + XGBoost + ARIMA, weighted ensemble). Any other symbol: one `train` command. |
+| Web dashboard (React) | ✅ Prebuilt in `frontend/dist`, served by the API — no node/npm needed. |
+| REST API + docs | ✅ FastAPI on `:8000`, Swagger at `/docs`. |
+| Backtesting | ✅ MA / RSI / ensemble / prediction strategies. |
+| Realtime feed | ✅ Binance WebSocket (browser-side) + REST fallback. |
+| Sentiment (news/Reddit/FinBERT) | ⚙️ Optional — off by default, no keys needed to run the rest. |
+| Trading / brokers / autotrading | ⚙️ Optional — endpoints included, disabled by default, paper-first. |
+
+---
+
+## 🧠 Models
+
+Bundled pretrained models (`models/*_v6.*`):
+
+* **LSTM** — 2× bidirectional layers (96 hidden), attention pooling, Huber loss
+* **Transformer** — 2 layers, d_model 96, learnable positional encoding, attention pooling
+* **XGBoost** — 400 trees, early stopping
+* **ARIMA** — auto order selection (SARIMAX, weekly seasonality)
+* **Ensemble** — inverse-MAPE weighted (weights come from each symbol's
+  training report, recomputed automatically at prediction time)
+
+They were trained on 2–3 years of daily data (real cached data where
+available; clearly-labelled realistic synthetic data otherwise) with the same
+300-feature pipeline (50+ technical indicators, volatility, regime,
+microstructure features; 60-day input windows; next-day close target).
+
+**Retrain on live data** (recommended after a few weeks, or any time):
+
+```bash
+python run.py train --symbol BTC-USD          # full-size models, ~30-60 min on CPU
+python run.py train --symbol ETH-USD --epochs 100
+```
+
+Retraining overwrites the bundled artifacts for that symbol.
+
+*Honest expectations:* the bundled baselines are for demo/production plumbing,
+not a trading edge. Daily close MAPE on recent data typically lands in the
+10–25% range; directional accuracy hovers near coin-flip, which is normal for
+daily horizons. Judge any model (including yours) on walk-forward backtests.
+
+---
+
+## 🌐 API
+
+Base URL `http://localhost:8000` (same-origin `/api/...` also works — the
+server strips the prefix). Interactive docs: **/docs**.
+
+```
+GET  /health                  liveness + component status
+GET  /info                    API description (JSON)
+GET  /predict?symbol=BTC-USD  next-day prediction per model + ensemble
+GET  /forecast?symbol=BTC-USD&steps=7   multi-day forecast + confidence bands
+GET  /signal?symbol=BTC-USD   trading signal (BUY/SELL/...) + SL/TP
+GET  /history?symbol=BTC-USD  OHLCV history (+RSI, sentiment if enabled)
+GET  /market/tickers          24h tickers (Binance, cached 10s)
+GET  /market/klines           Binance klines
+GET  /backtest (POST)         run a backtest {symbol, strategy, initial_capital}
+GET  /backtest/compare        compare strategies
+GET  /sentiment?symbol=BTC-USD&days=14      (optional feature)
+GET  /sentiment/analyze?text=...
+GET  /realtime/price?symbol=BTC-USD
+GET  /models                  bundled model artifacts + versions
+GET  /symbols                 supported symbols
+GET  /metrics                 API + component metrics
+... 70+ endpoints incl. portfolio, strategies, alerts, scanner, journal
+```
+
+The web dashboard and every endpoint run on the bundled models immediately.
+
+---
+
+## 🏗️ Architecture
 
 ```
 Crypto-Prediction-/
+├── run.py                     # single entry point (serve/predict/train/check/...)
+├── install.sh / start.sh      # one-shot install & start (git bash)
+├── install.bat / start.bat    # same for Windows cmd
+├── requirements.txt           # core deps (only install step needed)
+├── requirements-optional.txt  # sentiment extras (praw/transformers)
+├── requirements-dev.txt       # test suite deps (pytest + TestClient)
+├── models/                    # PRETRAINED model artifacts (bundled)
+├── data/raw/                  # local OHLCV cache (auto-populated)
 ├── src/crypto_prediction/
-│   ├── config.py              # Centralized config v2
-│   ├── data/
-│   │   ├── fetcher.py         # yfinance + CoinGecko fallback
-│   │   ├── preprocessor.py    # Scaling, splitting, sequences
-│   │   ├── dataset.py         # Full pipeline
-│   │   └── realtime.py        # NEW: Binance WS + REST live feed
-│   ├── features/
-│   │   ├── technical.py       # 50+ indicators
-│   │   └── sentiment.py       # NEW: VADER-like + FinBERT, News, Reddit
-│   ├── models/
-│   │   ├── base.py
-│   │   ├── lstm_model.py
-│   │   ├── transformer_model.py # NEW: TFT-inspired Transformer
-│   │   ├── xgboost_model.py
-│   │   ├── arima_model.py
-│   │   └── ensemble.py        # Updated weights: LSTM 35% + Transformer 35%
-│   ├── training/trainer.py    # v2 with sentiment & transformer
-│   ├── prediction/predictor.py# v2
-│   ├── backtesting/           # NEW
-│   │   ├── engine.py          # Portfolio simulation
-│   │   ├── strategies.py      # MA, RSI, Prediction, Ensemble
-│   │   └── metrics.py         # Sharpe, DD, win rate, profit factor
-│   ├── evaluation/metrics.py
-│   └── utils/
-├── api/main.py                # v2: /sentiment, /realtime, /backtest
-├── app/streamlit_app.py       # v2: 6 tabs including sentiment, realtime, backtest
-├── frontend/                  # NEW: React + Vite + Tailwind + lightweight-charts
-│   ├── src/
-│   │   ├── api/client.js
-│   │   ├── components/Navbar, PriceChart
-│   │   └── pages/Dashboard, Forecast, Sentiment, Realtime, Backtest, Models
-│   └── package.json
-├── scripts/
-│   ├── train.py               # v2 with --use-sentiment
-│   ├── predict.py
-│   └── backtest.py            # NEW
-└── tests/
+│   ├── config.py              # central config (env-overridable)
+│   ├── data/                  # fetcher (multi-source + offline fallback),
+│   │                          # synthetic generator, preprocessor, realtime WS
+│   ├── features/technical.py  # 300+ indicator features
+│   ├── features/sentiment.py  # optional: lexicon/FinBERT + news/Reddit
+│   ├── models/                # LSTM, Transformer, GRU, TCN, XGBoost, ARIMA,
+│   │                          # ensemble (all with save/load)
+│   ├── training/trainer.py    # full training pipeline + model registry
+│   ├── prediction/predictor.py# loads bundled artifacts, forecasts, signals
+│   ├── backtesting/           # engine + strategies + metrics
+│   ├── evaluation/            # MAPE/RMSE/R²/dir-accuracy/Sharpe reports
+│   ├── trading/ portfolio/ strategies/ brokers/ autotrading/   # optional
+│   ├── alerts/ scanner/ analytics/ journal/ crash_detector/    # optional
+│   └── cli.py                 # run.py backend (all subcommands)
+├── api/main.py                # FastAPI app (REST + serves the React build)
+├── app/streamlit_app.py       # Streamlit dashboard (alternative UI)
+├── frontend/                  # React + Vite + Tailwind (dist/ prebuilt)
+├── scripts/                   # pretrain.py (bundled models), train, predict, backtest
+└── tests/                     # unit tests
 ```
+
+**Data layer:** `Binance REST → Yahoo (yfinance) → CoinGecko → CoinDCX (INR) →
+stale local cache → deterministic synthetic series`. Fresh data is cached in
+`data/raw/` (TTL 12h) so repeated calls are instant and offline-friendly.
+The synthetic fallback is always labelled and never written to cache, so the
+first live fetch always wins.
 
 ---
 
-## 🚀 Quick Start
+## ⚙️ Optional features
 
-### 1. Install
-```bash
-pip install -r requirements.txt
-# frontend
-cd frontend && npm install && npm run dev
-```
-
-### 2. Train Models v2
-```bash
-python scripts/train.py --symbol BTC-USD --period 2y --models all --use-sentiment
-
-# Only transformer
-python scripts/train.py --symbol ETH-USD --period 1y --models transformer --epochs 50
-```
-
-### 3. Predict
-```bash
-python scripts/predict.py --symbol BTC-USD --steps 7
-```
-
-### 4. Backtest
-```bash
-python scripts/backtest.py --symbol BTC-USD --strategy ensemble
-python scripts/backtest.py --symbol BTC-USD --strategy all
-```
-
-### 5. API v2
-```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
-
-# New endpoints:
-# GET /sentiment?symbol=BTC-USD&days=14
-# GET /sentiment/analyze?text=Bitcoin is bullish!
-# GET /realtime/price?symbol=BTC-USD
-# POST /realtime/start?symbols=BTC-USD&symbols=ETH-USD
-# GET /realtime/prices
-# POST /backtest {symbol, strategy, initial_capital}
-# GET /backtest/compare?symbol=BTC-USD
-```
-
-### 6. Dashboards
-```bash
-# Streamlit v2
-streamlit run app/streamlit_app.py --server.port 8501
-
-# React frontend
-cd frontend
-npm run dev  # http://localhost:5173 proxies /api to :8000
-npm run build && npm run preview
-```
-
----
-
-## 🧠 Models v2
-
-### LSTM
-- 2-layer, 128 hidden, dropout 0.2, FC 64→32
-- 60-day sequences, 60+ features
-
-### Transformer (NEW, TFT-inspired)
-- Input projection → Positional Encoding → TransformerEncoder (d_model 128, 4 heads, 2 layers, ff 256) → last token → FC
-- Multi-head self-attention captures long-range dependencies, better than LSTM for 30d horizons
-- Training: Adam 0.0005, ReduceLROnPlateau, early stopping patience 12
-- Interpretability: attention weights placeholder for future TFT explainability
-
-### XGBoost
-- 500 trees, depth 6, feature importance
-
-### ARIMA
-- (5,1,0) baseline
-
-### Ensemble v2
-- LSTM 35% + Transformer 35% + XGB 20% + ARIMA 10%
-
----
-
-## 💬 Sentiment (NEW)
-
-**Lexicon-based VADER-like** (no external deps) + optional FinBERT:
-- Positive: bullish, moon, pump, buy, surge, rally, hodl...
-- Negative: bearish, crash, dump, sell, fear, panic...
-- Boosters: very, extremely, absolutely
-
-**Fetchers:**
-- `NewsFetcher`: CryptoPanic API (free tier) + CoinGecko trending fallback + synthetic offline demo
-- `RedditFetcher`: PRAW if keys set, else synthetic
-
-**Aggregation:**
-- Daily mean compound, pos, neg, count
-- Rolling 3-day smoothing
-- Merged into price DataFrame: `Sentiment_Compound`, `Sentiment_MA7`, `Sentiment_Diff`
-- Trading signal boosted by sentiment: `change_pct += sentiment*0.5`
-
-**API:**
-```bash
-curl /sentiment?symbol=BTC-USD&days=14
-curl /sentiment/analyze?text="Bitcoin extremely bullish"
-```
-
----
-
-## 📡 Realtime Binance (NEW)
-
-**BinanceRealtimeFetcher:**
-- WebSocket: `wss://stream.binance.com:9443/ws/btcusdt@trade` + `@kline_1m`
-- Threaded asyncio loop, deque buffer 1000, auto-reconnect 5s
-- REST fallback: `/api/v3/klines`, `/api/v3/ticker/24hr`
-- Callbacks for live prediction
-
-**LivePredictor:**
-- Merges live price with model forecast
-- `live_change_pct` recalculated
-
-**Manager:**
-- Multi-symbol manager, start_all/stop_all
-
-```python
-from crypto_prediction.data.realtime import BinanceRealtimeFetcher
-fetcher = BinanceRealtimeFetcher(symbol="BTC-USD")
-fetcher.start()
-print(fetcher.get_current_price())
-```
-
----
-
-## 📊 Backtesting Engine (NEW)
-
-**Engine:**
-- Long-only simulation, initial $10k, commission 0.1%, slippage 0.05%
-- Equity curve, trades list with PnL
-
-**Strategies:**
-- `MovingAverageStrategy(20,50)`: golden/death cross
-- `RSIStrategy(30,70)`: oversold/overbought
-- `PredictionStrategy`: predicted return > threshold
-- `EnsembleSignalStrategy`: pred*10 + sentiment*0.5 + (50-RSI)/50*0.3
-
-**Metrics:**
-- Total return, annualized, volatility, Sharpe, max DD, win rate, avg win/loss, profit factor
-
-```python
-from crypto_prediction.backtesting.engine import BacktestEngine
-engine = BacktestEngine()
-result = engine.run(df, strategy)
-print(result.metrics)
-```
-
----
-
-## ⚛️ React Frontend (NEW)
-
-**Stack:** Vite + React 18 + React Router + Tailwind + Recharts + lightweight-charts + Zustand + Axios
-
-**Pages:**
-- **Dashboard**: price, signal, sentiment, forecast, PriceChart (TradingView lightweight-charts with forecast overlay)
-- **Forecast**: multi-model line chart, table
-- **Sentiment**: daily trend, custom text analyzer, breakdown bar
-- **Realtime**: Binance live price, ticker, history sparkline, 2s polling
-- **Backtest**: run, compare, equity curve, trades
-- **Models**: docs for all models
-
-**Dev:**
-```bash
-cd frontend
-npm install
-VITE_API_URL=http://localhost:8000 npm run dev
-```
-
----
-
-## 📈 Example Output v2
-
-```
-=== BTC-USD Prediction v2 ===
-Current: $67,234.12 | Sentiment: 0.34 (bullish)
-
-Next:
-  lstm: $68,102
-  transformer: $68,450  # NEW
-  xgboost: $67,890
-  arima: $67,543
-  ensemble: $68,120
-
-7-Day Ensemble: [...]
-Signal: BUY (58% confidence) with sentiment 0.34
-
-Backtest Ensemble:
-  Total Return: 42.5% | Sharpe: 1.8 | Max DD: -12.3% | Win Rate: 58%
-```
-
----
-
-## 🧪 Tests v2
+**Sentiment** (news + Reddit + FinBERT) — off by default:
 
 ```bash
-python tests/test_fetcher.py
-python tests/test_features.py
-python tests/test_models.py
-python tests/test_sentiment.py
-python tests/test_transformer.py
-python tests/test_backtest.py
+pip install -r requirements-optional.txt
+echo "CRYPTOPRED_USE_SENTIMENT=1" >> .env        # + API keys in .env (see .env.example)
+python run.py train --symbol BTC-USD             # retrains with sentiment features
 ```
 
----
+**Trading / autotrading** — endpoints exist under `/brokers`, `/autotrade`,
+`/portfolio`, `/strategies`. Config in `data/autotrading_config.json` is
+disabled by default; enable paper mode first, and only ever use keys with
+trading permissions (no withdrawals).
 
-## 🔑 Env Keys (optional)
+**Docker:**
 
 ```bash
-# .env
-CRYPTOPANIC_API_KEY=xxx
-NEWSAPI_KEY=xxx
-REDDIT_CLIENT_ID=xxx
-REDDIT_SECRET=xxx
-TWITTER_BEARER_TOKEN=xxx
-BINANCE_API_KEY=xxx
-BINANCE_SECRET=xxx
+docker build -t crypto-prediction .
+docker run -p 8000:8000 -p 8501:8501 crypto-prediction
 ```
 
-Without keys, system uses synthetic fallback so it works offline.
-
 ---
 
-## 🗺️ Roadmap
+## 🔧 Development
 
-- [x] Core data + features + models
-- [x] FastAPI + Streamlit
-- [x] Sentiment (News, Reddit, Twitter) + FinBERT option
-- [x] Realtime Binance WS + REST
-- [x] Transformer (TFT-inspired)
-- [x] Backtesting engine
-- [x] React frontend with TradingView charts
-- [ ] Docker Compose (api + frontend + redis for WS)
-- [ ] WebSocket push to React (live chart)
-- [ ] Full TFT with variable selection & attention viz
-- [ ] CI/CD + Kubernetes
+```bash
+pip install -e .[dev]                    # + test deps (or: pip install -r requirements-dev.txt)
+python -m pytest tests -q                # full suite (~1 min): models, data, API, out-of-box
+make test                                # same thing
+cd frontend && npm install && npm run build   # rebuild the web dashboard (needs node)
+```
 
----
+The test suite (`tests/`) covers the core acceptance criteria: bundled model
+artifacts exist for all four symbols, predictions work with zero training
+steps, the data layer never hard-fails offline, and the API routes browser
+deep links to the SPA while serving JSON to API clients.
 
-## 📜 License
-
-MIT © 2026 Aditya
+Configuration lives in `src/crypto_prediction/config.py` (env-overridable via
+`.env` — every key is optional, see `.env.example`). The project version is
+defined once in `src/crypto_prediction/__init__.py` (the API and package
+metadata read it from there).

@@ -143,8 +143,12 @@ class DataPreprocessor:
                 logger.debug(f"Kalman smoothing v6 failed: {e}")
 
         if feature_cols:
-            self.feature_columns = feature_cols
-            self.original_feature_columns = feature_cols.copy()
+            # Explicit column set (serve-time): these columns are the final,
+            # authoritative set (e.g. the selected features saved at training).
+            # No correlation pruning / re-selection here - that is a train-time
+            # decision and re-running it would desync from the saved scaler.
+            self.feature_columns = list(feature_cols)
+            self.original_feature_columns = list(feature_cols)
         else:
             exclude = ['Open', 'High', 'Low', 'Close', 'Volume', 'Target_Close', 'Target_Returns', 'Target_Log_Returns', 'Target_Direction']
             exclude += [c for c in df.columns if c.startswith('Target_Close_')]

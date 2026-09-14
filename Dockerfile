@@ -16,5 +16,5 @@ ENV PYTHONPATH=/app/src
 
 EXPOSE 8000 8501
 
-# Default: API
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Web dashboard + REST API on :8000 (pretrained models bundled - no training needed)
+CMD ["python", "run.py", "serve", "--host", "0.0.0.0", "--port", "8000"]

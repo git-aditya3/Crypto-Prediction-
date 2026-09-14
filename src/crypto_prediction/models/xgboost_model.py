@@ -177,16 +177,29 @@ class XGBoostModel(BaseModel):
         }, path)
         logger.info(f"Saved XGBoost v6 ULTRA MAX to {path}")
 
-    def load(self, path: str):
+    @classmethod
+    def load(cls, path: str):
+        """Load a saved XGBoost model (classmethod, matching BaseModel.load)."""
         data = joblib.load(path)
         if isinstance(data, dict) and 'model' in data:
-            self.model = data['model']
-            self.selector = data.get('selector', None)
-            self.selected_features_mask = data.get('selected_mask', None)
-            self.feature_importance_ = data.get('importance', None)
+            # Rebuild a lightweight instance carrying the trained booster
+            model = cls.__new__(cls)
+            BaseModel.__init__(model, name="xgboost")
+            model.model = data['model']
+            model.selector = data.get('selector', None)
+            model.selected_features_mask = data.get('selected_mask', None)
+            model.feature_importance_ = data.get('importance', None)
+            model.is_fitted = True
+            logger.info(f"Loaded XGBoost v6 ULTRA MAX from {path}")
+            return model
         else:
-            # Legacy
-            self.model = data
-        self.is_fitted = True
-        logger.info(f"Loaded XGBoost v6 ULTRA MAX from {path}")
-        return self
+            # Legacy: raw booster
+            model = cls.__new__(cls)
+            BaseModel.__init__(model, name="xgboost")
+            model.model = data
+            model.selector = None
+            model.selected_features_mask = None
+            model.feature_importance_ = None
+            model.is_fitted = True
+            logger.info(f"Loaded legacy XGBoost model from {path}")
+            return model

@@ -67,7 +67,10 @@ class FeatureConfig:
     use_price_features: bool = True
     use_volume_features: bool = True
     use_lag_features: bool = True
-    use_sentiment: bool = True
+    # Sentiment enrichment is OFF by default so that data + prediction work
+    # out of the box with no API keys / no news network access. Enable via
+    # CRYPTOPRED_USE_SENTIMENT=1 (optionally with news/Reddit keys in .env).
+    use_sentiment: bool = field(default_factory=lambda: os.getenv("CRYPTOPRED_USE_SENTIMENT", "0") == "1")
     use_advanced_indicators: bool = True
     use_volatility_features: bool = True
     use_market_regime: bool = True
@@ -254,7 +257,10 @@ class TrainingConfig:
 
 @dataclass
 class AutomationConfig:
-    enabled: bool = False
+    # Background auto-retraining loop. OFF by default (the bundled models are
+    # enough for out-of-the-box prediction). Enable with CRYPTOPRED_AUTOMATION=1
+    # or at runtime via POST /training/start.
+    enabled: bool = field(default_factory=lambda: os.getenv("CRYPTOPRED_AUTOMATION", "0") == "1")
     retrain_interval_hours: int = 6  # v6: more frequent 6h vs 8h
     check_interval_minutes: int = 20  # v6: faster checks
     accuracy_threshold: float = 10.0  # v6: stricter 10% vs 12%
