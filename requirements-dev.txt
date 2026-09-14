@@ -1,0 +1,11 @@
+# Development / test dependencies.
+# Everything in requirements.txt already covers the running app; this file is
+# only for developers who want to run the test suite:
+#
+#   pip install -r requirements-dev.txt
+#   python -m pytest tests -q
+#
+# (equivalently: pip install -e .[dev])
+pytest>=7.4.0
+pytest-timeout>=2.1.0
+httpx2>=2.0.0

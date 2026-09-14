@@ -8,10 +8,11 @@ venv/
 env/
 .env
 *.egg-info/
-dist/
+/dist/
 build/
 
 # Data & Models
+# (cached live data + models the user retrains themselves are ignored)
 data/raw/
 data/processed/
 models/*.pkl
@@ -20,6 +21,26 @@ models/*.pth
 *.h5
 *.joblib
 checkpoints/
+
+# ...except the PRETRAINED BUNDLED models that make prediction work
+# out of the box (produced by scripts/pretrain.py, see models/)
+!models/BTC_USD_*_v6.pt
+!models/XRP_USD_*_v6.pt
+!models/ADA_USD_*_v6.pt
+!models/BNB_USD_*_v6.pt
+!models/BTC_USD_*_v6.joblib
+!models/XRP_USD_*_v6.joblib
+!models/ADA_USD_*_v6.joblib
+!models/BNB_USD_*_v6.joblib
+!models/BTC_USD_training_report_v6.json
+!models/XRP_USD_training_report_v6.json
+!models/ADA_USD_training_report_v6.json
+!models/BNB_USD_training_report_v6.json
+!models/BTC_USD_feature_importance_v6.csv
+!models/XRP_USD_feature_importance_v6.csv
+!models/ADA_USD_feature_importance_v6.csv
+!models/BNB_USD_feature_importance_v6.csv
+!models/bundled_models_report.json
 
 # Logs
 logs/
@@ -44,4 +65,6 @@ Thumbs.db
 
 # Frontend
 frontend/node_modules/
-frontend/dist/
+# The pre-built SPA (frontend/dist) is committed so the web dashboard works
+# out of the box WITHOUT node/npm. Rebuild it after frontend changes:
+#   cd frontend && npm install && npm run build

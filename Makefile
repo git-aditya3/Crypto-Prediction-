@@ -1,28 +1,37 @@
-.PHONY: install train predict api dashboard test
+# Crypto Prediction - Makefile
+.PHONY: install train predict api dashboard check test serve frontend
 
-install:
-	pip install -r requirements.txt
-	pip install -e .
+install:            ## install python dependencies into .venv
+	python3 -m venv .venv
+	.venv/bin/pip install --upgrade pip
+	.venv/bin/pip install -r requirements.txt
 
-train:
-	python scripts/train.py --symbol BTC-USD --period 2y --models all
+serve:              ## web dashboard + REST API on :8000 (default app)
+	.venv/bin/python run.py serve
 
-predict:
-	python scripts/predict.py --symbol BTC-USD --steps 7
+api:                ## REST API on :8000
+	.venv/bin/python run.py serve
 
-api:
-	uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+dashboard:          ## Streamlit dashboard on :8501
+	.venv/bin/python run.py dashboard
 
-dashboard:
-	streamlit run app/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+check:              ## self-diagnostic: deps, data, models, prediction
+	.venv/bin/python run.py check --offline
 
-test:
-	python tests/test_fetcher.py
-	python tests/test_features.py
-	python tests/test_models.py
+predict:            ## predict BTC-USD for the next 7 days
+	.venv/bin/python run.py predict --symbol BTC-USD
 
-docker-build:
+train:              ## (re)train all bundled models on fresh data
+	.venv/bin/python scripts/pretrain.py
+
+test:               ## run the test suite (~1 min; needs: pip install -e .[dev])
+	.venv/bin/python -m pytest tests -q
+
+frontend:           ## rebuild the React web dashboard (needs node/npm)
+	cd frontend && npm install && npm run build
+
+docker-build:       ## build the docker image
 	docker build -t crypto-prediction .
 
-docker-run:
+docker-run:         ## run the docker image
 	docker run -p 8000:8000 -p 8501:8501 crypto-prediction

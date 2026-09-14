@@ -8,7 +8,7 @@ FastAPI v8 MAX - Extensive Real Trading + Automated Real Trading + Continuous Tr
 """
 from fastapi import FastAPI, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict
 import sys
@@ -23,6 +23,7 @@ from collections import defaultdict
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
+from crypto_prediction import __version__ as APP_VERSION
 from crypto_prediction.config import get_config
 from crypto_prediction.data.fetcher import CryptoDataFetcher
 from crypto_prediction.prediction.predictor import CryptoPredictor
@@ -47,42 +48,29 @@ logger = get_logger(__name__)
 config = get_config()
 
 app = FastAPI(
-    title="Crypto Prediction API v9 ULTRA - CoinDCX Real Money Automated Trading - v6 ULTRA",
+    title="Crypto Prediction API - pretrained ensemble, web dashboard, trading tools",
     description="""
-    🚀 v8 MAX CoinDCX REAL MONEY Automated Trading - v6 ULTRA improvements
-    
-    **Core v6 ULTRA:**
-    - 🔄 Continuous Training: Models learn endlessly with pooling, metrics, drift detection
-    - 💰 Real Trading Calls: Live entry, ATR SL, 1:1/2/3 TP, position sizing for REAL money
-    - 🧠 Models v6 ULTRA: LSTM 384 hidden 4L bidir attention pooling residual LayerNorm GELU 0.35 dropout, Transformer 384 d_model 6L 8-heads learnable PE Pre-LN enable_nested_tensor=False, GRU 320 4L attention, TCN [64,128,256,256] attention residual MC dropout, XGBoost 2000 trees 0.03 lr, ARIMA exog Sentiment, Ensemble Bayesian 35% invMAPE 35% Sharpe 20% Dir 10% static + calibration
-    - 📊 300+ Features v6 ULTRA hybrid Kalman gap split overlap, RobustScaler, Sentiment v5 pooling cache, Real-time WS backoff jitter metrics
-    
-    **CoinDCX REAL MONEY v6 ULTRA:**
-    - 🔌 CoinDCX Broker v5: REAL MONEY trading via CoinDCX API - pooling 20/20, metrics, cache TTL 5s, validation, versioning
-    - 💰 No Paper Simulation: Uses actual CoinDCX balances, executes real trades
-    - 🏦 Markets: BTCINR, ETHINR, BNBINR, SOLINR, XRPINR, ADAINR, DOGEINR, AVAXINR, MATICINR, etc.
-    - 🔐 Secure: API keys encoded, trading only, no withdrawal, security headers, rate limit 60/min with metrics
-    
-    **Automated Trading v6 ULTRA:**
-    - 🤖 Auto Trading Engine v5: Full-auto, Semi-auto, Paper with RiskGuard v4 15 checks 5 sizing methods
-    - 🛡️ Risk Guard v5: Max daily loss, max positions, max DD, consecutive losses cooldown, trading hours, whitelist/blacklist, confidence, RR filter, position sizing
-    - ⚙️ Execution v5: Market/Limit, OCO SL/TP, multiple TP, trailing, breakeven, slippage, broker_id coindcx, atomic save
-    - 🎛️ Strategy Controls v5: Cache TTL 10s pooling, metrics, version tag
-    - 📋 Approval System, 🚨 Emergency Stop
-    
-    **v6 ULTRA Improvements:**
-    - Data layer: realtime.py backoff jitter metrics, dataset.py cache lock sentiment metrics, price_helper pooling cache ttl, coindcx_fetcher pooling metrics fetch_ohlcv
-    - Brokers: base v5 metrics validate_order fee calc, paper v5 slippage margin USD value metrics, binance v5 pooling metrics, coindcx v5 pooling metrics, manager v5 atomic save metrics
-    - Crash detector: scraper v5 pooling 30/60 min_interval 0.03 max_workers 16 metrics, detector v5 quality-weighted metrics, signals v5 versioning, manager v5 cache ttl 15 metrics
-    - Portfolio v5: atomic tmp save, lock, metrics opens/closes/updates, sharpe/sortino/max_dd/profit_factor, 1000 closed limit
-    - Evaluation v5: smape threshold sharpe sortino drawdown calmar profit_factor win_rate
-    - Training v5: robust scaler feature_selection GRU support timing metrics dynamic inverse MAPE weighting
-    - Sentiment v5: pooling 20/20 cache ttl 300 metrics, expanded lexicon, momentum/volatility
-    - API v8: security headers, metrics endpoint, rate limit metrics, version v6_ultra, pooling session
-    
-    **No Paper:** Uses actual CoinDCX account money - real INR, real trades, real P&L
+    Crypto price prediction platform - works out of the box.
+
+    **Prediction (pretrained models bundled - no training needed):**
+    - Multi-model ensemble: LSTM, Transformer, XGBoost, ARIMA + dynamically-weighted ensemble
+    - /predict, /forecast (with confidence bands), /signal (BUY/SELL + SL/TP)
+    - 15 supported symbols; data from Binance with yfinance/CoinGecko/cache/synthetic fallbacks
+
+    **Tools:**
+    - Web dashboard (React SPA) served at /, plus this REST API (~120 endpoints)
+    - Backtesting engine, market scanner, portfolio tracking, trading journal, alerts
+    - Trading calls with entry/stop-loss/take-profits and position sizing
+
+    **Optional (all disabled by default - nothing trades without explicit setup):**
+    - Automated trading: paper/ssemi/full-auto modes with risk guards, broker integration (Binance, CoinDCX, paper)
+    - Background retraining loop (CRYPTOPRED_AUTOMATION=1 or POST /training/start)
+    - Sentiment features (CRYPTOPRED_USE_SENTIMENT=1 + pip install -e .[sentiment])
+
+    **Not financial advice.** Models are statistical; past accuracy does not
+    guarantee future results.
     """,
-    version="0.9.0"
+    version=APP_VERSION
 )
 
 app.add_middleware(
@@ -135,7 +123,7 @@ async def rate_limit_and_security_middleware(request: Request, call_next):
         response = await call_next(request)
         # Security headers v5
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-API-Version"] = "v8_max"
@@ -158,7 +146,7 @@ async def rate_limit_and_security_middleware(request: Request, call_next):
         response = await call_next(request)
         # Security headers v5
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-API-Version"] = "v8_max"
@@ -177,6 +165,59 @@ async def rate_limit_and_security_middleware(request: Request, call_next):
         with _api_metrics_lock:
             _api_metrics["errors"] += 1
         raise
+
+# --- Same-origin frontend support -------------------------------------
+# The built React app (frontend/dist) calls the API through a "/api" base
+# URL. This middleware strips the prefix so /api/predict and /predict both
+# route to the same handler (Vite's dev proxy does the same in dev mode).
+# It also serves the SPA for browser deep links (GET + Accept: text/html)
+# so /forecast in a browser tab loads the dashboard, while API clients
+# (Accept: application/json) get JSON.
+_SPA_ROUTES = {
+    "", "forecast", "sentiment", "realtime", "backtest", "models", "training",
+    "portfolio", "strategies", "scanner", "analytics", "alerts", "journal",
+    "autotrading", "crash", "settings", "trading-calls",
+}
+
+@app.middleware("http")
+async def api_prefix_middleware(request: Request, call_next):
+    path = request.scope.get("path", "")
+    api_prefixed = path.startswith("/api/") or path == "/api"
+    if api_prefixed:
+        request.scope["api_prefixed"] = True
+        new_path = "/" if path == "/api" else path[len("/api"):]
+        request.scope["path"] = new_path
+        request.scope["raw_path"] = new_path.encode()
+        path = new_path
+    # Browser deep link into the SPA?
+    try:
+        accept = request.headers.get("accept", "")
+        seg = path.strip("/").split("?")[0]
+        if (
+            request.method == "GET"
+            and "text/html" in accept
+            and not api_prefixed
+            and seg in _SPA_ROUTES
+            and (Path(__file__).parent.parent / "frontend" / "dist" / "index.html").exists()
+        ):
+            return FileResponse(Path(__file__).parent.parent / "frontend" / "dist" / "index.html", media_type="text/html")
+    except Exception:
+        pass
+    return await call_next(request)
+
+
+# Predictor instances are expensive to build (torch loads) - cache per symbol
+_predictor_cache: Dict[str, CryptoPredictor] = {}
+_predictor_cache_lock = threading.Lock()
+
+def _get_predictor(symbol: str) -> CryptoPredictor:
+    with _predictor_cache_lock:
+        predictor = _predictor_cache.get(symbol)
+        if predictor is None:
+            predictor = CryptoPredictor(symbol=symbol)
+            _predictor_cache[symbol] = predictor
+        return predictor
+
 
 realtime_manager: Optional[RealtimeManager] = None
 call_generator = TradingCallGenerator(risk_per_trade=0.02)
@@ -197,6 +238,55 @@ _market_cache_lock = threading.Lock()
 _calls_cache_lock = threading.Lock()
 CACHE_TTL = 10
 CALLS_CACHE_TTL = 30
+
+def _tickers_from_local_cache():
+    """Offline fallback: last known prices read straight from data/raw cache.
+
+    No network, no model loading - instant. Only used when the live exchange
+    call fails and no live ticker is cached yet.
+    """
+    raw_dir = config.project_root / "data" / "raw"
+    tickers = {}
+    if raw_dir.exists():
+        for csv_file in sorted(raw_dir.glob("*_1d.csv")):
+            try:
+                df = pd.read_csv(csv_file, index_col=0)
+                if len(df) < 2 or "Close" not in df.columns:
+                    continue
+                last = float(df["Close"].iloc[-1])
+                prev = float(df["Close"].iloc[-2])
+                if last <= 0:
+                    continue
+                symbol = f"{csv_file.name.split('_')[0]}-USD"
+                tickers[symbol] = {
+                    "symbol": symbol,
+                    "price": last,
+                    "lastPrice": last,
+                    "priceChange": last - prev,
+                    "priceChangePercent": round((last - prev) / prev * 100, 2) if prev else 0.0,
+                    "high": float(df["High"].iloc[-1]) if "High" in df.columns else last,
+                    "low": float(df["Low"].iloc[-1]) if "Low" in df.columns else last,
+                    "open": float(df["Open"].iloc[-1]) if "Open" in df.columns else prev,
+                    "volume": float(df["Volume"].iloc[-1]) if "Volume" in df.columns else 0.0,
+                    "quoteVolume": 0.0,
+                    "trades": 0,
+                    "asOf": str(df.index[-1])[:10],
+                    "real_data": False,
+                    "source": "Local cache (offline)",
+                }
+            except Exception:
+                continue
+    if not tickers:
+        return None
+    return {
+        "tickers": tickers,
+        "count": len(tickers),
+        "timestamp": time.time(),
+        "cached": True,
+        "offline": True,
+        "source": "Local data cache - live exchange unreachable",
+        "warning": "Live exchange unreachable - showing last cached prices. Predictions still work.",
+    }
 
 class ForecastResponse(BaseModel):
     symbol: str
@@ -360,12 +450,16 @@ class AutoTradeExecuteRequest(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 API v8 MAX Starting - Automated Real Trading + Extensive Controls + Continuous Training + v6 ULTRA")
-    try:
-        continuous_trainer.start(run_immediately=False)
-        logger.info("✅ Continuous training v5 started")
-    except Exception as e:
-        logger.warning(f"Could not start continuous training v5: {e}")
+    logger.info("🚀 Crypto Prediction API starting")
+    if config.automation.enabled:
+        try:
+            continuous_trainer.start(run_immediately=False)
+            logger.info("✅ Continuous (background) training started")
+        except Exception as e:
+            logger.warning(f"Could not start continuous training: {e}")
+    else:
+        logger.info("ℹ️  Background auto-retraining is OFF by default "
+                   "(enable via CRYPTOPRED_AUTOMATION=1 or POST /training/start)")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -423,45 +517,33 @@ def api_metrics():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/")
-def root():
+@app.get("/info")
+def info():
     return {
-        "message": "Crypto Prediction API v8 MAX - CoinDCX Real Money Automated Trading - v6 ULTRA",
-        "version": "0.8.0",
-        "tagline": "Automate REAL trades with CoinDCX v6 ULTRA - pooling, metrics, security headers, versioning - actual INR - extensive control",
+        "message": "Crypto Prediction API - pretrained ML ensemble + web dashboard + trading tools",
+        "version": APP_VERSION,
+        "tagline": "Out-of-the-box crypto price prediction: 5-model ensemble, web dashboard, backtesting, and (optional) trading automation",
         "features": {
             "core": [
-                "🔄 Continuous Training - Endless self-learning with live Binance data",
-                "💰 Real Trading Calls - Live entry/SL/TP for REAL money",
-                "🧠 LSTM v3 - Bidir+Attention+Huber+AdamW",
-                "🤖 Transformer v3 - Learnable PE+Attn Pool+Pre-LN",
-                "🌲 XGBoost v3 - 1500 trees, depth 8",
-                "📈 ARIMA v3 - SARIMAX weekly",
-                "🎯 Ensemble v3 - Dynamic inverse MAPE + Ridge stacking"
+                "🧠 Pretrained v6 models (bundled - no training needed): LSTM, Transformer, XGBoost, ARIMA",
+                "🎯 Ensemble - dynamic inverse-MAPE weighting from each symbol's training report",
+                "📈 /predict, /forecast (7-30 day with confidence bands), /signal (BUY/SELL + SL/TP)",
+                "📊 Data: Binance live -> yfinance -> CoinGecko -> local cache -> labelled synthetic (never fails hard)"
             ],
-            "extensive": [
-                "💼 Portfolio - Real holdings, P&L, allocation, win rate, Sharpe",
-                "🤖 DCA Bot, Grid Bot, Breakout Scanner",
-                "🚨 Alerts, Market Scanner, Analytics, Journal"
+            "tools": [
+                "🖥️ Web dashboard (React SPA) + REST API + Streamlit dashboard",
+                "🧪 Backtesting engine with strategy comparison",
+                "💼 Portfolio, Strategies (DCA/Grid/Institutional), Market Scanner, Alerts, Journal, Analytics",
+                "📰 Sentiment features (opt-in: CRYPTOPRED_USE_SENTIMENT=1 + pip install -e .[sentiment])"
             ],
-            "automated_trading_v6": [
-                "🔌 Broker Integration - Binance Spot/Futures, Paper, secure API keys (trading only, no withdrawal)",
-                "🤖 Auto Trading Engine - Paper (safe), Semi-auto (approval), Full-auto (real with risk guards)",
-                "🛡️ Risk Guard - Max daily loss, max positions, max DD, consecutive losses cooldown, trading hours, whitelist/blacklist, confidence threshold, RR filter",
-                "⚙️ Execution - Market/Limit, OCO SL/TP, multiple TP 50/30/20, trailing stop, breakeven, slippage",
-                "🎛️ Strategy Controls - Toggle AI/DCA/Grid/Breakout/RSI/Volume, timeframes, allowed signals",
-                "📋 Approval System - Semi-auto queues for user approval",
-                "🚨 Emergency Stop - One-click halt",
-                "📊 Real-time Status - Positions, daily trades, pending approvals, broker balances"
+            "optional_trading": [
+                "🔌 Broker Integration - Paper (default), Binance, CoinDCX - connect keys yourself",
+                "🤖 Auto Trading Engine - Paper / Semi-auto (approval) / Full-auto, disabled by default",
+                "🛡️ Risk Guard - Max daily loss, max positions, max DD, confidence + RR filters",
+                "🔄 Background retraining - opt-in: CRYPTOPRED_AUTOMATION=1 or POST /training/start"
             ]
         },
-        "real_trading": {
-            "entry": "Live Binance price NOW",
-            "stop_loss": "ATR 1.5x real risk",
-            "take_profit": "TP1 1:1, TP2 1:2, TP3 1:3",
-            "position_size": "Based on YOUR account balance and risk%",
-            "warning": "Real money trading - high risk - use paper first"
-        },
+        "disclaimer": "Educational tooling - not financial advice. Nothing trades until you explicitly enable it.",
         "endpoints": {
             "automated_trading": [
                 "/brokers", "/brokers/connect", "/brokers/{id}/balance", "/brokers/{id}/test", "/brokers/{id}/remove",
@@ -477,13 +559,24 @@ def root():
         }
     }
 
+# --- Web dashboard (React SPA built in frontend/dist) -------------------
+FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+_FRONTEND_INDEX = FRONTEND_DIST / "index.html"
+
+@app.get("/")
+def root():
+    """Serve the web dashboard. Falls back to JSON info when no build exists."""
+    if _FRONTEND_INDEX.exists():
+        return FileResponse(_FRONTEND_INDEX, media_type="text/html")
+    return {"message": "Web dashboard not built. Run: cd frontend && npm install && npm run build",
+            "api_docs": "/docs", "info": "/info", "status": "api_only"}
+
 @app.get("/health")
 def health():
     trainer_status = continuous_trainer.get_status()
     return {
         "status": "ok",
-        "version": "0.9.0",
-        "mode": "coindcx_real_money_automated_trading",
+        "version": APP_VERSION,
         "continuous_training": trainer_status["is_running"],
         "autotrading_enabled": autotrading_engine.config.enabled,
         "autotrading_mode": autotrading_engine.config.mode,
@@ -491,10 +584,8 @@ def health():
         "portfolio_value": portfolio_manager.get_portfolio().total_value,
         "open_positions": len(portfolio_manager.positions),
         "brokers": len(broker_manager.brokers),
-        "primary_broker": "CoinDCX REAL MONEY - Actual INR",
-        "no_paper": "No paper money simulation - real CoinDCX account",
-        "models": "v7 CoinDCX Real Money Automated Trading + Extensive Controls + Endless Learning",
-        "data": "Real CoinDCX market data - BTCINR, ETHINR, etc. - actual money",
+        "models": "Pretrained v6 ensemble - LSTM, Transformer, XGBoost, ARIMA + weighted ensemble",
+        "data": "Binance live data with yfinance/CoinGecko/cache/synthetic fallbacks",
         "uptime": trainer_status.get("uptime", 0)
     }
 
@@ -1342,6 +1433,10 @@ def market_tickers():
                 cached["cached"] = True
                 cached["warning"] = "Live fetch failed, returning cached"
                 return cached
+        # Offline fallback: last known prices from the local data cache
+        local = _tickers_from_local_cache()
+        if local:
+            return local
         raise HTTPException(status_code=503, detail=f"Market data unavailable: {e}")
     except Exception as e:
         logger.warning(f"Binance ticker fetch failed: {e}")
@@ -1460,12 +1555,13 @@ def get_history(symbol: str = Query("BTC-USD"), period: str = Query("1y"), inter
         fetcher = CryptoDataFetcher(symbol=symbol)
         df = fetcher.load_or_fetch(symbol=symbol)
         df_tail = df.tail(300)
-        try:
-            from crypto_prediction.features.sentiment import SentimentFeatureEngineer
-            eng = SentimentFeatureEngineer()
-            df_tail = eng.enrich_price_df(df_tail, symbol=symbol)
-        except:
-            pass
+        if config.features.use_sentiment:  # off by default (CRYPTOPRED_USE_SENTIMENT=1)
+            try:
+                from crypto_prediction.features.sentiment import SentimentFeatureEngineer
+                eng = SentimentFeatureEngineer()
+                df_tail = eng.enrich_price_df(df_tail, symbol=symbol)
+            except Exception:
+                pass
         data = {"symbol": symbol, "dates": df_tail.index.strftime('%Y-%m-%d').tolist(), "open": df_tail['Open'].tolist(), "high": df_tail['High'].tolist(), "low": df_tail['Low'].tolist(), "close": df_tail['Close'].tolist(), "volume": df_tail['Volume'].tolist(), "rsi": df_tail['RSI'].tolist() if 'RSI' in df_tail.columns else [], "sentiment": df_tail['Sentiment_Compound'].tolist() if 'Sentiment_Compound' in df_tail.columns else [], "real_data": True}
         return data
     except Exception as e:
@@ -1474,7 +1570,7 @@ def get_history(symbol: str = Query("BTC-USD"), period: str = Query("1y"), inter
 @app.get("/predict", response_model=PredictResponse)
 def predict_next(symbol: str = Query("BTC-USD"), period: str = Query("1y")):
     try:
-        predictor = CryptoPredictor(symbol=symbol)
+        predictor = _get_predictor(symbol)
         preds = predictor.predict_next(period=period)
         if not preds:
             raise HTTPException(status_code=404, detail="No models found. Train first via /training/retrain/{symbol}")
@@ -1487,7 +1583,7 @@ def predict_next(symbol: str = Query("BTC-USD"), period: str = Query("1y")):
 @app.get("/forecast")
 def forecast(symbol: str = Query("BTC-USD"), steps: int = Query(7, ge=1, le=30), period: str = Query("1y")):
     try:
-        predictor = CryptoPredictor(symbol=symbol)
+        predictor = _get_predictor(symbol)
         fc = predictor.forecast(steps=steps, period=period)
         if not fc or len(fc) <= 2:
             raise HTTPException(status_code=404, detail="No models found. Train first.")
@@ -1500,7 +1596,7 @@ def forecast(symbol: str = Query("BTC-USD"), steps: int = Query(7, ge=1, le=30),
 @app.get("/signal", response_model=SignalResponse)
 def trading_signal(symbol: str = Query("BTC-USD"), steps: int = Query(7)):
     try:
-        predictor = CryptoPredictor(symbol=symbol)
+        predictor = _get_predictor(symbol)
         fc = predictor.forecast(steps=steps)
         signal = predictor.get_trading_signal(fc)
         signal['symbol'] = symbol
@@ -1634,24 +1730,24 @@ def list_symbols():
 
 @app.get("/models")
 def list_models():
-    from pathlib import Path
-    models_dir = Path("models")
+    models_dir = config.project_root / "models"
     if not models_dir.exists():
         return {"models": []}
-    files = [f.name for f in models_dir.glob("*")]
+    files = sorted(f.name for f in models_dir.glob("*") if f.is_file())
     trainer_status = continuous_trainer.get_status()
     return {"models": files, "count": len(files), "continuous_training": trainer_status["is_running"], "model_performance": trainer_status.get("model_performance", {}), "real_data": True}
 
 @app.get("/settings")
 def get_settings():
     return {
-        "data": {"supported_symbols": config.data.supported_symbols, "sequence_length": config.data.sequence_length, "test_size": config.data.test_size, "val_size": config.data.val_size, "real_data_source": "Binance Live"},
-        "features": {"count": 182, "scaler": "RobustScaler", "real_data": True},
-        "models": {"lstm": {"hidden_size": 256, "num_layers": 3, "bidirectional": True, "use_attention": True}, "transformer": {"d_model": 256, "nhead": 8, "num_layers": 4, "use_learnable_pe": True}, "xgboost": {"n_estimators": 1500, "max_depth": 8, "learning_rate": 0.02}, "ensemble": {"weights": config.model.ensemble_weights, "use_stacking": True, "use_dynamic": True}},
-        "trading": {"risk_per_trade": 0.02, "atr_sl_multiplier": 1.5, "real_trading": True},
-        "continuous_training": {"enabled": True, "retrain_interval_hours": 12, "status": continuous_trainer.get_status()},
-        "autotrading": {"enabled": autotrading_engine.config.enabled, "mode": autotrading_engine.config.mode, "brokers": list(broker_manager.brokers.keys()), "extensive_controls": True},
-        "extensive_features": ["Portfolio", "DCA Bot", "Grid Bot", "Breakout Scanner", "Alerts", "Market Scanner", "Analytics", "Journal", "Broker Integration", "Auto Trading Engine"]
+        "version": APP_VERSION,
+        "data": {"supported_symbols": config.data.supported_symbols, "sequence_length": config.data.sequence_length, "test_size": config.data.test_size, "val_size": config.data.val_size, "source": "Binance (live) with yfinance/CoinGecko/cache/synthetic fallbacks"},
+        "features": {"engineered": 317, "bundled_models_use": 60, "retraining_uses": config.training.feature_selection_k, "scaler": "robust", "sentiment_enabled": config.features.use_sentiment},
+        "models": {"lstm": {"hidden_size": 96, "num_layers": 2, "bidirectional": True, "use_attention": True}, "transformer": {"d_model": 96, "nhead": 4, "num_layers": 2, "dim_feedforward": 192}, "xgboost": {"n_estimators": 400, "max_depth": 6, "learning_rate": 0.03}, "arima": {"order": "auto (SARIMAX)", "exog": True}, "ensemble": {"weights": "dynamic inverse-MAPE from training report", "pretrained_versions": ["v6"]}},
+        "trading": {"risk_per_trade": call_generator.risk_manager.risk_per_trade, "atr_sl_multiplier": 1.5, "autotrading_enabled_by_default": False},
+        "continuous_training": {"enabled_by_default": config.automation.enabled, "enable_via": ["CRYPTOPRED_AUTOMATION=1", "POST /training/start"], "status": continuous_trainer.get_status()},
+        "autotrading": {"enabled": autotrading_engine.config.enabled, "mode": autotrading_engine.config.mode, "brokers": list(broker_manager.brokers.keys()), "note": "Disabled by default - nothing trades until you connect a broker and enable it explicitly"},
+        "features_available": ["Web dashboard", "Predictions", "Forecasts + bands", "Trading signals", "Backtesting", "Market scanner", "Portfolio", "Strategies", "Alerts", "Journal", "Analytics", "Crash detector", "Auto trading (opt-in)"]
     }
 
 # === CRASH DETECTOR - LOCAL FAST WEBSCRAPER FOR EARLY CRASH DETECTION ===
@@ -1764,6 +1860,27 @@ def crash_coindcx():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- SPA catch-all (React Router deep links + static assets) -------------
+# Registered LAST so every real API route above takes precedence.
+@app.get("/{full_path:path}")
+def spa_fallback(full_path: str, request: Request):
+    # Request came in through the /api prefix but matched no API route
+    if request.scope.get("api_prefixed"):
+        raise HTTPException(status_code=404, detail=f"Unknown API endpoint: /api/{full_path}")
+    if not _FRONTEND_INDEX.exists():
+        raise HTTPException(status_code=404, detail="Not found")
+    # Serve a real static asset if it exists (safe against path traversal)
+    if full_path:
+        candidate = (FRONTEND_DIST / full_path).resolve()
+        try:
+            candidate.relative_to(FRONTEND_DIST.resolve())
+        except ValueError:
+            raise HTTPException(status_code=404, detail="Not found")
+        if candidate.is_file():
+            return FileResponse(candidate)
+    # Client-side route -> SPA
+    return FileResponse(_FRONTEND_INDEX, media_type="text/html")
 
 if __name__ == "__main__":
     import uvicorn

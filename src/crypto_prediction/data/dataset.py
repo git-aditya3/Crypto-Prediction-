@@ -19,14 +19,15 @@ logger = get_logger(__name__)
 config = get_config()
 
 class CryptoDataset:
-    def __init__(self, symbol: str = "BTC-USD", scaler_type: str = None, use_feature_selection: bool = None):
+    def __init__(self, symbol: str = "BTC-USD", scaler_type: str = None, use_feature_selection: bool = None,
+                 k_features: int = None):
         self.symbol = symbol
         self.fetcher = CryptoDataFetcher(symbol=symbol)
         self.engineer = FeatureEngineer()
         self.preprocessor = DataPreprocessor(
             scaler_type=scaler_type or ("robust" if config.training.use_robust_scaler else "standard"),
             use_feature_selection=use_feature_selection if use_feature_selection is not None else config.training.use_feature_selection,
-            k_features=config.training.feature_selection_k
+            k_features=k_features or config.training.feature_selection_k
         )
         self.raw_df: Optional[pd.DataFrame] = None
         self.feature_df: Optional[pd.DataFrame] = None
@@ -125,10 +126,10 @@ class CryptoDataset:
         self.engineer_features(use_sentiment=use_sentiment)
         return self.prepare()
 
-    def save_preprocessor(self, path: str = None):
+    def save_preprocessor(self, path: str = None, version: str = "v6"):
         if path is None:
             safe_sym = self.symbol.replace('-','_').replace('/','_')
-            path = str(config.project_root / "models" / f"{safe_sym}_preprocessor_v4.joblib")
+            path = str(config.project_root / "models" / f"{safe_sym}_preprocessor_{version}.joblib")
         self.preprocessor.save(path)
         return path
 
