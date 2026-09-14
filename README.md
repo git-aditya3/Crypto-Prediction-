@@ -137,6 +137,7 @@ Crypto-Prediction-/
 ├── install.bat / start.bat    # same for Windows cmd
 ├── requirements.txt           # core deps (only install step needed)
 ├── requirements-optional.txt  # sentiment extras (praw/transformers)
+├── requirements-dev.txt       # test suite deps (pytest + TestClient)
 ├── models/                    # PRETRAINED model artifacts (bundled)
 ├── data/raw/                  # local OHLCV cache (auto-populated)
 ├── src/crypto_prediction/
@@ -196,10 +197,18 @@ docker run -p 8000:8000 -p 8501:8501 crypto-prediction
 ## 🔧 Development
 
 ```bash
-cd frontend && npm install && npm run build   # rebuild the web dashboard
-python run.py check                           # self-diagnostic
-python tests/test_models.py                   # quick tests (per-file scripts)
+pip install -e .[dev]                    # + test deps (or: pip install -r requirements-dev.txt)
+python -m pytest tests -q                # full suite (~1 min): models, data, API, out-of-box
+make test                                # same thing
+cd frontend && npm install && npm run build   # rebuild the web dashboard (needs node)
 ```
 
+The test suite (`tests/`) covers the core acceptance criteria: bundled model
+artifacts exist for all four symbols, predictions work with zero training
+steps, the data layer never hard-fails offline, and the API routes browser
+deep links to the SPA while serving JSON to API clients.
+
 Configuration lives in `src/crypto_prediction/config.py` (env-overridable via
-`.env` — every key is optional, see `.env.example`).
+`.env` — every key is optional, see `.env.example`). The project version is
+defined once in `src/crypto_prediction/__init__.py` (the API and package
+metadata read it from there).

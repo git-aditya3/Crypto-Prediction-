@@ -190,7 +190,12 @@ def cmd_serve(args):
     print(f"  Predict now   : curl 'http://localhost:{port}/predict?symbol=BTC-USD'")
     print("  (pretrained models bundled - prediction works without any training)\n")
     try:
-        uvicorn.run("api.main:app", host=host, port=port, reload=False, log_level="warning")
+        # Import the app in-process so `serve` works from any CWD and when
+        # installed via pip (uvicorn's "api.main:app" import string would not).
+        if str(PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(PROJECT_ROOT))
+        from api.main import app
+        uvicorn.run(app, host=host, port=port, log_level="warning")
     except Exception as e:
         print(f"  Failed to start API: {e}")
         print("  Hint: run `python run.py check` to diagnose.")
@@ -353,25 +358,38 @@ def main(argv=None):
     sys.exit(rc if isinstance(rc, int) else 0)
 
 
-# Console-script entry points (pyproject [project.scripts])
+# Console-script entry points (pyproject [project.scripts]).
+# All user arguments are passed through, so e.g.
+# `crypto-predict --symbol XRP-USD --steps 14` behaves exactly like the
+# `python run.py predict --symbol XRP-USD --steps 14` equivalent.
 def entry_serve():
-    main(["serve"])
+    args = sys.argv[1:]
+    if not args:
+        main(["serve"])
+    elif args[0] in ("-h", "--help"):
+        main(["--help"])            # top-level help
+    elif args[0] == "serve":
+        main(args)
+    elif args[0].startswith("-"):
+        main(["serve"] + args)      # `crypto-prediction --port 9000`
+    else:
+        main(args)
 
 
 def entry_train():
-    main(["train"])
+    main(["train"] + sys.argv[1:])
 
 
 def entry_predict():
-    main(["predict"])
+    main(["predict"] + sys.argv[1:])
 
 
 def entry_backtest():
-    main(["backtest"])
+    main(["backtest"] + sys.argv[1:])
 
 
 def entry_check():
-    main(["check"])
+    main(["check"] + sys.argv[1:])
 
 
 if __name__ == "__main__":

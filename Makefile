@@ -24,8 +24,8 @@ predict:            ## predict BTC-USD for the next 7 days
 train:              ## (re)train all bundled models on fresh data
 	.venv/bin/python scripts/pretrain.py
 
-test:               ## quick test suite
-	.venv/bin/python -m pytest tests -q 2>/dev/null || .venv/bin/python tests/test_models.py
+test:               ## run the test suite (~1 min; needs: pip install -e .[dev])
+	.venv/bin/python -m pytest tests -q
 
 frontend:           ## rebuild the React web dashboard (needs node/npm)
 	cd frontend && npm install && npm run build

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crypto-prediction"
-version = "0.3.0"
+dynamic = ["version"]
 description = "End-to-end cryptocurrency price prediction platform - pretrained ML/DL ensemble, web dashboard, REST API, backtesting. Works out of the box."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -38,6 +38,12 @@ sentiment = [
     "transformers>=4.36.0",
     "accelerate>=0.25.0",
 ]
+# Development / test suite (pytest + starlette TestClient)
+dev = [
+    "pytest>=7.4.0",
+    "pytest-timeout>=2.1.0",
+    "httpx2>=2.0.0",
+]
 
 [project.scripts]
 crypto-prediction = "crypto_prediction.cli:entry_serve"
@@ -45,6 +51,9 @@ crypto-train = "crypto_prediction.cli:entry_train"
 crypto-predict = "crypto_prediction.cli:entry_predict"
 crypto-backtest = "crypto_prediction.cli:entry_backtest"
 crypto-check = "crypto_prediction.cli:entry_check"
+
+[tool.setuptools.dynamic]
+version = {attr = "crypto_prediction.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
