@@ -8,7 +8,7 @@ FastAPI v8 MAX - Extensive Real Trading + Automated Real Trading + Continuous Tr
 """
 from fastapi import FastAPI, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict
 import sys
@@ -135,7 +135,7 @@ async def rate_limit_and_security_middleware(request: Request, call_next):
         response = await call_next(request)
         # Security headers v5
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-API-Version"] = "v8_max"
@@ -158,7 +158,7 @@ async def rate_limit_and_security_middleware(request: Request, call_next):
         response = await call_next(request)
         # Security headers v5
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-API-Version"] = "v8_max"
@@ -177,6 +177,59 @@ async def rate_limit_and_security_middleware(request: Request, call_next):
         with _api_metrics_lock:
             _api_metrics["errors"] += 1
         raise
+
+# --- Same-origin frontend support -------------------------------------
+# The built React app (frontend/dist) calls the API through a "/api" base
+# URL. This middleware strips the prefix so /api/predict and /predict both
+# route to the same handler (Vite's dev proxy does the same in dev mode).
+# It also serves the SPA for browser deep links (GET + Accept: text/html)
+# so /forecast in a browser tab loads the dashboard, while API clients
+# (Accept: application/json) get JSON.
+_SPA_ROUTES = {
+    "", "forecast", "sentiment", "realtime", "backtest", "models", "training",
+    "portfolio", "strategies", "scanner", "analytics", "alerts", "journal",
+    "autotrading", "crash", "settings", "trading-calls",
+}
+
+@app.middleware("http")
+async def api_prefix_middleware(request: Request, call_next):
+    path = request.scope.get("path", "")
+    api_prefixed = path.startswith("/api/") or path == "/api"
+    if api_prefixed:
+        request.scope["api_prefixed"] = True
+        new_path = "/" if path == "/api" else path[len("/api"):]
+        request.scope["path"] = new_path
+        request.scope["raw_path"] = new_path.encode()
+        path = new_path
+    # Browser deep link into the SPA?
+    try:
+        accept = request.headers.get("accept", "")
+        seg = path.strip("/").split("?")[0]
+        if (
+            request.method == "GET"
+            and "text/html" in accept
+            and not api_prefixed
+            and seg in _SPA_ROUTES
+            and (Path(__file__).parent.parent / "frontend" / "dist" / "index.html").exists()
+        ):
+            return FileResponse(Path(__file__).parent.parent / "frontend" / "dist" / "index.html", media_type="text/html")
+    except Exception:
+        pass
+    return await call_next(request)
+
+
+# Predictor instances are expensive to build (torch loads) - cache per symbol
+_predictor_cache: Dict[str, CryptoPredictor] = {}
+_predictor_cache_lock = threading.Lock()
+
+def _get_predictor(symbol: str) -> CryptoPredictor:
+    with _predictor_cache_lock:
+        predictor = _predictor_cache.get(symbol)
+        if predictor is None:
+            predictor = CryptoPredictor(symbol=symbol)
+            _predictor_cache[symbol] = predictor
+        return predictor
+
 
 realtime_manager: Optional[RealtimeManager] = None
 call_generator = TradingCallGenerator(risk_per_trade=0.02)
@@ -197,6 +250,55 @@ _market_cache_lock = threading.Lock()
 _calls_cache_lock = threading.Lock()
 CACHE_TTL = 10
 CALLS_CACHE_TTL = 30
+
+def _tickers_from_local_cache():
+    """Offline fallback: last known prices read straight from data/raw cache.
+
+    No network, no model loading - instant. Only used when the live exchange
+    call fails and no live ticker is cached yet.
+    """
+    raw_dir = config.project_root / "data" / "raw"
+    tickers = {}
+    if raw_dir.exists():
+        for csv_file in sorted(raw_dir.glob("*_1d.csv")):
+            try:
+                df = pd.read_csv(csv_file, index_col=0)
+                if len(df) < 2 or "Close" not in df.columns:
+                    continue
+                last = float(df["Close"].iloc[-1])
+                prev = float(df["Close"].iloc[-2])
+                if last <= 0:
+                    continue
+                symbol = f"{csv_file.name.split('_')[0]}-USD"
+                tickers[symbol] = {
+                    "symbol": symbol,
+                    "price": last,
+                    "lastPrice": last,
+                    "priceChange": last - prev,
+                    "priceChangePercent": round((last - prev) / prev * 100, 2) if prev else 0.0,
+                    "high": float(df["High"].iloc[-1]) if "High" in df.columns else last,
+                    "low": float(df["Low"].iloc[-1]) if "Low" in df.columns else last,
+                    "open": float(df["Open"].iloc[-1]) if "Open" in df.columns else prev,
+                    "volume": float(df["Volume"].iloc[-1]) if "Volume" in df.columns else 0.0,
+                    "quoteVolume": 0.0,
+                    "trades": 0,
+                    "asOf": str(df.index[-1])[:10],
+                    "real_data": False,
+                    "source": "Local cache (offline)",
+                }
+            except Exception:
+                continue
+    if not tickers:
+        return None
+    return {
+        "tickers": tickers,
+        "count": len(tickers),
+        "timestamp": time.time(),
+        "cached": True,
+        "offline": True,
+        "source": "Local data cache - live exchange unreachable",
+        "warning": "Live exchange unreachable - showing last cached prices. Predictions still work.",
+    }
 
 class ForecastResponse(BaseModel):
     symbol: str
@@ -360,12 +462,16 @@ class AutoTradeExecuteRequest(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 API v8 MAX Starting - Automated Real Trading + Extensive Controls + Continuous Training + v6 ULTRA")
-    try:
-        continuous_trainer.start(run_immediately=False)
-        logger.info("✅ Continuous training v5 started")
-    except Exception as e:
-        logger.warning(f"Could not start continuous training v5: {e}")
+    logger.info("🚀 Crypto Prediction API starting")
+    if config.automation.enabled:
+        try:
+            continuous_trainer.start(run_immediately=False)
+            logger.info("✅ Continuous (background) training started")
+        except Exception as e:
+            logger.warning(f"Could not start continuous training: {e}")
+    else:
+        logger.info("ℹ️  Background auto-retraining is OFF by default "
+                   "(enable via CRYPTOPRED_AUTOMATION=1 or POST /training/start)")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -423,8 +529,8 @@ def api_metrics():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/")
-def root():
+@app.get("/info")
+def info():
     return {
         "message": "Crypto Prediction API v8 MAX - CoinDCX Real Money Automated Trading - v6 ULTRA",
         "version": "0.8.0",
@@ -476,6 +582,18 @@ def root():
             "training": ["/training/status", "/training/start", "/training/stop"]
         }
     }
+
+# --- Web dashboard (React SPA built in frontend/dist) -------------------
+FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+_FRONTEND_INDEX = FRONTEND_DIST / "index.html"
+
+@app.get("/")
+def root():
+    """Serve the web dashboard. Falls back to JSON info when no build exists."""
+    if _FRONTEND_INDEX.exists():
+        return FileResponse(_FRONTEND_INDEX, media_type="text/html")
+    return {"message": "Web dashboard not built. Run: cd frontend && npm install && npm run build",
+            "api_docs": "/docs", "info": "/info", "status": "api_only"}
 
 @app.get("/health")
 def health():
@@ -1342,6 +1460,10 @@ def market_tickers():
                 cached["cached"] = True
                 cached["warning"] = "Live fetch failed, returning cached"
                 return cached
+        # Offline fallback: last known prices from the local data cache
+        local = _tickers_from_local_cache()
+        if local:
+            return local
         raise HTTPException(status_code=503, detail=f"Market data unavailable: {e}")
     except Exception as e:
         logger.warning(f"Binance ticker fetch failed: {e}")
@@ -1460,12 +1582,13 @@ def get_history(symbol: str = Query("BTC-USD"), period: str = Query("1y"), inter
         fetcher = CryptoDataFetcher(symbol=symbol)
         df = fetcher.load_or_fetch(symbol=symbol)
         df_tail = df.tail(300)
-        try:
-            from crypto_prediction.features.sentiment import SentimentFeatureEngineer
-            eng = SentimentFeatureEngineer()
-            df_tail = eng.enrich_price_df(df_tail, symbol=symbol)
-        except:
-            pass
+        if config.features.use_sentiment:  # off by default (CRYPTOPRED_USE_SENTIMENT=1)
+            try:
+                from crypto_prediction.features.sentiment import SentimentFeatureEngineer
+                eng = SentimentFeatureEngineer()
+                df_tail = eng.enrich_price_df(df_tail, symbol=symbol)
+            except Exception:
+                pass
         data = {"symbol": symbol, "dates": df_tail.index.strftime('%Y-%m-%d').tolist(), "open": df_tail['Open'].tolist(), "high": df_tail['High'].tolist(), "low": df_tail['Low'].tolist(), "close": df_tail['Close'].tolist(), "volume": df_tail['Volume'].tolist(), "rsi": df_tail['RSI'].tolist() if 'RSI' in df_tail.columns else [], "sentiment": df_tail['Sentiment_Compound'].tolist() if 'Sentiment_Compound' in df_tail.columns else [], "real_data": True}
         return data
     except Exception as e:
@@ -1474,7 +1597,7 @@ def get_history(symbol: str = Query("BTC-USD"), period: str = Query("1y"), inter
 @app.get("/predict", response_model=PredictResponse)
 def predict_next(symbol: str = Query("BTC-USD"), period: str = Query("1y")):
     try:
-        predictor = CryptoPredictor(symbol=symbol)
+        predictor = _get_predictor(symbol)
         preds = predictor.predict_next(period=period)
         if not preds:
             raise HTTPException(status_code=404, detail="No models found. Train first via /training/retrain/{symbol}")
@@ -1487,7 +1610,7 @@ def predict_next(symbol: str = Query("BTC-USD"), period: str = Query("1y")):
 @app.get("/forecast")
 def forecast(symbol: str = Query("BTC-USD"), steps: int = Query(7, ge=1, le=30), period: str = Query("1y")):
     try:
-        predictor = CryptoPredictor(symbol=symbol)
+        predictor = _get_predictor(symbol)
         fc = predictor.forecast(steps=steps, period=period)
         if not fc or len(fc) <= 2:
             raise HTTPException(status_code=404, detail="No models found. Train first.")
@@ -1500,7 +1623,7 @@ def forecast(symbol: str = Query("BTC-USD"), steps: int = Query(7, ge=1, le=30),
 @app.get("/signal", response_model=SignalResponse)
 def trading_signal(symbol: str = Query("BTC-USD"), steps: int = Query(7)):
     try:
-        predictor = CryptoPredictor(symbol=symbol)
+        predictor = _get_predictor(symbol)
         fc = predictor.forecast(steps=steps)
         signal = predictor.get_trading_signal(fc)
         signal['symbol'] = symbol
@@ -1634,11 +1757,10 @@ def list_symbols():
 
 @app.get("/models")
 def list_models():
-    from pathlib import Path
-    models_dir = Path("models")
+    models_dir = config.project_root / "models"
     if not models_dir.exists():
         return {"models": []}
-    files = [f.name for f in models_dir.glob("*")]
+    files = sorted(f.name for f in models_dir.glob("*") if f.is_file())
     trainer_status = continuous_trainer.get_status()
     return {"models": files, "count": len(files), "continuous_training": trainer_status["is_running"], "model_performance": trainer_status.get("model_performance", {}), "real_data": True}
 
@@ -1764,6 +1886,27 @@ def crash_coindcx():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- SPA catch-all (React Router deep links + static assets) -------------
+# Registered LAST so every real API route above takes precedence.
+@app.get("/{full_path:path}")
+def spa_fallback(full_path: str, request: Request):
+    # Request came in through the /api prefix but matched no API route
+    if request.scope.get("api_prefixed"):
+        raise HTTPException(status_code=404, detail=f"Unknown API endpoint: /api/{full_path}")
+    if not _FRONTEND_INDEX.exists():
+        raise HTTPException(status_code=404, detail="Not found")
+    # Serve a real static asset if it exists (safe against path traversal)
+    if full_path:
+        candidate = (FRONTEND_DIST / full_path).resolve()
+        try:
+            candidate.relative_to(FRONTEND_DIST.resolve())
+        except ValueError:
+            raise HTTPException(status_code=404, detail="Not found")
+        if candidate.is_file():
+            return FileResponse(candidate)
+    # Client-side route -> SPA
+    return FileResponse(_FRONTEND_INDEX, media_type="text/html")
 
 if __name__ == "__main__":
     import uvicorn

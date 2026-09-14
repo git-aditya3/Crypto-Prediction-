@@ -1,0 +1,34 @@
+{
+  "initial_balance": 10000.0,
+  "cash": 4008.0086207471486,
+  "positions": [
+    {
+      "symbol": "BTC-USD",
+      "side": "SHORT",
+      "entry_price": 116106.03,
+      "current_price": 115968.34999999999,
+      "quantity": 0.051607925783465784,
+      "stop_loss": 119981.40373308028,
+      "take_profits": {
+        "tp1": 112230.65626691972,
+        "tp2": 108355.28253383943,
+        "tp3": 104479.90880075915
+      },
+      "entry_time": "2026-09-13T19:05:07.614388",
+      "leverage": "1x",
+      "status": "OPEN",
+      "pnl": 7.10537922186796,
+      "pnl_pct": 0.11858126576200011,
+      "risk_amount": 200.0,
+      "version": "v5_max"
+    }
+  ],
+  "closed_positions": [],
+  "timestamp": "2026-09-14T05:32:04.454068",
+  "version": "v5_max",
+  "metrics": {
+    "updates": 0,
+    "closes": 0,
+    "opens": 0
+  }
+}

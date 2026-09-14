@@ -1,0 +1,8 @@
+# Optional extras - sentiment enrichment.
+# The platform works fully without these; install them (and set the API keys
+# in .env) only if you want news/Reddit/FinBERT sentiment features:
+#   pip install -r requirements-optional.txt
+#   echo "CRYPTOPRED_USE_SENTIMENT=1" >> .env
+praw>=7.7.1
+transformers>=4.36.0
+accelerate>=0.25.0
